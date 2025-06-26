@@ -21,7 +21,7 @@ export class MastodonPingBot {
    * Initializes the bot and verifies the connection
    */
   public async initialize(): Promise<void> {
-    this.logger.info('Initializing Mastodon Ping Bot...');
+    this.logger.info('Initializing Buntspecht...');
     
     const isConnected = await this.mastodonClient.verifyConnection();
     if (!isConnected) {
@@ -35,7 +35,7 @@ export class MastodonPingBot {
    * Starts the bot scheduler
    */
   public start(): void {
-    this.logger.info('Starting Mastodon Ping Bot...');
+    this.logger.info('Starting Buntspecht...');
     this.scheduler.start();
   }
 
@@ -43,7 +43,7 @@ export class MastodonPingBot {
    * Stops the bot scheduler
    */
   public stop(): void {
-    this.logger.info('Stopping Mastodon Ping Bot...');
+    this.logger.info('Stopping Buntspecht...');
     this.scheduler.stop();
   }
 

@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  mastodon-ping-bot:
+  buntspecht:
     build: .
-    container_name: mastodon-ping-bot
+    container_name: buntspecht
     restart: unless-stopped
     volumes:
       # Mount your config file

@@ -89,7 +89,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKER_USERNAME }}/mastodon-ping-bot
+        images: ${{ secrets.DOCKER_USERNAME }}/buntspecht
         tags: |
           type=ref,event=branch
           type=ref,event=pr

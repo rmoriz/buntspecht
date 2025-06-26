@@ -58,5 +58,5 @@ CMD ["node", "dist/index.js"]
 
 # Labels for metadata
 LABEL maintainer="your-email@example.com"
-LABEL description="Mastodon Ping Bot - Posts PING messages on schedule"
+LABEL description="Buntspecht - Ein Fediverse/Mastodon-Bot der PING-Nachrichten nach Zeitplan postet"
 LABEL version="1.0.0"

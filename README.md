@@ -1,4 +1,4 @@
-# Mastodon Ping Bot
+# Buntspecht
 
 Ein TypeScript-basierter Mastodon/Fediverse-Bot, der stündlich "PING" Nachrichten postet.
 
@@ -17,7 +17,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der stündlich "PING" Nachricht
 ```bash
 # Repository klonen
 git clone <repository-url>
-cd mastodon-ping-bot
+cd buntspecht
 
 # Dependencies installieren
 npm install
@@ -174,7 +174,7 @@ src/
 ### Image bauen
 
 ```bash
-docker build -t mastodon-ping-bot .
+docker build -t buntspecht .
 ```
 
 ### Container ausführen
@@ -184,14 +184,14 @@ docker build -t mastodon-ping-bot .
 docker run -d \
   --name ping-bot \
   -v $(pwd)/config.toml:/app/config.toml:ro \
-  mastodon-ping-bot
+  buntspecht
 
 # Mit Environment-Variable
 docker run -d \
   --name ping-bot \
   -e BOT_CONFIG=/app/config.toml \
   -v $(pwd)/config.toml:/app/config.toml:ro \
-  mastodon-ping-bot
+  buntspecht
 ```
 
 ### Docker Compose
@@ -199,7 +199,7 @@ docker run -d \
 ```yaml
 version: '3.8'
 services:
-  mastodon-ping-bot:
+  buntspecht:
     build: .
     container_name: ping-bot
     volumes:
@@ -245,7 +245,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build Docker image
-        run: docker build -t mastodon-ping-bot .
+        run: docker build -t buntspecht .
 ```
 
 ## Troubleshooting

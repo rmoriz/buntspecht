@@ -103,7 +103,7 @@ describe('MastodonPingBot', () => {
     it('should initialize successfully', async () => {
       await bot.initialize();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Initializing Mastodon Ping Bot...');
+      expect(mockLogger.info).toHaveBeenCalledWith('Initializing Buntspecht...');
       expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Bot initialized successfully');
     });
@@ -121,7 +121,7 @@ describe('MastodonPingBot', () => {
     it('should start the bot', () => {
       bot.start();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Starting Mastodon Ping Bot...');
+      expect(mockLogger.info).toHaveBeenCalledWith('Starting Buntspecht...');
       expect(mockScheduler.start).toHaveBeenCalled();
     });
   });
@@ -130,7 +130,7 @@ describe('MastodonPingBot', () => {
     it('should stop the bot', () => {
       bot.stop();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Stopping Mastodon Ping Bot...');
+      expect(mockLogger.info).toHaveBeenCalledWith('Stopping Buntspecht...');
       expect(mockScheduler.stop).toHaveBeenCalled();
     });
   });
