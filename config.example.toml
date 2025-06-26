@@ -1,0 +1,27 @@
+# Buntspecht Konfiguration
+# Kopiere diese Datei zu config.toml und passe die Werte an
+
+[mastodon]
+# Deine Mastodon-Instanz URL (z.B. "https://mastodon.social")
+instance = "https://deine-mastodon-instanz.com"
+
+# Dein Zugangstoken (aus den Mastodon-Einstellungen erhalten)
+accessToken = "dein-zugangstoken-hier"
+
+[bot]
+# Nachricht die gepostet werden soll (Standard: "PING")
+message = "PING"
+
+# Zeitplan fuer das Posten (Standard: "0 * * * *" = jede Stunde)
+# Format: "Minute Stunde Tag Monat Wochentag"
+# Beispiele:
+#   "0 * * * *"     = jede Stunde
+#   "*/30 * * * *"  = alle 30 Minuten
+#   "0 9 * * *"     = jeden Tag um 9:00 Uhr
+#   "0 9 * * 1"     = jeden Montag um 9:00 Uhr
+#   "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
+cronSchedule = "0 * * * *"
+
+[logging]
+# Protokoll-Stufe: debug, info, warn, error
+level = "info"

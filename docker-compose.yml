@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  mastodon-ping-bot:
+    build: .
+    container_name: mastodon-ping-bot
+    restart: unless-stopped
+    volumes:
+      # Mount your config file
+      - ./config.toml:/app/config.toml:ro
+      # Optional: Mount logs directory
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      # Optional: Override config path
+      # - BOT_CONFIG=/app/config.toml
+    # Optional: Health check endpoint
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Bot is running')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Optional: Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
