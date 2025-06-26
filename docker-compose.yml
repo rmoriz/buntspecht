@@ -13,7 +13,7 @@ services:
     environment:
       - NODE_ENV=production
       # Optional: Override config path
-      # - BOT_CONFIG=/app/config.toml
+      # - BUNTSPECHT_CONFIG=/app/config.toml
     # Optional: Health check endpoint
     healthcheck:
       test: ["CMD", "node", "-e", "console.log('Bot is running')"]

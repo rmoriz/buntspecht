@@ -31,7 +31,7 @@ npm run build
 Der Bot sucht nach Konfigurationsdateien in folgender Prioritätsreihenfolge:
 
 1. **CLI Parameter**: `--config /pfad/zur/config.toml`
-2. **Environment Variable**: `BOT_CONFIG=/pfad/zur/config.toml`
+2. **Environment Variable**: `BUNTSPECHT_CONFIG=/pfad/zur/config.toml`
 3. **Aktuelles Verzeichnis**: `./config.toml`
 4. **Home Directory**: `~/.config/bot/config.toml`
 
@@ -189,7 +189,7 @@ docker run -d \
 # Mit Environment-Variable
 docker run -d \
   --name ping-bot \
-  -e BOT_CONFIG=/app/config.toml \
+  -e BUNTSPECHT_CONFIG=/app/config.toml \
   -v $(pwd)/config.toml:/app/config.toml:ro \
   buntspecht
 ```

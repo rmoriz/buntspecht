@@ -27,7 +27,7 @@ level = "debug"
 
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.BOT_CONFIG;
+    delete process.env.BUNTSPECHT_CONFIG;
     mockOs.homedir.mockReturnValue('/home/user');
   });
 
@@ -56,8 +56,8 @@ level = "debug"
       );
     });
 
-    it('should load config from BOT_CONFIG environment variable', () => {
-      process.env.BOT_CONFIG = '/env/config.toml';
+    it('should load config from BUNTSPECHT_CONFIG environment variable', () => {
+      process.env.BUNTSPECHT_CONFIG = '/env/config.toml';
       const cliOptions: CliOptions = {};
       
       mockFs.existsSync.mockImplementation((path) => path === '/env/config.toml');
@@ -68,14 +68,14 @@ level = "debug"
       expect(config.mastodon.instance).toBe('https://test.mastodon');
     });
 
-    it('should throw error if BOT_CONFIG file does not exist', () => {
-      process.env.BOT_CONFIG = '/nonexistent/config.toml';
+    it('should throw error if BUNTSPECHT_CONFIG file does not exist', () => {
+      process.env.BUNTSPECHT_CONFIG = '/nonexistent/config.toml';
       const cliOptions: CliOptions = {};
       
       mockFs.existsSync.mockReturnValue(false);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
-        'Config file specified via BOT_CONFIG env var not found: /nonexistent/config.toml'
+        'Config file specified via BUNTSPECHT_CONFIG env var not found: /nonexistent/config.toml'
       );
     });
 

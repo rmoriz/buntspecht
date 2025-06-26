@@ -15,7 +15,7 @@ export class ConfigLoader {
   /**
    * Loads configuration from various sources in priority order:
    * 1. CLI --config parameter
-   * 2. BOT_CONFIG environment variable
+   * 2. BUNTSPECHT_CONFIG environment variable
    * 3. ./config.toml
    * 4. ~/.config/bot/config.toml
    */
@@ -38,13 +38,13 @@ export class ConfigLoader {
       throw new Error(`Config file specified via CLI not found: ${cliOptions.config}`);
     }
 
-    // 2. BOT_CONFIG environment variable
-    const envConfigPath = process.env.BOT_CONFIG;
+    // 2. BUNTSPECHT_CONFIG environment variable
+    const envConfigPath = process.env.BUNTSPECHT_CONFIG;
     if (envConfigPath) {
       if (fs.existsSync(envConfigPath)) {
         return envConfigPath;
       }
-      throw new Error(`Config file specified via BOT_CONFIG env var not found: ${envConfigPath}`);
+      throw new Error(`Config file specified via BUNTSPECHT_CONFIG env var not found: ${envConfigPath}`);
     }
 
     // 3. Default paths
