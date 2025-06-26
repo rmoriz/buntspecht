@@ -33,7 +33,7 @@ Der Bot sucht nach Konfigurationsdateien in folgender Prioritätsreihenfolge:
 1. **CLI Parameter**: `--config /pfad/zur/config.toml`
 2. **Environment Variable**: `BUNTSPECHT_CONFIG=/pfad/zur/config.toml`
 3. **Aktuelles Verzeichnis**: `./config.toml`
-4. **Home Directory**: `~/.config/bot/config.toml`
+4. **Home Directory**: `~/.config/buntspecht/config.toml`
 
 ### Konfigurationsdatei erstellen
 

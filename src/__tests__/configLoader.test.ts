@@ -92,7 +92,7 @@ level = "debug"
 
     it('should load config from home directory', () => {
       const cliOptions: CliOptions = {};
-      const homePath = '/home/user/.config/bot/config.toml';
+      const homePath = '/home/user/.config/buntspecht/config.toml';
       
       mockFs.existsSync.mockImplementation((path) => path === homePath);
       mockFs.readFileSync.mockReturnValue(mockConfig);
@@ -177,7 +177,7 @@ instance = "https://test.mastodon"
       ConfigLoader.ensureConfigDirectory();
 
       expect(mockFs.mkdirSync).toHaveBeenCalledWith(
-        '/home/user/.config/bot',
+        '/home/user/.config/buntspecht',
         { recursive: true }
       );
     });

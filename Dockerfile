@@ -39,7 +39,7 @@ COPY --from=builder /app/dist ./dist
 COPY config.example.toml ./
 
 # Create config directory
-RUN mkdir -p /home/botuser/.config/bot && \
+RUN mkdir -p /home/botuser/.config/buntspecht && \
     chown -R botuser:nodejs /home/botuser/.config && \
     chown -R botuser:nodejs /app
 

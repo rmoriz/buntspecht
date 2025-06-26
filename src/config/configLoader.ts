@@ -8,7 +8,7 @@ export class ConfigLoader {
   private static getDefaultConfigPaths(): string[] {
     return [
       './config.toml',
-      path.join(os.homedir(), '.config', 'bot', 'config.toml')
+      path.join(os.homedir(), '.config', 'buntspecht', 'config.toml')
     ];
   }
 
@@ -17,7 +17,7 @@ export class ConfigLoader {
    * 1. CLI --config parameter
    * 2. BUNTSPECHT_CONFIG environment variable
    * 3. ./config.toml
-   * 4. ~/.config/bot/config.toml
+   * 4. ~/.config/buntspecht/config.toml
    */
   public static loadConfig(cliOptions: CliOptions): BotConfig {
     const configPath = this.findConfigPath(cliOptions);
@@ -104,7 +104,7 @@ export class ConfigLoader {
    * Creates the default config directory if it doesn't exist
    */
   public static ensureConfigDirectory(): void {
-    const configDir = path.join(os.homedir(), '.config', 'bot');
+    const configDir = path.join(os.homedir(), '.config', 'buntspecht');
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
