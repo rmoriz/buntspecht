@@ -9,10 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        node-version: [16, 18, 20]
+        node-version: [20]
     
     steps:
     - name: Checkout code
@@ -35,7 +35,7 @@ jobs:
       
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
-      if: matrix.node-version == 18
+      if: matrix.node-version == 20
       with:
         file: ./coverage/lcov.info
         flags: unittests
@@ -52,7 +52,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
         cache: 'npm'
         
     - name: Install dependencies
@@ -117,7 +117,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
         cache: 'npm'
         
     - name: Install dependencies
