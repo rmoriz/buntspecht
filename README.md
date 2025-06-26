@@ -197,7 +197,7 @@ docker run -d \
 ### Docker Compose
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   buntspecht:
     build: .
@@ -234,7 +234,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - run: npm ci
       - run: npm test
       - run: npm run lint
@@ -253,10 +253,12 @@ jobs:
 ### Häufige Probleme
 
 1. **"No configuration file found"**
+
    - Stellen Sie sicher, dass eine `config.toml` existiert
    - Prüfen Sie die Pfade in der Prioritätsreihenfolge
 
 2. **"Failed to connect to Mastodon"**
+
    - Überprüfen Sie die `instance` URL
    - Validieren Sie den `accessToken`
    - Testen Sie mit `--verify`
@@ -296,3 +298,28 @@ Bei Problemen oder Fragen:
 1. Prüfen Sie die [Issues](../../issues)
 2. Erstellen Sie ein neues Issue mit detaillierter Beschreibung
 3. Fügen Sie Logs und Konfiguration hinzu (ohne Secrets!)
+
+## KI-gestützte Entwicklung
+
+Dieses Projekt wurde vollständig mit Hilfe von **Claude 3.5 Sonnet (Anthropic)** entwickelt. Die KI-Lösung unterstützte bei:
+
+### 🤖 **Verwendete AI-Technologien:**
+
+- **Claude 3.5 Sonnet**: Hauptentwicklung, Code-Generierung und Architektur
+- **Rovo Dev Agent**: Interaktive Entwicklungsumgebung mit Tool-Integration
+
+### 🛠️ **AI-unterstützte Entwicklungsbereiche:**
+
+- **Code-Architektur**: Vollständige TypeScript-Projektstruktur
+- **Test-Entwicklung**: 60+ umfassende Unit-Tests mit Jest
+- **Docker-Konfiguration**: Multi-stage Builds und CI/CD-Pipeline
+- **Dokumentation**: Deutsche Lokalisierung und technische Dokumentation
+- **Best Practices**: ESLint-Regeln, Git-Workflows und Projektorganisation
+
+### 💡 **Entwicklungsansatz:**
+
+Die Entwicklung erfolgte durch natürlichsprachliche Anforderungen, die von der KI in funktionsfähigen, produktionsreifen Code umgesetzt wurden. Dabei wurden moderne Entwicklungsstandards und bewährte Praktiken automatisch berücksichtigt.
+
+---
+
+**Buntspecht** - Ein zuverlässiger Fediverse-Bot für regelmäßige PING-Nachrichten 🐦
