@@ -1,5 +1,7 @@
 # Buntspecht
 
+<img src="buntspecht-logo.jpeg" alt="Buntspecht Logo" width="150"/>
+
 Ein TypeScript-basierter Mastodon/Fediverse-Bot, der stündlich "PING" Nachrichten postet.
 
 ## Features
