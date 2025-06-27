@@ -2,11 +2,14 @@ import * as cron from 'node-cron';
 import { MastodonClient } from './mastodonClient';
 import { BotConfig } from '../types/config';
 import { Logger } from '../utils/logger';
+import { MessageProvider } from '../messages/messageProvider';
+import { MessageProviderFactory } from '../messages/messageProviderFactory';
 
 export class BotScheduler {
   private mastodonClient: MastodonClient;
   private config: BotConfig;
   private logger: Logger;
+  private messageProvider: MessageProvider | null = null;
   private task: cron.ScheduledTask | null = null;
   private isRunning = false;
 
@@ -17,12 +20,30 @@ export class BotScheduler {
   }
 
   /**
+   * Initializes the message provider
+   */
+  public async initialize(): Promise<void> {
+    const providerType = this.config.bot.messageProvider || 'ping';
+    const providerConfig = this.config.bot.messageProviderConfig || { message: this.config.bot.message };
+
+    this.messageProvider = await MessageProviderFactory.createProvider(
+      providerType,
+      providerConfig,
+      this.logger
+    );
+  }
+
+  /**
    * Starts the bot scheduler
    */
-  public start(): void {
+  public async start(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('Bot scheduler is already running');
       return;
+    }
+
+    if (!this.messageProvider) {
+      await this.initialize();
     }
 
     if (!cron.validate(this.config.bot.cronSchedule)) {
@@ -30,7 +51,7 @@ export class BotScheduler {
     }
 
     this.logger.info(`Starting bot scheduler with cron: ${this.config.bot.cronSchedule}`);
-    this.logger.info(`Message to post: "${this.config.bot.message}"`);
+    this.logger.info(`Using message provider: ${this.messageProvider!.getProviderName()}`);
 
     this.task = cron.schedule(this.config.bot.cronSchedule, async () => {
       await this.executeTask();
@@ -64,8 +85,13 @@ export class BotScheduler {
    */
   public async executeTask(): Promise<void> {
     try {
+      if (!this.messageProvider) {
+        throw new Error('Message provider not initialized');
+      }
+
       this.logger.debug('Executing scheduled task...');
-      await this.mastodonClient.postStatus(this.config.bot.message);
+      const message = await this.messageProvider.generateMessage();
+      await this.mastodonClient.postStatus(message);
       this.logger.debug('Scheduled task completed successfully');
     } catch (error) {
       this.logger.error('Failed to execute scheduled task:', error);

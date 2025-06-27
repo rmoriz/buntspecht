@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     bot.setupGracefulShutdown();
 
     // Start the bot
-    bot.start();
+    await bot.start();
 
     // Keep the process running
     bot.getLogger().info('Bot is running. Press Ctrl+C to stop.');

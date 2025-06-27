@@ -22,6 +22,15 @@ message = "PING"
 #   "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
 cronSchedule = "0 * * * *"
 
+# Message Provider (Standard: "ping")
+# Verfuegbare Provider: ping
+messageProvider = "ping"
+
+# Konfiguration fuer den Message Provider
+[bot.messageProviderConfig]
+# Fuer den ping Provider: die Nachricht die gepostet werden soll
+message = "PING"
+
 [logging]
 # Protokoll-Stufe: debug, info, warn, error
 level = "info"

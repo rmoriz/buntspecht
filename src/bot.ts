@@ -28,15 +28,18 @@ export class MastodonPingBot {
       throw new Error('Failed to connect to Mastodon. Please check your configuration.');
     }
 
+    // Initialize the scheduler with message provider
+    await this.scheduler.initialize();
+
     this.logger.info('Bot initialized successfully');
   }
 
   /**
    * Starts the bot scheduler
    */
-  public start(): void {
+  public async start(): Promise<void> {
     this.logger.info('Starting Buntspecht...');
-    this.scheduler.start();
+    await this.scheduler.start();
   }
 
   /**
