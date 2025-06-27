@@ -15,4 +15,3 @@ src/**/*.test.ts
 src/**/__tests__
 jest.config.js
 .eslintrc.js
-tsconfig.json
