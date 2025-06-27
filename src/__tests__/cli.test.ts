@@ -16,8 +16,17 @@ jest.mock('commander', () => {
   };
 });
 
+interface MockProgram {
+  name: jest.Mock;
+  description: jest.Mock;
+  version: jest.Mock;
+  option: jest.Mock;
+  parse: jest.Mock;
+  opts: jest.Mock;
+}
+
 describe('CLI', () => {
-  let mockProgram: any;
+  let mockProgram: MockProgram;
 
   beforeEach(() => {
     const { Command } = require('commander');

@@ -5,8 +5,19 @@ import { BotConfig } from '../types/config';
 // Mock masto
 jest.mock('masto');
 
+interface MockMastodonApi {
+  v1: {
+    statuses: {
+      create: jest.Mock;
+    };
+    accounts: {
+      verifyCredentials: jest.Mock;
+    };
+  };
+}
+
 describe('MastodonClient', () => {
-  let mockMastodonApi: any;
+  let mockMastodonApi: MockMastodonApi;
   let config: BotConfig;
   let logger: Logger;
   let client: MastodonClient;

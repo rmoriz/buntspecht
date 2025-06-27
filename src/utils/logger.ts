@@ -17,23 +17,23 @@ export class Logger {
     this.level = level;
   }
 
-  public debug(message: string, ...args: any[]): void {
+  public debug(message: string, ...args: unknown[]): void {
     this.log('debug', message, ...args);
   }
 
-  public info(message: string, ...args: any[]): void {
+  public info(message: string, ...args: unknown[]): void {
     this.log('info', message, ...args);
   }
 
-  public warn(message: string, ...args: any[]): void {
+  public warn(message: string, ...args: unknown[]): void {
     this.log('warn', message, ...args);
   }
 
-  public error(message: string, ...args: any[]): void {
+  public error(message: string, ...args: unknown[]): void {
     this.log('error', message, ...args);
   }
 
-  private log(level: LogLevel, message: string, ...args: any[]): void {
+  private log(level: LogLevel, message: string, ...args: unknown[]): void {
     if (this.levels[level] >= this.levels[this.level]) {
       const timestamp = new Date().toISOString();
       const levelStr = level.toUpperCase().padEnd(5);

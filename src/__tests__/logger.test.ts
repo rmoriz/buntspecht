@@ -56,7 +56,7 @@ describe('Logger', () => {
       logger.info('test info message');
       
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] INFO  test info message/)
+        expect.stringMatching(/\[.*\] INFO {2}test info message/)
       );
     });
 
@@ -65,7 +65,7 @@ describe('Logger', () => {
       logger.warn('test warn message');
       
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] WARN  test warn message/)
+        expect.stringMatching(/\[.*\] WARN {2}test warn message/)
       );
     });
 
@@ -84,7 +84,7 @@ describe('Logger', () => {
       logger.info('test message', obj, 123);
       
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[.*\] INFO  test message/),
+        expect.stringMatching(/\[.*\] INFO {2}test message/),
         obj,
         123
       );
@@ -100,7 +100,7 @@ describe('Logger', () => {
       
       expect(consoleSpy).toHaveBeenCalledTimes(2);
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/WARN  warn message/)
+        expect.stringMatching(/WARN {2}warn message/)
       );
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringMatching(/ERROR error message/)

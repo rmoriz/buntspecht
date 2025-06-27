@@ -14,7 +14,7 @@ const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonCli
 
 describe('BotScheduler', () => {
   let mockMastodonClient: jest.Mocked<MastodonClient>;
-  let mockTask: any;
+  let mockTask: { start: jest.Mock; stop: jest.Mock };
   let config: BotConfig;
   let logger: Logger;
   let scheduler: BotScheduler;
@@ -28,10 +28,10 @@ describe('BotScheduler', () => {
 
     // Mock cron functions
     mockCron.validate.mockReturnValue(true);
-    mockCron.schedule.mockReturnValue(mockTask);
+    mockCron.schedule.mockReturnValue(mockTask as unknown as cron.ScheduledTask);
 
     // Create mock MastodonClient
-    mockMastodonClient = new MockMastodonClient({} as any, {} as any) as jest.Mocked<MastodonClient>;
+    mockMastodonClient = new MockMastodonClient({} as BotConfig, {} as Logger) as jest.Mocked<MastodonClient>;
     mockMastodonClient.postStatus = jest.fn().mockResolvedValue(undefined);
 
     config = {

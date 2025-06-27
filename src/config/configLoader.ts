@@ -73,31 +73,34 @@ export class ConfigLoader {
     }
   }
 
-  private static validateConfig(config: any): void {
-    if (!config.mastodon) {
+  private static validateConfig(config: Record<string, unknown>): void {
+    const mastodon = config.mastodon as Record<string, unknown> | undefined;
+    if (!mastodon) {
       throw new Error('Missing [mastodon] section in config');
     }
     
-    if (!config.mastodon.instance) {
+    if (!mastodon.instance) {
       throw new Error('Missing mastodon.instance in config');
     }
     
-    if (!config.mastodon.accessToken) {
+    if (!mastodon.accessToken) {
       throw new Error('Missing mastodon.accessToken in config');
     }
 
-    if (!config.bot) {
+    const bot = config.bot as Record<string, unknown> | undefined;
+    if (!bot) {
       throw new Error('Missing [bot] section in config');
     }
 
-    if (!config.logging) {
+    const logging = config.logging as Record<string, unknown> | undefined;
+    if (!logging) {
       throw new Error('Missing [logging] section in config');
     }
 
     // Set defaults
-    config.bot.message = config.bot.message || 'PING';
-    config.bot.cronSchedule = config.bot.cronSchedule || '0 * * * *'; // Every hour
-    config.logging.level = config.logging.level || 'info';
+    bot.message = bot.message || 'PING';
+    bot.cronSchedule = bot.cronSchedule || '0 * * * *'; // Every hour
+    logging.level = logging.level || 'info';
   }
 
   /**
