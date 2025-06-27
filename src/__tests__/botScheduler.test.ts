@@ -12,6 +12,11 @@ const mockCron = cron as jest.Mocked<typeof cron>;
 jest.mock('../services/mastodonClient');
 const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonClient>;
 
+// Mock MessageProviderFactory
+jest.mock('../messages/messageProviderFactory');
+import { MessageProviderFactory } from '../messages/messageProviderFactory';
+const MockMessageProviderFactory = MessageProviderFactory as jest.MockedClass<typeof MessageProviderFactory>;
+
 describe('BotScheduler', () => {
   let mockMastodonClient: jest.Mocked<MastodonClient>;
   let mockTask: { start: jest.Mock; stop: jest.Mock };
@@ -29,6 +34,13 @@ describe('BotScheduler', () => {
     // Mock cron functions
     mockCron.validate.mockReturnValue(true);
     mockCron.schedule.mockReturnValue(mockTask as unknown as cron.ScheduledTask);
+
+    // Mock MessageProviderFactory
+    const mockProvider = {
+      generateMessage: jest.fn().mockResolvedValue('TEST PING'),
+      getProviderName: jest.fn().mockReturnValue('ping'),
+    };
+    MockMessageProviderFactory.createProvider = jest.fn().mockResolvedValue(mockProvider);
 
     // Create mock MastodonClient
     mockMastodonClient = new MockMastodonClient({} as BotConfig, {} as Logger) as jest.Mocked<MastodonClient>;
@@ -62,8 +74,8 @@ describe('BotScheduler', () => {
   });
 
   describe('start', () => {
-    it('should start scheduler successfully', () => {
-      scheduler.start();
+    it('should start scheduler successfully', async () => {
+      await scheduler.start();
 
       expect(mockCron.validate).toHaveBeenCalledWith('0 * * * *');
       expect(mockCron.schedule).toHaveBeenCalledWith(
@@ -77,30 +89,30 @@ describe('BotScheduler', () => {
       expect(mockTask.start).toHaveBeenCalled();
       expect(scheduler.isSchedulerRunning()).toBe(true);
       expect(logger.info).toHaveBeenCalledWith('Starting bot scheduler with cron: 0 * * * *');
-      expect(logger.info).toHaveBeenCalledWith('Message to post: "TEST PING"');
+      expect(logger.info).toHaveBeenCalledWith('Using message provider: ping');
       expect(logger.info).toHaveBeenCalledWith('Bot scheduler started successfully');
     });
 
-    it('should not start if already running', () => {
-      scheduler.start();
+    it('should not start if already running', async () => {
+      await scheduler.start();
       jest.clearAllMocks();
 
-      scheduler.start();
+      await scheduler.start();
 
       expect(mockCron.schedule).not.toHaveBeenCalled();
       expect(logger.warn).toHaveBeenCalledWith('Bot scheduler is already running');
     });
 
-    it('should throw error for invalid cron schedule', () => {
+    it('should throw error for invalid cron schedule', async () => {
       mockCron.validate.mockReturnValue(false);
 
-      expect(() => scheduler.start()).toThrow('Invalid cron schedule: 0 * * * *');
+      await expect(scheduler.start()).rejects.toThrow('Invalid cron schedule: 0 * * * *');
     });
   });
 
   describe('stop', () => {
-    it('should stop scheduler successfully', () => {
-      scheduler.start();
+    it('should stop scheduler successfully', async () => {
+      await scheduler.start();
       scheduler.stop();
 
       expect(mockTask.stop).toHaveBeenCalled();
@@ -117,6 +129,8 @@ describe('BotScheduler', () => {
 
   describe('executeTask', () => {
     it('should execute task successfully', async () => {
+      // Initialize the scheduler first to set up the message provider
+      await scheduler.initialize();
       await scheduler.executeTask();
 
       expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('TEST PING');
@@ -128,6 +142,8 @@ describe('BotScheduler', () => {
       const error = new Error('Post failed');
       mockMastodonClient.postStatus.mockRejectedValue(error);
 
+      // Initialize the scheduler first to set up the message provider
+      await scheduler.initialize();
       await scheduler.executeTask();
 
       expect(logger.error).toHaveBeenCalledWith('Failed to execute scheduled task:', error);
@@ -136,6 +152,8 @@ describe('BotScheduler', () => {
 
   describe('executeTaskNow', () => {
     it('should execute task immediately', async () => {
+      // Initialize the scheduler first to set up the message provider
+      await scheduler.initialize();
       await scheduler.executeTaskNow();
 
       expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('TEST PING');
@@ -151,7 +169,7 @@ describe('BotScheduler', () => {
 
   describe('scheduled task execution', () => {
     it('should execute task when cron triggers', async () => {
-      scheduler.start();
+      await scheduler.start();
 
       // Get the scheduled function
       const scheduledFunction = mockCron.schedule.mock.calls[0][1] as () => Promise<void>;

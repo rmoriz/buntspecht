@@ -69,6 +69,7 @@ describe('MastodonPingBot', () => {
 
     // Mock BotScheduler
     mockScheduler = {
+      initialize: jest.fn().mockResolvedValue(undefined),
       start: jest.fn(),
       stop: jest.fn(),
       executeTaskNow: jest.fn().mockResolvedValue(undefined),
@@ -105,6 +106,7 @@ describe('MastodonPingBot', () => {
 
       expect(mockLogger.info).toHaveBeenCalledWith('Initializing Buntspecht...');
       expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
+      expect(mockScheduler.initialize).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Bot initialized successfully');
     });
 
