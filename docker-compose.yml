@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   buntspecht:
-    build: .
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/rmoriz/buntspecht:latest
+    # For development, uncomment the line below and comment the image line above
+    # build: .
     container_name: buntspecht
     restart: unless-stopped
     volumes:
