@@ -13,6 +13,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der stündlich "PING" Nachricht
 - 🧪 Vollständige Testabdeckung
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
+- 📡 Moderne Mastodon-API-Integration mit masto.js
 
 ## Installation
 
@@ -126,6 +127,30 @@ cronSchedule = "0 9 * * 1"
 # Alle 15 Minuten zwischen 9-17 Uhr, Mo-Fr
 cronSchedule = "*/15 9-17 * * 1-5"
 ```
+
+## Technologien
+
+### Core Dependencies
+
+- **[masto.js](https://github.com/neet/masto.js)** (v6.8.0): Moderne TypeScript-Bibliothek für Mastodon-API
+- **[node-cron](https://github.com/node-cron/node-cron)** (v3.0.3): Cron-Job-Scheduling
+- **[toml](https://github.com/BinaryMuse/toml-node)** (v3.0.0): TOML-Konfigurationsdateien
+- **[commander](https://github.com/tj/commander.js)** (v11.1.0): CLI-Argument-Parsing
+
+### Development Tools
+
+- **TypeScript** (v5.3.2): Statische Typisierung
+- **Jest** (v29.7.0): Test-Framework mit 60+ Tests
+- **ESLint** (v8.54.0): Code-Qualität und Linting
+- **Docker**: Containerisierung und CI/CD
+
+### Migration History
+
+**2025-06**: Migration von `mastodon-api` zu `masto.js`
+- **Grund**: Bessere TypeScript-Unterstützung und aktive Entwicklung
+- **Vorteile**: Native Typen, strukturierte v1/v2 API, moderne Architektur
+- **Kompatibilität**: Alle Tests und Funktionalitäten vollständig beibehalten
+- **Breaking Changes**: Keine für Endnutzer - nur interne API-Änderungen
 
 ## Development
 
@@ -317,6 +342,8 @@ Dieses Projekt wurde vollständig mit Hilfe von **Claude 3.5 Sonnet (Anthropic)*
 - **Docker-Konfiguration**: Multi-stage Builds und CI/CD-Pipeline
 - **Dokumentation**: Deutsche Lokalisierung und technische Dokumentation
 - **Best Practices**: ESLint-Regeln, Git-Workflows und Projektorganisation
+- **Library-Migration**: Vollständige Migration von mastodon-api zu masto.js
+- **API-Modernisierung**: Anpassung an moderne TypeScript-Standards
 
 ### 💡 **Entwicklungsansatz:**
 
