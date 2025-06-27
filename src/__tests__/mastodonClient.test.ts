@@ -2,8 +2,8 @@ import { MastodonClient } from '../services/mastodonClient';
 import { Logger } from '../utils/logger';
 import { BotConfig } from '../types/config';
 
-// Mock mastodon-api
-jest.mock('mastodon-api');
+// Mock masto
+jest.mock('masto');
 
 describe('MastodonClient', () => {
   let mockMastodonApi: any;
@@ -12,15 +12,21 @@ describe('MastodonClient', () => {
   let client: MastodonClient;
 
   beforeEach(() => {
-    // Create mock Mastodon API
+    // Create mock Masto API
     mockMastodonApi = {
-      post: jest.fn(),
-      get: jest.fn(),
+      v1: {
+        statuses: {
+          create: jest.fn(),
+        },
+        accounts: {
+          verifyCredentials: jest.fn(),
+        },
+      },
     };
 
-    // Mock the Mastodon constructor
-    const MastodonMock = require('mastodon-api');
-    MastodonMock.mockImplementation(() => mockMastodonApi);
+    // Mock the createRestAPIClient function
+    const { createRestAPIClient } = require('masto');
+    createRestAPIClient.mockReturnValue(mockMastodonApi);
 
     config = {
       mastodon: {
@@ -49,26 +55,24 @@ describe('MastodonClient', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize Mastodon client with correct config', () => {
-      const MastodonMock = require('mastodon-api');
+    it('should initialize Masto client with correct config', () => {
+      const { createRestAPIClient } = require('masto');
       
-      expect(MastodonMock).toHaveBeenCalledWith({
-        access_token: 'test-token',
-        api_url: 'https://test.mastodon/api/v1/',
+      expect(createRestAPIClient).toHaveBeenCalledWith({
+        url: 'https://test.mastodon',
+        accessToken: 'test-token',
       });
     });
   });
 
   describe('postStatus', () => {
     it('should post status successfully', async () => {
-      const mockResponse = {
-        data: { id: '12345' },
-      };
-      mockMastodonApi.post.mockResolvedValue(mockResponse);
+      const mockStatus = { id: '12345' };
+      mockMastodonApi.v1.statuses.create.mockResolvedValue(mockStatus);
 
       await client.postStatus('Test message');
 
-      expect(mockMastodonApi.post).toHaveBeenCalledWith('statuses', {
+      expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledWith({
         status: 'Test message',
       });
       expect(logger.info).toHaveBeenCalledWith('Posting status: "Test message"');
@@ -77,7 +81,7 @@ describe('MastodonClient', () => {
 
     it('should handle post status error', async () => {
       const error = new Error('API Error');
-      mockMastodonApi.post.mockRejectedValue(error);
+      mockMastodonApi.v1.statuses.create.mockRejectedValue(error);
 
       await expect(client.postStatus('Test message')).rejects.toThrow(
         'Failed to post status: API Error'
@@ -86,7 +90,7 @@ describe('MastodonClient', () => {
     });
 
     it('should handle unknown error', async () => {
-      mockMastodonApi.post.mockRejectedValue('Unknown error');
+      mockMastodonApi.v1.statuses.create.mockRejectedValue('Unknown error');
 
       await expect(client.postStatus('Test message')).rejects.toThrow(
         'Failed to post status: Unknown error'
@@ -96,15 +100,13 @@ describe('MastodonClient', () => {
 
   describe('verifyConnection', () => {
     it('should verify connection successfully', async () => {
-      const mockResponse = {
-        data: { username: 'testuser' },
-      };
-      mockMastodonApi.get.mockResolvedValue(mockResponse);
+      const mockAccount = { username: 'testuser' };
+      mockMastodonApi.v1.accounts.verifyCredentials.mockResolvedValue(mockAccount);
 
       const result = await client.verifyConnection();
 
       expect(result).toBe(true);
-      expect(mockMastodonApi.get).toHaveBeenCalledWith('accounts/verify_credentials');
+      expect(mockMastodonApi.v1.accounts.verifyCredentials).toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith('Verifying Mastodon connection...');
       expect(logger.info).toHaveBeenCalledWith(
         'Connected to Mastodon as: @testuser@test.mastodon'
@@ -113,7 +115,7 @@ describe('MastodonClient', () => {
 
     it('should handle connection verification error', async () => {
       const error = new Error('Connection failed');
-      mockMastodonApi.get.mockRejectedValue(error);
+      mockMastodonApi.v1.accounts.verifyCredentials.mockRejectedValue(error);
 
       const result = await client.verifyConnection();
 
@@ -126,24 +128,21 @@ describe('MastodonClient', () => {
     it('should get account info successfully', async () => {
       const mockAccountData = {
         username: 'testuser',
-        display_name: 'Test User',
-        followers_count: 100,
-        following_count: 50,
+        displayName: 'Test User',
+        followersCount: 100,
+        followingCount: 50,
       };
-      const mockResponse = {
-        data: mockAccountData,
-      };
-      mockMastodonApi.get.mockResolvedValue(mockResponse);
+      mockMastodonApi.v1.accounts.verifyCredentials.mockResolvedValue(mockAccountData);
 
       const result = await client.getAccountInfo();
 
       expect(result).toEqual(mockAccountData);
-      expect(mockMastodonApi.get).toHaveBeenCalledWith('accounts/verify_credentials');
+      expect(mockMastodonApi.v1.accounts.verifyCredentials).toHaveBeenCalled();
     });
 
     it('should handle get account info error', async () => {
       const error = new Error('API Error');
-      mockMastodonApi.get.mockRejectedValue(error);
+      mockMastodonApi.v1.accounts.verifyCredentials.mockRejectedValue(error);
 
       await expect(client.getAccountInfo()).rejects.toThrow(
         'Failed to get account info: API Error'
@@ -152,7 +151,7 @@ describe('MastodonClient', () => {
     });
 
     it('should handle unknown error in getAccountInfo', async () => {
-      mockMastodonApi.get.mockRejectedValue('Unknown error');
+      mockMastodonApi.v1.accounts.verifyCredentials.mockRejectedValue('Unknown error');
 
       await expect(client.getAccountInfo()).rejects.toThrow(
         'Failed to get account info: Unknown error'

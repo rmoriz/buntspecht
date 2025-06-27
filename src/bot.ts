@@ -68,9 +68,9 @@ export class MastodonPingBot {
 
     const accountInfo = await this.mastodonClient.getAccountInfo();
     this.logger.info(`Account: @${accountInfo.username}`);
-    this.logger.info(`Display Name: ${accountInfo.display_name}`);
-    this.logger.info(`Followers: ${accountInfo.followers_count}`);
-    this.logger.info(`Following: ${accountInfo.following_count}`);
+    this.logger.info(`Display Name: ${accountInfo.displayName}`);
+    this.logger.info(`Followers: ${accountInfo.followersCount}`);
+    this.logger.info(`Following: ${accountInfo.followingCount}`);
     this.logger.info('Connection verified successfully');
   }
 

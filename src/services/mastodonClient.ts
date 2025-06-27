@@ -1,9 +1,9 @@
-import Mastodon from 'mastodon-api';
+import { createRestAPIClient, type mastodon } from 'masto';
 import { BotConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 
 export class MastodonClient {
-  private client: any;
+  private client!: mastodon.rest.Client;
   private config: BotConfig;
   private logger: Logger;
 
@@ -14,9 +14,9 @@ export class MastodonClient {
   }
 
   private initializeClient(): void {
-    this.client = new Mastodon({
-      access_token: this.config.mastodon.accessToken,
-      api_url: `${this.config.mastodon.instance}/api/v1/`,
+    this.client = createRestAPIClient({
+      url: this.config.mastodon.instance,
+      accessToken: this.config.mastodon.accessToken,
     });
   }
 
@@ -27,11 +27,11 @@ export class MastodonClient {
     try {
       this.logger.info(`Posting status: "${message}"`);
       
-      const response = await this.client.post('statuses', {
+      const status = await this.client.v1.statuses.create({
         status: message,
       });
 
-      this.logger.info(`Status posted successfully. ID: ${response.data.id}`);
+      this.logger.info(`Status posted successfully. ID: ${status.id}`);
     } catch (error) {
       this.logger.error('Failed to post status:', error);
       throw new Error(`Failed to post status: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -45,9 +45,9 @@ export class MastodonClient {
     try {
       this.logger.debug('Verifying Mastodon connection...');
       
-      const response = await this.client.get('accounts/verify_credentials');
+      const account = await this.client.v1.accounts.verifyCredentials();
       
-      this.logger.info(`Connected to Mastodon as: @${response.data.username}@${new URL(this.config.mastodon.instance).hostname}`);
+      this.logger.info(`Connected to Mastodon as: @${account.username}@${new URL(this.config.mastodon.instance).hostname}`);
       return true;
     } catch (error) {
       this.logger.error('Failed to verify Mastodon connection:', error);
@@ -58,10 +58,10 @@ export class MastodonClient {
   /**
    * Gets the current user's account information
    */
-  public async getAccountInfo(): Promise<any> {
+  public async getAccountInfo(): Promise<mastodon.v1.Account> {
     try {
-      const response = await this.client.get('accounts/verify_credentials');
-      return response.data;
+      const account = await this.client.v1.accounts.verifyCredentials();
+      return account;
     } catch (error) {
       this.logger.error('Failed to get account info:', error);
       throw new Error(`Failed to get account info: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -59,9 +59,9 @@ describe('MastodonPingBot', () => {
       verifyConnection: jest.fn().mockResolvedValue(true),
       getAccountInfo: jest.fn().mockResolvedValue({
         username: 'testuser',
-        display_name: 'Test User',
-        followers_count: 100,
-        following_count: 50,
+        displayName: 'Test User',
+        followersCount: 100,
+        followingCount: 50,
       }),
       postStatus: jest.fn(),
     } as unknown as jest.Mocked<MastodonClient>;
