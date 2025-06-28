@@ -9,10 +9,12 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
 - 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos oder JSON-basierte Templates
 - 🔄 **Multi-Provider-Unterstützung**: Mehrere Provider parallel mit individuellen Zeitplänen
+- 🌐 **Multi-Account-Unterstützung**: Mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens
+- 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts posten
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung (105+ Tests)
+- 🧪 Vollständige Testabdeckung (108+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
@@ -54,16 +56,16 @@ nano config.toml
 ### Konfigurationsformat
 
 ```toml
-[mastodon]
-# Ihre Mastodon-Instanz URL
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
 instance = "https://mastodon.social"
-
-# Ihr Access Token (aus den Mastodon-Einstellungen)
 accessToken = "your-access-token-here"
 
 [bot]
 # Multi-Provider Konfiguration
 # Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
+# Jeder Provider kann an einen oder mehrere Accounts posten
 
 # Provider 1: Stündliche Ping-Nachrichten
 [[bot.providers]]
@@ -71,6 +73,7 @@ name = "hourly-ping"
 type = "ping"
 cronSchedule = "0 * * * *"  # Jede Stunde
 enabled = true
+accounts = ["main-account"]  # An welche Accounts posten
 
 [bot.providers.config]
 message = "🤖 Stündlicher Ping von Buntspecht!"
@@ -81,6 +84,7 @@ name = "daily-stats"
 type = "command"
 cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
 enabled = false
+accounts = ["main-account"]  # An welche Accounts posten
 
 [bot.providers.config]
 command = "uptime"
@@ -229,57 +233,99 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 - Fehlende Variablen werden als `{{variable}}` im Text belassen
 - JSON-Werte werden automatisch zu Strings konvertiert
 
-## Multi-Provider-Konfiguration
+## Multi-Account und Multi-Provider-Konfiguration
 
-Buntspecht unterstützt die gleichzeitige Ausführung mehrerer Provider mit individuellen Zeitplänen. Dies ermöglicht es, verschiedene Arten von Nachrichten zu unterschiedlichen Zeiten zu posten.
+Buntspecht unterstützt mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens sowie die gleichzeitige Ausführung mehrerer Provider mit individuellen Zeitplänen. Dies ermöglicht es, verschiedene Arten von Nachrichten zu unterschiedlichen Zeiten an verschiedene Accounts zu posten.
 
-### Konfiguration
+### Multi-Account-Konfiguration
+
+Zuerst konfigurieren Sie mehrere Accounts:
+
+```toml
+# Mehrere Fediverse/Mastodon-Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "dein-hauptaccount-token-hier"
+
+[[accounts]]
+name = "backup-account"
+instance = "https://fosstodon.org"
+accessToken = "dein-backup-account-token-hier"
+
+[[accounts]]
+name = "work-account"
+instance = "https://deine-firmen-instanz.com"
+accessToken = "dein-arbeits-token-hier"
+```
+
+### Multi-Provider-Konfiguration mit Account-Zuordnung
+
+Dann konfigurieren Sie Provider und ordnen sie Accounts zu:
 
 ```toml
 [bot]
 # Multi-Provider Konfiguration
 # Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
+# Jeder Provider kann an einen oder mehrere Accounts posten
 
-# Provider 1: Stündliche Ping-Nachrichten
+# Provider 1: Stündliche Ping-Nachrichten (an alle Accounts)
 [[bot.providers]]
 name = "hourly-ping"
 type = "ping"
 cronSchedule = "0 * * * *"  # Jede Stunde
 enabled = true
+accounts = ["main-account", "backup-account", "work-account"]  # An alle Accounts
 
 [bot.providers.config]
 message = "🤖 Stündlicher Ping von Buntspecht!"
 
-# Provider 2: Tägliche Systemstatistiken
+# Provider 2: Tägliche Systemstatistiken (nur an Hauptaccount)
 [[bot.providers]]
 name = "daily-stats"
 type = "command"
 cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
 enabled = true
+accounts = ["main-account"]  # Nur an Hauptaccount
 
 [bot.providers.config]
 command = "uptime"
 timeout = 10000
 
-# Provider 3: GitHub Repository-Updates (alle 6 Stunden)
+# Provider 3: GitHub Repository-Updates (an Haupt- und Backup-Account)
 [[bot.providers]]
 name = "github-stats"
 type = "jsoncommand"
 cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
 enabled = true
+accounts = ["main-account", "backup-account"]  # An zwei Accounts
 
 [bot.providers.config]
 command = "curl -s 'https://api.github.com/repos/owner/repo' | jq '{name: .name, stars: .stargazers_count}'"
 template = "📊 Repository {{name}} hat {{stars}} Sterne!"
+
+# Provider 4: Arbeits-Updates (nur an Arbeitsaccount)
+[[bot.providers]]
+name = "work-updates"
+type = "ping"
+cronSchedule = "0 10 * * 1"  # Jeden Montag um 10:00 Uhr
+enabled = true
+accounts = ["work-account"]  # Nur an Arbeitsaccount
+
+[bot.providers.config]
+message = "📅 Neue Arbeitswoche beginnt!"
 ```
 
-### Vorteile der Multi-Provider-Konfiguration
+### Vorteile der Multi-Account und Multi-Provider-Konfiguration
 
+- **Flexible Account-Zuordnung**: Jeder Provider kann an beliebige Accounts posten
+- **Robuste Fehlerbehandlung**: Wenn das Posten an einen Account fehlschlägt, werden die anderen trotzdem versucht
 - **Unabhängige Zeitpläne**: Jeder Provider kann zu unterschiedlichen Zeiten ausgeführt werden
 - **Individuelle Aktivierung**: Provider können einzeln aktiviert/deaktiviert werden
 - **Verschiedene Nachrichtentypen**: Mischen Sie statische Nachrichten, Kommandos und JSON-Templates
 - **Fehlertoleranz**: Fehler in einem Provider beeinträchtigen andere Provider nicht
 - **Flexible Konfiguration**: Jeder Provider kann eigene Umgebungsvariablen und Einstellungen haben
+- **Account-Trennung**: Verschiedene Inhalte können an verschiedene Zielgruppen gesendet werden
 
 ### Cron-Schedule Beispiele
 
