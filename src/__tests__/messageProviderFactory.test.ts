@@ -65,7 +65,7 @@ describe('MessageProviderFactory', () => {
     });
 
     it('should initialize provider if it has initialize method', async () => {
-      const provider = await MessageProviderFactory.createProvider(
+      await MessageProviderFactory.createProvider(
         'ping',
         { message: 'Test ping' },
         logger

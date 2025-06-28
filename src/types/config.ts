@@ -7,7 +7,7 @@ export interface BotConfig {
     message: string;
     cronSchedule: string;
     messageProvider?: string;
-    messageProviderConfig?: { [key: string]: any };
+    messageProviderConfig?: { [key: string]: unknown };
   };
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';

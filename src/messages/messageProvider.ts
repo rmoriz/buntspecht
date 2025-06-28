@@ -28,5 +28,5 @@ export interface MessageProvider {
  * Configuration interface for message providers
  */
 export interface MessageProviderConfig {
-  [key: string]: any;
+  [key: string]: unknown;
 }
