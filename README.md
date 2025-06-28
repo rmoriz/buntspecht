@@ -60,7 +60,7 @@ nano config.toml
 [[accounts]]
 name = "main-account"
 instance = "https://mastodon.social"
-accessToken = "your-access-token-here"
+accessToken = "dein-access-token-hier"
 
 [bot]
 # Multi-Provider Konfiguration
@@ -184,7 +184,7 @@ enabled = true
 
 [bot.providers.config]
 # Das auszuführende Kommando (erforderlich) - muss JSON ausgeben
-command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
+command = "curl -s 'https://api.github.com/repos/beispiel/mein-projekt' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
 
 # Template für die Nachricht (erforderlich)
 # Verwende {{variable}} für JSON-Eigenschaften
@@ -209,11 +209,11 @@ timeout = 10000
 
 ```toml
 # GitHub Repository-Statistiken
-command = "curl -s 'https://api.github.com/repos/owner/repo' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
+command = "curl -s 'https://api.github.com/repos/benutzer/repository' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
 template = "📊 {{name}}: {{stars}} ⭐ und {{forks}} 🍴"
 
 # Wetter-API mit JSON
-command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name}'"
+command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=DEIN_API_SCHLUESSEL&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name}'"
 template = "🌤️ Wetter in {{city}}: {{temp}}°C, {{desc}}"
 
 # System-Informationen als JSON
@@ -221,7 +221,7 @@ command = "echo '{\"hostname\": \"'$(hostname)'\", \"uptime\": \"'$(uptime -p)'\
 template = "🖥️ Server {{hostname}} läuft seit {{uptime}}. Load: {{load}}"
 
 # Verschachtelte JSON-Eigenschaften
-command = "curl -s 'https://api.example.com/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
+command = "curl -s 'https://api.beispiel.de/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
 template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Posts"
 ```
 
@@ -301,7 +301,7 @@ enabled = true
 accounts = ["main-account", "backup-account"]  # An zwei Accounts
 
 [bot.providers.config]
-command = "curl -s 'https://api.github.com/repos/owner/repo' | jq '{name: .name, stars: .stargazers_count}'"
+command = "curl -s 'https://api.github.com/repos/benutzer/repository' | jq '{name: .name, stars: .stargazers_count}'"
 template = "📊 Repository {{name}} hat {{stars}} Sterne!"
 
 # Provider 4: Arbeits-Updates (nur an Arbeitsaccount)

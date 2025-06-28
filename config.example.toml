@@ -57,7 +57,7 @@ enabled = false
 accounts = ["backup-account"]  # Nur an Backup-Account
 
 [bot.providers.config]
-command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
+command = "curl -s 'https://api.github.com/repos/beispiel/mein-projekt' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
 template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
 timeout = 15000
 
@@ -100,7 +100,7 @@ level = "info"
 # 3. jsoncommand Provider:
 #    type = "jsoncommand"
 #    [config]
-#    command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
+#    command = "curl -s 'https://api.beispiel.de/data' | jq '{name: .name, count: .count}'"
 #    template = "Statistik: {{name}} hat {{count}} Eintraege"
 #    timeout = 30000  # Optional: Timeout in Millisekunden
 #    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
