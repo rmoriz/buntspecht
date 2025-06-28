@@ -1,0 +1,62 @@
+# Buntspecht Konfiguration Beispiel - JSON Command Provider
+# Kopiere diese Datei zu config.toml und passe die Werte an
+
+[mastodon]
+# Deine Mastodon-Instanz URL (z.B. "https://mastodon.social")
+instance = "https://deine-mastodon-instanz.com"
+
+# Dein Zugangstoken (aus den Mastodon-Einstellungen erhalten)
+accessToken = "dein-zugangstoken-hier"
+
+[bot]
+# Zeitplan fuer das Posten (Standard: "0 * * * *" = jede Stunde)
+# Format: "Minute Stunde Tag Monat Wochentag"
+# Beispiele:
+#   "0 * * * *"     = jede Stunde
+#   "*/30 * * * *"  = alle 30 Minuten
+#   "0 9 * * *"     = jeden Tag um 9:00 Uhr
+#   "0 9 * * 1"     = jeden Montag um 9:00 Uhr
+#   "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
+cronSchedule = "0 * * * *"
+
+# Message Provider: jsoncommand
+messageProvider = "jsoncommand"
+
+# Konfiguration fuer den JSON Command Provider
+[bot.messageProviderConfig]
+# Das auszufuehrende Kommando (erforderlich)
+# Das Kommando muss JSON auf stdout ausgeben
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language, updated: .updated_at}'"
+
+# Template fuer die Nachricht (erforderlich)
+# Verwende {{variable}} fuer JSON-Eigenschaften
+# Unterstuetzt verschachtelte Eigenschaften mit Punkt-Notation: {{user.name}}
+template = "📊 Repository {{name}} hat {{stars}} Sterne! Programmiersprache: {{language}} (zuletzt aktualisiert: {{updated}})"
+
+# Optional: Timeout in Millisekunden (Standard: 30000 = 30 Sekunden)
+timeout = 10000
+
+# Optional: Arbeitsverzeichnis fuer das Kommando
+# cwd = "/pfad/zum/arbeitsverzeichnis"
+
+# Optional: Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Umgebungsvariablen
+# [bot.messageProviderConfig.env]
+# API_KEY = "dein-api-schluessel"
+# ANDERE_VAR = "anderer wert"
+
+# Weitere Beispiele fuer Templates:
+# 
+# Wetter-API Beispiel:
+# command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, description: .weather[0].description, city: .name}'"
+# template = "🌤️ Wetter in {{city}}: {{temp}}°C, {{description}}"
+#
+# System-Info Beispiel:
+# command = "echo '{\"hostname\": \"'$(hostname)'\", \"uptime\": \"'$(uptime -p)'\", \"load\": \"'$(uptime | awk -F'load average:' '{print $2}' | xargs)'\"}'"
+# template = "🖥️ Server {{hostname}} läuft seit {{uptime}}. Load: {{load}}"
+
+[logging]
+# Protokoll-Stufe: debug, info, warn, error
+level = "info"

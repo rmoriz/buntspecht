@@ -1,6 +1,7 @@
 import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { PingProvider, PingProviderConfig } from './pingProvider';
 import { CommandProvider, CommandProviderConfig } from './commandProvider';
+import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
 import { Logger } from '../utils/logger';
 
 /**
@@ -30,6 +31,10 @@ export class MessageProviderFactory {
         provider = new CommandProvider(config as CommandProviderConfig);
         break;
       
+      case 'jsoncommand':
+        provider = new JsonCommandProvider(config as JsonCommandProviderConfig);
+        break;
+      
       default:
         logger.warn(`Unknown message provider type: ${providerType}, falling back to ping`);
         provider = new PingProvider(config as PingProviderConfig);
@@ -50,6 +55,6 @@ export class MessageProviderFactory {
    * @returns Array of available provider type names
    */
   public static getAvailableProviders(): string[] {
-    return ['ping', 'command'];
+    return ['ping', 'command', 'jsoncommand'];
   }
 }

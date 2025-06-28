@@ -20,7 +20,7 @@ accessToken = "dein-zugangstoken-hier"
 cronSchedule = "0 * * * *"
 
 # Message Provider (Standard: "ping")
-# Verfuegbare Provider: ping, command
+# Verfuegbare Provider: ping, command, jsoncommand
 messageProvider = "ping"
 
 # Konfiguration fuer den Message Provider
@@ -35,6 +35,15 @@ message = "PING"
 # maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
 # [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
 # MEINE_VAR = "wert"
+
+# Fuer den jsoncommand Provider: Kommando das JSON ausgibt + Template
+# command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
+# template = "Statistik: {{name}} hat {{count}} Eintraege"
+# timeout = 30000  # Timeout in Millisekunden (Standard: 30000)
+# cwd = "/pfad/zum/arbeitsverzeichnis"  # Arbeitsverzeichnis (optional)
+# maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
+# [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
+# API_KEY = "dein-schluessel"
 
 [logging]
 # Protokoll-Stufe: debug, info, warn, error

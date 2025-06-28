@@ -1,6 +1,7 @@
 import { MessageProviderFactory } from '../messages/messageProviderFactory';
 import { PingProvider } from '../messages/pingProvider';
 import { CommandProvider } from '../messages/commandProvider';
+import { JsonCommandProvider } from '../messages/jsonCommandProvider';
 import { Logger } from '../utils/logger';
 
 describe('MessageProviderFactory', () => {
@@ -41,6 +42,17 @@ describe('MessageProviderFactory', () => {
       expect(provider.getProviderName()).toBe('command');
     });
 
+    it('should create jsoncommand provider', async () => {
+      const provider = await MessageProviderFactory.createProvider(
+        'jsoncommand',
+        { command: 'echo \'{"test": "value"}\'', template: 'Test: {{test}}' },
+        logger
+      );
+
+      expect(provider).toBeInstanceOf(JsonCommandProvider);
+      expect(provider.getProviderName()).toBe('jsoncommand');
+    });
+
     it('should handle case insensitive provider types', async () => {
       const provider = await MessageProviderFactory.createProvider(
         'COMMAND',
@@ -78,7 +90,7 @@ describe('MessageProviderFactory', () => {
   describe('getAvailableProviders', () => {
     it('should return list of available providers', () => {
       const providers = MessageProviderFactory.getAvailableProviders();
-      expect(providers).toEqual(['ping', 'command']);
+      expect(providers).toEqual(['ping', 'command', 'jsoncommand']);
     });
   });
 });

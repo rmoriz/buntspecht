@@ -7,11 +7,11 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 ## Features
 
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
-- 📨 **Mehrere Nachrichtenquellen**: Statische Texte oder externe Kommandos
+- 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos oder JSON-basierte Templates
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung (77+ Tests)
+- 🧪 Vollständige Testabdeckung (89+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
@@ -147,6 +147,65 @@ command = "fortune"
 # Git-Status
 command = "git log --oneline -1"
 ```
+
+### JSON Command Provider
+
+Führt externe Kommandos aus, die JSON ausgeben, und wendet Templates mit Variablen aus den JSON-Daten an:
+
+```toml
+[bot]
+messageProvider = "jsoncommand"
+
+[bot.messageProviderConfig]
+# Das auszuführende Kommando (erforderlich) - muss JSON ausgeben
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
+
+# Template für die Nachricht (erforderlich)
+# Verwende {{variable}} für JSON-Eigenschaften
+# Unterstützt verschachtelte Eigenschaften mit Punkt-Notation: {{user.name}}
+template = "📊 Repository {{name}} hat {{stars}} Sterne! Programmiersprache: {{language}}"
+
+# Optional: Timeout in Millisekunden (Standard: 30000)
+timeout = 10000
+
+# Optional: Arbeitsverzeichnis für das Kommando
+# cwd = "/pfad/zum/arbeitsverzeichnis"
+
+# Optional: Maximale Puffergröße für stdout/stderr (Standard: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Umgebungsvariablen
+# [bot.messageProviderConfig.env]
+# API_KEY = "dein-api-schluessel"
+```
+
+#### JSON Command Provider Beispiele
+
+```toml
+# GitHub Repository-Statistiken
+command = "curl -s 'https://api.github.com/repos/owner/repo' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
+template = "📊 {{name}}: {{stars}} ⭐ und {{forks}} 🍴"
+
+# Wetter-API mit JSON
+command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name}'"
+template = "🌤️ Wetter in {{city}}: {{temp}}°C, {{desc}}"
+
+# System-Informationen als JSON
+command = "echo '{\"hostname\": \"'$(hostname)'\", \"uptime\": \"'$(uptime -p)'\", \"load\": \"'$(uptime | awk -F\"load average:\" \"{print $2}\" | xargs)'\"}''"
+template = "🖥️ Server {{hostname}} läuft seit {{uptime}}. Load: {{load}}"
+
+# Verschachtelte JSON-Eigenschaften
+command = "curl -s 'https://api.example.com/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
+template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Posts"
+```
+
+#### Template-Syntax
+
+- `{{variable}}` - Einfache Variable aus JSON
+- `{{nested.property}}` - Verschachtelte Eigenschaft mit Punkt-Notation
+- `{{ variable }}` - Leerzeichen um Variablennamen werden ignoriert
+- Fehlende Variablen werden als `{{variable}}` im Text belassen
+- JSON-Werte werden automatisch zu Strings konvertiert
 
 ## Verwendung
 
