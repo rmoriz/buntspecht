@@ -1,46 +1,46 @@
-# Buntspecht Configuration Example - Command Provider
-# Copy this file to config.toml and adjust the values
+# Buntspecht Konfiguration Beispiel - Command Provider
+# Kopiere diese Datei zu config.toml und passe die Werte an
 
 [mastodon]
-# Your Mastodon instance URL (e.g. "https://mastodon.social")
-instance = "https://your-mastodon-instance.com"
+# Deine Mastodon-Instanz URL (z.B. "https://mastodon.social")
+instance = "https://deine-mastodon-instanz.com"
 
-# Your access token (obtained from Mastodon settings)
-accessToken = "your-access-token-here"
+# Dein Zugangstoken (aus den Mastodon-Einstellungen erhalten)
+accessToken = "dein-zugangstoken-hier"
 
 [bot]
-# Schedule for posting (default: "0 * * * *" = every hour)
-# Format: "Minute Hour Day Month Weekday"
-# Examples:
-#   "0 * * * *"     = every hour
-#   "*/30 * * * *"  = every 30 minutes
-#   "0 9 * * *"     = every day at 9:00 AM
-#   "0 9 * * 1"     = every Monday at 9:00 AM
-#   "*/15 9-17 * * 1-5" = every 15 min between 9-17, Mon-Fri
+# Zeitplan fuer das Posten (Standard: "0 * * * *" = jede Stunde)
+# Format: "Minute Stunde Tag Monat Wochentag"
+# Beispiele:
+#   "0 * * * *"     = jede Stunde
+#   "*/30 * * * *"  = alle 30 Minuten
+#   "0 9 * * *"     = jeden Tag um 9:00 Uhr
+#   "0 9 * * 1"     = jeden Montag um 9:00 Uhr
+#   "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
 cronSchedule = "0 * * * *"
 
 # Message Provider: command
 messageProvider = "command"
 
-# Configuration for the Command Provider
+# Konfiguration fuer den Command Provider
 [bot.messageProviderConfig]
-# The command to execute (required)
-command = "date '+Today is %A, %B %d, %Y at %H:%M UTC'"
+# Das auszufuehrende Kommando (erforderlich)
+command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
 
-# Optional: Timeout in milliseconds (default: 30000 = 30 seconds)
+# Optional: Timeout in Millisekunden (Standard: 30000 = 30 Sekunden)
 timeout = 10000
 
-# Optional: Working directory for the command
-# cwd = "/path/to/working/directory"
+# Optional: Arbeitsverzeichnis fuer das Kommando
+# cwd = "/pfad/zum/arbeitsverzeichnis"
 
-# Optional: Maximum buffer size for stdout/stderr (default: 1MB)
+# Optional: Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
 # maxBuffer = 1048576
 
-# Optional: Environment variables
+# Optional: Umgebungsvariablen
 # [bot.messageProviderConfig.env]
-# MY_CUSTOM_VAR = "some value"
-# ANOTHER_VAR = "another value"
+# MEINE_VAR = "ein wert"
+# ANDERE_VAR = "anderer wert"
 
 [logging]
-# Log level: debug, info, warn, error
+# Protokoll-Stufe: debug, info, warn, error
 level = "info"

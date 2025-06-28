@@ -9,9 +9,6 @@ instance = "https://deine-mastodon-instanz.com"
 accessToken = "dein-zugangstoken-hier"
 
 [bot]
-# Nachricht die gepostet werden soll (Standard: "PING")
-message = "PING"
-
 # Zeitplan fuer das Posten (Standard: "0 * * * *" = jede Stunde)
 # Format: "Minute Stunde Tag Monat Wochentag"
 # Beispiele:
@@ -32,12 +29,12 @@ messageProvider = "ping"
 message = "PING"
 
 # Fuer den command Provider: das auszufuehrende Kommando
-# command = "echo 'Hello from command!'"
+# command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
 # timeout = 30000  # Timeout in Millisekunden (Standard: 30000)
-# cwd = "/path/to/working/directory"  # Arbeitsverzeichnis (optional)
+# cwd = "/pfad/zum/arbeitsverzeichnis"  # Arbeitsverzeichnis (optional)
 # maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
 # [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
-# MY_VAR = "value"
+# MEINE_VAR = "wert"
 
 [logging]
 # Protokoll-Stufe: debug, info, warn, error
