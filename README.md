@@ -2,18 +2,20 @@
 
 <img src="buntspecht-logo.jpeg" alt="Buntspecht Logo" width="150"/>
 
-Ein TypeScript-basierter Mastodon/Fediverse-Bot, der stündlich "PING" Nachrichten postet.
+Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nach Zeitplan postet. Unterstützt verschiedene Nachrichtenquellen wie statische Texte oder externe Kommandos.
 
 ## Features
 
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
+- 📨 **Mehrere Nachrichtenquellen**: Statische Texte oder externe Kommandos
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung
+- 🧪 Vollständige Testabdeckung (77+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
+- 🔧 Erweiterbare Provider-Architektur
 
 ## Installation
 
@@ -59,11 +61,17 @@ instance = "https://mastodon.social"
 accessToken = "your-access-token-here"
 
 [bot]
-# Nachricht die gepostet werden soll
-message = "PING"
-
 # Cron-Schedule (Standard: jede Stunde)
 cronSchedule = "0 * * * *"
+
+# Message Provider (Standard: "ping")
+# Verfügbare Provider: ping, command
+messageProvider = "ping"
+
+# Konfiguration für den Message Provider
+[bot.messageProviderConfig]
+# Für den ping Provider: die Nachricht die gepostet werden soll
+message = "PING"
 
 [logging]
 # Log-Level: debug, info, warn, error
@@ -74,9 +82,71 @@ level = "info"
 
 1. Gehen Sie zu Ihrer Mastodon-Instanz
 2. Einstellungen → Entwicklung → Neue Anwendung
-3. Name: "Ping Bot" (oder beliebig)
+3. Name: "Buntspecht Bot" (oder beliebig)
 4. Bereiche: `write:statuses`
 5. Anwendung erstellen und Access Token kopieren
+
+## Message Provider
+
+Buntspecht unterstützt verschiedene Nachrichtenquellen über ein erweiterbares Provider-System:
+
+### Ping Provider (Standard)
+
+Postet statische Nachrichten:
+
+```toml
+[bot]
+messageProvider = "ping"
+
+[bot.messageProviderConfig]
+message = "PING"
+```
+
+### Command Provider
+
+Führt externe Kommandos aus und postet deren Ausgabe:
+
+```toml
+[bot]
+messageProvider = "command"
+
+[bot.messageProviderConfig]
+# Das auszuführende Kommando (erforderlich)
+command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
+
+# Optional: Timeout in Millisekunden (Standard: 30000)
+timeout = 10000
+
+# Optional: Arbeitsverzeichnis für das Kommando
+# cwd = "/pfad/zum/arbeitsverzeichnis"
+
+# Optional: Maximale Puffergröße für stdout/stderr (Standard: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Umgebungsvariablen
+# [bot.messageProviderConfig.env]
+# MEINE_VAR = "ein wert"
+# ANDERE_VAR = "anderer wert"
+```
+
+#### Command Provider Beispiele
+
+```toml
+# Aktuelles Datum und Uhrzeit
+command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
+
+# Systemstatus
+command = "uptime"
+
+# Wetter (mit curl und API)
+command = "curl -s 'https://wttr.in/Berlin?format=3'"
+
+# Zufälliger Spruch
+command = "fortune"
+
+# Git-Status
+command = "git log --oneline -1"
+```
 
 ## Verwendung
 
@@ -140,7 +210,7 @@ cronSchedule = "*/15 9-17 * * 1-5"
 ### Development Tools
 
 - **TypeScript** (v5.3.2): Statische Typisierung
-- **Jest** (v29.7.0): Test-Framework mit 60+ Tests
+- **Jest** (v29.7.0): Test-Framework mit 77+ Tests
 - **ESLint** (v8.54.0): Code-Qualität und Linting
 - **Docker**: Containerisierung und CI/CD
 
@@ -181,9 +251,15 @@ npm run lint:fix
 
 ```
 src/
-├── __tests__/          # Test-Dateien
+├── __tests__/          # Test-Dateien (77+ Tests)
 ├── config/             # Konfiguration
 │   └── configLoader.ts
+├── messages/           # Message Provider System
+│   ├── messageProvider.ts
+│   ├── messageProviderFactory.ts
+│   ├── pingProvider.ts
+│   ├── commandProvider.ts
+│   └── index.ts
 ├── services/           # Hauptservices
 │   ├── mastodonClient.ts
 │   └── botScheduler.ts
@@ -337,8 +413,10 @@ Dieses Projekt wurde vollständig mit Hilfe von **Claude 3.5 Sonnet (Anthropic)*
 
 ### 🛠️ **AI-unterstützte Entwicklungsbereiche:**
 
-- **Code-Architektur**: Vollständige TypeScript-Projektstruktur
-- **Test-Entwicklung**: 60+ umfassende Unit-Tests mit Jest
+- **Code-Architektur**: Vollständige TypeScript-Projektstruktur mit Provider-System
+- **Test-Entwicklung**: 77+ umfassende Unit-Tests mit Jest
+- **Provider-System**: Erweiterbare Message-Provider-Architektur
+- **Command-Integration**: Externe Kommando-Ausführung mit Fehlerbehandlung
 - **Docker-Konfiguration**: Multi-stage Builds und CI/CD-Pipeline
 - **Dokumentation**: Deutsche Lokalisierung und technische Dokumentation
 - **Best Practices**: ESLint-Regeln, Git-Workflows und Projektorganisation
@@ -351,4 +429,4 @@ Die Entwicklung erfolgte durch natürlichsprachliche Anforderungen, die von der 
 
 ---
 
-**Buntspecht** - Ein zuverlässiger Fediverse-Bot für regelmäßige PING-Nachrichten 🐦
+**Buntspecht** - Ein zuverlässiger Fediverse-Bot für automatisierte Nachrichten mit flexiblen Quellen 🐦
