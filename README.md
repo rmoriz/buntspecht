@@ -184,7 +184,7 @@ enabled = true
 
 [bot.providers.config]
 # Das auszuführende Kommando (erforderlich) - muss JSON ausgeben
-command = "curl -s 'https://api.github.com/repos/beispiel/mein-projekt' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
 
 # Template für die Nachricht (erforderlich)
 # Verwende {{variable}} für JSON-Eigenschaften
@@ -209,7 +209,7 @@ timeout = 10000
 
 ```toml
 # GitHub Repository-Statistiken
-command = "curl -s 'https://api.github.com/repos/benutzer/repository' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
 template = "📊 {{name}}: {{stars}} ⭐ und {{forks}} 🍴"
 
 # Wetter-API mit JSON
@@ -301,7 +301,7 @@ enabled = true
 accounts = ["main-account", "backup-account"]  # An zwei Accounts
 
 [bot.providers.config]
-command = "curl -s 'https://api.github.com/repos/benutzer/repository' | jq '{name: .name, stars: .stargazers_count}'"
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count}'"
 template = "📊 Repository {{name}} hat {{stars}} Sterne!"
 
 # Provider 4: Arbeits-Updates (nur an Arbeitsaccount)
