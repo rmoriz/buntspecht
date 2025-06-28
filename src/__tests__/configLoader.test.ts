@@ -18,8 +18,14 @@ instance = "https://test.mastodon"
 accessToken = "test-token"
 
 [bot]
-message = "TEST PING"
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
 cronSchedule = "0 * * * *"
+enabled = true
+
+[bot.providers.config]
+message = "TEST PING"
 
 [logging]
 level = "debug"
@@ -42,7 +48,9 @@ level = "debug"
 
       expect(config.mastodon.instance).toBe('https://test.mastodon');
       expect(config.mastodon.accessToken).toBe('test-token');
-      expect(config.bot.message).toBe('TEST PING');
+      expect(config.bot.providers).toHaveLength(1);
+      expect(config.bot.providers[0].name).toBe('test-provider');
+      expect(config.bot.providers[0].config.message).toBe('TEST PING');
       expect(config.logging.level).toBe('debug');
     });
 
@@ -119,6 +127,14 @@ instance = "https://test.mastodon"
 accessToken = "test-token"
 
 [bot]
+[[bot.providers]]
+name = "minimal-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+
+[bot.providers.config]
+message = "PING"
 
 [logging]
 `;
@@ -129,9 +145,9 @@ accessToken = "test-token"
 
       const config = ConfigLoader.loadConfig(cliOptions);
 
-      expect(config.bot.message).toBe('PING');
-      expect(config.bot.cronSchedule).toBe('0 * * * *');
       expect(config.logging.level).toBe('info');
+      expect(config.bot.providers).toHaveLength(1);
+      expect(config.bot.providers[0].name).toBe('minimal-provider');
     });
 
     it('should throw error for missing required fields', () => {
@@ -141,6 +157,11 @@ instance = "https://test.mastodon"
 # missing accessToken
 
 [bot]
+[[bot.providers]]
+name = "test"
+type = "ping"
+cronSchedule = "0 * * * *"
+
 [logging]
 `;
       
@@ -150,6 +171,28 @@ instance = "https://test.mastodon"
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
         'Missing mastodon.accessToken in config'
+      );
+    });
+
+    it('should throw error for missing providers', () => {
+      const invalidConfig = `
+[mastodon]
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+# missing providers
+
+[logging]
+level = "info"
+`;
+      
+      const cliOptions: CliOptions = {};
+      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.readFileSync.mockReturnValue(invalidConfig);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Missing or empty bot.providers array in config. At least one provider must be configured.'
       );
     });
 

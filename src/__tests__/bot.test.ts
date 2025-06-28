@@ -1,26 +1,26 @@
 import { MastodonPingBot } from '../bot';
 import { ConfigLoader } from '../config/configLoader';
 import { MastodonClient } from '../services/mastodonClient';
-import { BotScheduler } from '../services/botScheduler';
+import { MultiProviderScheduler } from '../services/multiProviderScheduler';
 import { Logger } from '../utils/logger';
 import { CliOptions, BotConfig } from '../types/config';
 
 // Mock all dependencies
 jest.mock('../config/configLoader');
 jest.mock('../services/mastodonClient');
-jest.mock('../services/botScheduler');
+jest.mock('../services/multiProviderScheduler');
 jest.mock('../utils/logger');
 
 const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
 const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonClient>;
-const MockBotScheduler = BotScheduler as jest.MockedClass<typeof BotScheduler>;
+const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
 
 describe('MastodonPingBot', () => {
   let mockConfig: BotConfig;
   let mockLogger: jest.Mocked<Logger>;
   let mockMastodonClient: jest.Mocked<MastodonClient>;
-  let mockScheduler: jest.Mocked<BotScheduler>;
+  let mockScheduler: jest.Mocked<MultiProviderScheduler>;
   let cliOptions: CliOptions;
   let bot: MastodonPingBot;
 
@@ -31,8 +31,15 @@ describe('MastodonPingBot', () => {
         accessToken: 'test-token',
       },
       bot: {
-        message: 'TEST PING',
-        cronSchedule: '0 * * * *',
+        providers: [
+          {
+            name: 'test-provider',
+            type: 'ping',
+            cronSchedule: '0 * * * *',
+            enabled: true,
+            config: { message: 'TEST PING' }
+          }
+        ]
       },
       logging: {
         level: 'info',
@@ -67,17 +74,20 @@ describe('MastodonPingBot', () => {
     } as unknown as jest.Mocked<MastodonClient>;
     MockMastodonClient.mockImplementation(() => mockMastodonClient);
 
-    // Mock BotScheduler
+    // Mock MultiProviderScheduler
     mockScheduler = {
       initialize: jest.fn().mockResolvedValue(undefined),
       start: jest.fn(),
       stop: jest.fn(),
-      executeTaskNow: jest.fn().mockResolvedValue(undefined),
-      executeTask: jest.fn(),
+      executeAllTasksNow: jest.fn().mockResolvedValue(undefined),
+      executeProviderTaskNow: jest.fn().mockResolvedValue(undefined),
       isSchedulerRunning: jest.fn(),
-      getSchedule: jest.fn(),
-    } as unknown as jest.Mocked<BotScheduler>;
-    MockBotScheduler.mockImplementation(() => mockScheduler);
+      getProviderInfo: jest.fn().mockReturnValue([
+        { name: 'test-provider', type: 'ping', schedule: '0 * * * *', enabled: true }
+      ]),
+      getProviderNames: jest.fn().mockReturnValue(['test-provider']),
+    } as unknown as jest.Mocked<MultiProviderScheduler>;
+    MockMultiProviderScheduler.mockImplementation(() => mockScheduler);
 
     cliOptions = {};
     bot = new MastodonPingBot(cliOptions);
@@ -92,7 +102,7 @@ describe('MastodonPingBot', () => {
       expect(MockConfigLoader.loadConfig).toHaveBeenCalledWith(cliOptions);
       expect(MockLogger).toHaveBeenCalledWith('info');
       expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger);
-      expect(MockBotScheduler).toHaveBeenCalledWith(
+      expect(MockMultiProviderScheduler).toHaveBeenCalledWith(
         mockMastodonClient,
         mockConfig,
         mockLogger
@@ -142,7 +152,7 @@ describe('MastodonPingBot', () => {
       await bot.testPost();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Posting test message...');
-      expect(mockScheduler.executeTaskNow).toHaveBeenCalled();
+      expect(mockScheduler.executeAllTasksNow).toHaveBeenCalled();
     });
   });
 
@@ -198,6 +208,32 @@ describe('MastodonPingBot', () => {
   describe('getLogger', () => {
     it('should return logger', () => {
       expect(bot.getLogger()).toBe(mockLogger);
+    });
+  });
+
+  describe('getProviderInfo', () => {
+    it('should return provider information', () => {
+      const providerInfo = bot.getProviderInfo();
+      
+      expect(providerInfo).toEqual([
+        { name: 'test-provider', type: 'ping', schedule: '0 * * * *', enabled: true }
+      ]);
+      expect(mockScheduler.getProviderInfo).toHaveBeenCalled();
+    });
+  });
+
+  describe('testPostFromProvider', () => {
+    it('should post test message from specific provider', async () => {
+      await bot.testPostFromProvider('test-provider');
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Posting test message from provider: test-provider');
+      expect(mockScheduler.executeProviderTaskNow).toHaveBeenCalledWith('test-provider');
+    });
+  });
+
+  describe('isMultiProviderMode', () => {
+    it('should always return true', () => {
+      expect(bot.isMultiProviderMode()).toBe(true);
     });
   });
 });

@@ -1,6 +1,5 @@
 import { ConfigLoader } from './config/configLoader';
 import { MastodonClient } from './services/mastodonClient';
-import { BotScheduler } from './services/botScheduler';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
 import { Logger } from './utils/logger';
 import { BotConfig, CliOptions } from './types/config';
@@ -9,19 +8,13 @@ export class MastodonPingBot {
   private config: BotConfig;
   private logger: Logger;
   private mastodonClient: MastodonClient;
-  private scheduler: BotScheduler | MultiProviderScheduler;
+  private scheduler: MultiProviderScheduler;
 
   constructor(cliOptions: CliOptions) {
     this.config = ConfigLoader.loadConfig(cliOptions);
     this.logger = new Logger(this.config.logging.level);
     this.mastodonClient = new MastodonClient(this.config, this.logger);
-    
-    // Use MultiProviderScheduler if multiple providers are configured, otherwise use legacy BotScheduler
-    if (this.config.bot.providers && this.config.bot.providers.length > 0) {
-      this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger);
-    } else {
-      this.scheduler = new BotScheduler(this.mastodonClient, this.config, this.logger);
-    }
+    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger);
   }
 
   /**
@@ -62,12 +55,7 @@ export class MastodonPingBot {
    */
   public async testPost(): Promise<void> {
     this.logger.info('Posting test message...');
-    
-    if (this.scheduler instanceof MultiProviderScheduler) {
-      await this.scheduler.executeAllTasksNow();
-    } else {
-      await this.scheduler.executeTaskNow();
-    }
+    await this.scheduler.executeAllTasksNow();
   }
 
   /**
@@ -118,31 +106,24 @@ export class MastodonPingBot {
   }
 
   /**
-   * Gets information about configured providers (only available with MultiProviderScheduler)
+   * Gets information about configured providers
    */
-  public getProviderInfo(): Array<{name: string, type: string, schedule: string, enabled: boolean}> | null {
-    if (this.scheduler instanceof MultiProviderScheduler) {
-      return this.scheduler.getProviderInfo();
-    }
-    return null;
+  public getProviderInfo(): Array<{name: string, type: string, schedule: string, enabled: boolean}> {
+    return this.scheduler.getProviderInfo();
   }
 
   /**
-   * Posts a test message from a specific provider (only available with MultiProviderScheduler)
+   * Posts a test message from a specific provider
    */
   public async testPostFromProvider(providerName: string): Promise<void> {
-    if (this.scheduler instanceof MultiProviderScheduler) {
-      this.logger.info(`Posting test message from provider: ${providerName}`);
-      await this.scheduler.executeProviderTaskNow(providerName);
-    } else {
-      throw new Error('Multi-provider functionality not available with legacy configuration');
-    }
+    this.logger.info(`Posting test message from provider: ${providerName}`);
+    await this.scheduler.executeProviderTaskNow(providerName);
   }
 
   /**
-   * Returns whether the bot is using multi-provider mode
+   * Returns whether the bot is using multi-provider mode (always true now)
    */
   public isMultiProviderMode(): boolean {
-    return this.scheduler instanceof MultiProviderScheduler;
+    return true;
   }
 }

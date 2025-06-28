@@ -62,17 +62,29 @@ instance = "https://mastodon.social"
 accessToken = "your-access-token-here"
 
 [bot]
-# Cron-Schedule (Standard: jede Stunde)
-cronSchedule = "0 * * * *"
+# Multi-Provider Konfiguration
+# Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
 
-# Message Provider (Standard: "ping")
-# Verfügbare Provider: ping, command
-messageProvider = "ping"
+# Provider 1: Stündliche Ping-Nachrichten
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Jede Stunde
+enabled = true
 
-# Konfiguration für den Message Provider
-[bot.messageProviderConfig]
-# Für den ping Provider: die Nachricht die gepostet werden soll
-message = "PING"
+[bot.providers.config]
+message = "🤖 Stündlicher Ping von Buntspecht!"
+
+# Provider 2: Tägliche Systemstatistiken (deaktiviert)
+[[bot.providers]]
+name = "daily-stats"
+type = "command"
+cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
+enabled = false
+
+[bot.providers.config]
+command = "uptime"
+timeout = 10000
 
 [logging]
 # Log-Level: debug, info, warn, error
@@ -89,17 +101,20 @@ level = "info"
 
 ## Message Provider
 
-Buntspecht unterstützt verschiedene Nachrichtenquellen über ein erweiterbares Provider-System:
+Buntspecht unterstützt verschiedene Nachrichtenquellen über ein erweiterbares Provider-System. Jeder Provider läuft unabhängig mit seinem eigenen Zeitplan und kann individuell aktiviert/deaktiviert werden.
 
-### Ping Provider (Standard)
+### Ping Provider
 
 Postet statische Nachrichten:
 
 ```toml
-[bot]
-messageProvider = "ping"
+[[bot.providers]]
+name = "ping-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
 
-[bot.messageProviderConfig]
+[bot.providers.config]
 message = "PING"
 ```
 
@@ -108,10 +123,13 @@ message = "PING"
 Führt externe Kommandos aus und postet deren Ausgabe:
 
 ```toml
-[bot]
-messageProvider = "command"
+[[bot.providers]]
+name = "command-provider"
+type = "command"
+cronSchedule = "0 * * * *"
+enabled = true
 
-[bot.messageProviderConfig]
+[bot.providers.config]
 # Das auszuführende Kommando (erforderlich)
 command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
 
@@ -125,7 +143,7 @@ timeout = 10000
 # maxBuffer = 1048576
 
 # Optional: Umgebungsvariablen
-# [bot.messageProviderConfig.env]
+# [bot.providers.config.env]
 # MEINE_VAR = "ein wert"
 # ANDERE_VAR = "anderer wert"
 ```
@@ -154,10 +172,13 @@ command = "git log --oneline -1"
 Führt externe Kommandos aus, die JSON ausgeben, und wendet Templates mit Variablen aus den JSON-Daten an:
 
 ```toml
-[bot]
-messageProvider = "jsoncommand"
+[[bot.providers]]
+name = "json-provider"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
+enabled = true
 
-[bot.messageProviderConfig]
+[bot.providers.config]
 # Das auszuführende Kommando (erforderlich) - muss JSON ausgeben
 command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
 
@@ -176,7 +197,7 @@ timeout = 10000
 # maxBuffer = 1048576
 
 # Optional: Umgebungsvariablen
-# [bot.messageProviderConfig.env]
+# [bot.providers.config.env]
 # API_KEY = "dein-api-schluessel"
 ```
 
@@ -255,22 +276,21 @@ template = "📊 Repository {{name}} hat {{stars}} Sterne!"
 ### Vorteile der Multi-Provider-Konfiguration
 
 - **Unabhängige Zeitpläne**: Jeder Provider kann zu unterschiedlichen Zeiten ausgeführt werden
-- **Verschiedene Nachrichtentypen**: Mischung aus statischen Nachrichten, Kommandos und JSON-Templates
-- **Individuelle Konfiguration**: Jeder Provider hat seine eigenen Einstellungen
-- **Selektive Aktivierung**: Provider können einzeln aktiviert/deaktiviert werden
-- **Fehlertoleranz**: Fehler in einem Provider beeinträchtigen andere nicht
+- **Individuelle Aktivierung**: Provider können einzeln aktiviert/deaktiviert werden
+- **Verschiedene Nachrichtentypen**: Mischen Sie statische Nachrichten, Kommandos und JSON-Templates
+- **Fehlertoleranz**: Fehler in einem Provider beeinträchtigen andere Provider nicht
+- **Flexible Konfiguration**: Jeder Provider kann eigene Umgebungsvariablen und Einstellungen haben
 
-### Rückwärtskompatibilität
+### Cron-Schedule Beispiele
 
-Die alte Einzelprovider-Konfiguration wird weiterhin unterstützt:
-
-```toml
-[bot]
-messageProvider = "ping"
-cronSchedule = "0 * * * *"
-
-[bot.messageProviderConfig]
-message = "PING"
+```
+"0 * * * *"       = jede Stunde
+"*/30 * * * *"    = alle 30 Minuten  
+"0 9 * * *"       = jeden Tag um 9:00 Uhr
+"0 9 * * 1"       = jeden Montag um 9:00 Uhr
+"0 */6 * * *"     = alle 6 Stunden
+"0 9,17 * * 1-5"  = Mo-Fr um 9:00 und 17:00 Uhr
+"*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
 ```
 
 ## Verwendung
@@ -300,7 +320,7 @@ npm start -- --verify
 # Sofort eine Test-Nachricht posten (alle Provider)
 npm start -- --test-post
 
-# Test-Nachricht von spezifischem Provider posten (nur Multi-Provider-Modus)
+# Test-Nachricht von spezifischem Provider posten
 npm start -- --test-provider provider-name
 
 # Alle konfigurierten Provider auflisten

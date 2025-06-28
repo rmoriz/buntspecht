@@ -45,8 +45,15 @@ describe('MastodonClient', () => {
         accessToken: 'test-token',
       },
       bot: {
-        message: 'PING',
-        cronSchedule: '0 * * * *',
+        providers: [
+          {
+            name: 'test-provider',
+            type: 'ping',
+            cronSchedule: '0 * * * *',
+            enabled: true,
+            config: { message: 'PING' }
+          }
+        ]
       },
       logging: {
         level: 'info',

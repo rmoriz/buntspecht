@@ -22,17 +22,13 @@ async function main(): Promise<void> {
 
     if (cliOptions.listProviders) {
       const providerInfo = bot.getProviderInfo();
-      if (providerInfo) {
-        console.log('\nConfigured Providers:');
-        console.log('====================');
-        providerInfo.forEach(provider => {
-          const status = provider.enabled ? 'Enabled' : 'Disabled';
-          console.log(`${provider.name}: ${provider.type} (${provider.schedule}) - ${status}`);
-        });
-        console.log(`\nTotal: ${providerInfo.length} provider(s)`);
-      } else {
-        console.log('Using legacy single-provider configuration');
-      }
+      console.log('\nConfigured Providers:');
+      console.log('====================');
+      providerInfo.forEach(provider => {
+        const status = provider.enabled ? 'Enabled' : 'Disabled';
+        console.log(`${provider.name}: ${provider.type} (${provider.schedule}) - ${status}`);
+      });
+      console.log(`\nTotal: ${providerInfo.length} provider(s)`);
       return;
     }
 
@@ -42,9 +38,6 @@ async function main(): Promise<void> {
     }
 
     if (cliOptions.testProvider) {
-      if (!bot.isMultiProviderMode()) {
-        throw new Error('--test-provider option requires multi-provider configuration');
-      }
       await bot.testPostFromProvider(cliOptions.testProvider);
       return;
     }

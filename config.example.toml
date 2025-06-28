@@ -9,42 +9,85 @@ instance = "https://deine-mastodon-instanz.com"
 accessToken = "dein-zugangstoken-hier"
 
 [bot]
-# Zeitplan fuer das Posten (Standard: "0 * * * *" = jede Stunde)
-# Format: "Minute Stunde Tag Monat Wochentag"
-# Beispiele:
-#   "0 * * * *"     = jede Stunde
-#   "*/30 * * * *"  = alle 30 Minuten
-#   "0 9 * * *"     = jeden Tag um 9:00 Uhr
-#   "0 9 * * 1"     = jeden Montag um 9:00 Uhr
-#   "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
-cronSchedule = "0 * * * *"
+# Multi-Provider Konfiguration
+# Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
 
-# Message Provider (Standard: "ping")
-# Verfuegbare Provider: ping, command, jsoncommand
-messageProvider = "ping"
+# Provider 1: Stuendliche Ping-Nachrichten
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Jede Stunde
+enabled = true
 
-# Konfiguration fuer den Message Provider
-[bot.messageProviderConfig]
-# Fuer den ping Provider: die Nachricht die gepostet werden soll
-message = "PING"
+[bot.providers.config]
+message = "🤖 Stuendlicher Ping von Buntspecht!"
 
-# Fuer den command Provider: das auszufuehrende Kommando
-# command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
-# timeout = 30000  # Timeout in Millisekunden (Standard: 30000)
-# cwd = "/pfad/zum/arbeitsverzeichnis"  # Arbeitsverzeichnis (optional)
-# maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
-# [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
-# MEINE_VAR = "wert"
+# Provider 2: Taegliche Systemstatistiken (deaktiviert)
+[[bot.providers]]
+name = "daily-stats"
+type = "command"
+cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
+enabled = false
 
-# Fuer den jsoncommand Provider: Kommando das JSON ausgibt + Template
-# command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
-# template = "Statistik: {{name}} hat {{count}} Eintraege"
-# timeout = 30000  # Timeout in Millisekunden (Standard: 30000)
-# cwd = "/pfad/zum/arbeitsverzeichnis"  # Arbeitsverzeichnis (optional)
-# maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
-# [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
-# API_KEY = "dein-schluessel"
+[bot.providers.config]
+command = "uptime"
+timeout = 10000
+
+# Provider 3: GitHub Repository-Updates (alle 6 Stunden, deaktiviert)
+[[bot.providers]]
+name = "github-stats"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
+enabled = false
+
+[bot.providers.config]
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
+template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
+timeout = 15000
 
 [logging]
 # Protokoll-Stufe: debug, info, warn, error
 level = "info"
+
+# Hinweise:
+# - Jeder Provider laeuft unabhaengig mit seinem eigenen Zeitplan
+# - Provider koennen einzeln aktiviert/deaktiviert werden mit 'enabled = true/false'
+# - Verschiedene Provider-Typen koennen gemischt werden
+# - Jeder Provider kann eigene Umgebungsvariablen haben
+# - Bei Fehlern in einem Provider werden die anderen nicht beeintraechtigt
+#
+# Cron-Schedule Beispiele:
+# "0 * * * *"       = jede Stunde
+# "*/30 * * * *"    = alle 30 Minuten  
+# "0 9 * * *"       = jeden Tag um 9:00 Uhr
+# "0 9 * * 1"       = jeden Montag um 9:00 Uhr
+# "0 */6 * * *"     = alle 6 Stunden
+# "0 9,17 * * 1-5"  = Mo-Fr um 9:00 und 17:00 Uhr
+#
+# Provider-Typen:
+#
+# 1. ping Provider:
+#    type = "ping"
+#    [config]
+#    message = "Deine Nachricht hier"
+#
+# 2. command Provider:
+#    type = "command"
+#    [config]
+#    command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
+#    timeout = 30000  # Optional: Timeout in Millisekunden
+#    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
+#    maxBuffer = 1048576  # Optional: Maximale Puffergroesse
+#    [config.env]  # Optional: Umgebungsvariablen
+#    MEINE_VAR = "wert"
+#
+# 3. jsoncommand Provider:
+#    type = "jsoncommand"
+#    [config]
+#    command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
+#    template = "Statistik: {{name}} hat {{count}} Eintraege"
+#    timeout = 30000  # Optional: Timeout in Millisekunden
+#    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
+#    maxBuffer = 1048576  # Optional: Maximale Puffergroesse
+#    [config.env]  # Optional: Umgebungsvariablen
+#    API_KEY = "dein-schluessel"

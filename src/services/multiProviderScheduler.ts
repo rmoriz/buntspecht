@@ -91,32 +91,10 @@ export class MultiProviderScheduler {
   }
 
   /**
-   * Gets provider configurations from bot config, handling both legacy and new formats
+   * Gets provider configurations from bot config
    */
   private getProviderConfigs(): ProviderConfig[] {
-    const providers: ProviderConfig[] = [];
-
-    // Handle new multi-provider configuration first (takes precedence)
-    if (this.config.bot.providers && this.config.bot.providers.length > 0) {
-      providers.push(...this.config.bot.providers);
-      return providers; // Return early to avoid legacy processing
-    }
-
-    // Handle legacy single-provider configuration for backward compatibility
-    if (this.config.bot.messageProvider || this.config.bot.cronSchedule) {
-      const legacyProvider: ProviderConfig = {
-        name: 'legacy-provider',
-        type: this.config.bot.messageProvider || 'ping',
-        cronSchedule: this.config.bot.cronSchedule || '0 * * * *',
-        enabled: true,
-        config: this.config.bot.messageProviderConfig || { message: this.config.bot.message || 'PING' }
-      };
-      providers.push(legacyProvider);
-      
-      this.logger.warn('Using legacy single-provider configuration. Consider migrating to the new multi-provider format.');
-    }
-
-    return providers;
+    return this.config.bot.providers || [];
   }
 
   /**

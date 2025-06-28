@@ -92,14 +92,16 @@ export class ConfigLoader {
       throw new Error('Missing [bot] section in config');
     }
 
+    if (!bot.providers || !Array.isArray(bot.providers) || bot.providers.length === 0) {
+      throw new Error('Missing or empty bot.providers array in config. At least one provider must be configured.');
+    }
+
     const logging = config.logging as Record<string, unknown> | undefined;
     if (!logging) {
       throw new Error('Missing [logging] section in config');
     }
 
     // Set defaults
-    bot.message = bot.message || 'PING';
-    bot.cronSchedule = bot.cronSchedule || '0 * * * *'; // Every hour
     logging.level = logging.level || 'info';
   }
 

@@ -12,14 +12,7 @@ export interface BotConfig {
     accessToken: string;
   };
   bot: {
-    // Legacy single provider support (for backward compatibility)
-    message?: string;
-    cronSchedule?: string;
-    messageProvider?: string;
-    messageProviderConfig?: { [key: string]: unknown };
-    
-    // New multiple providers support
-    providers?: ProviderConfig[];
+    providers: ProviderConfig[];
   };
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';

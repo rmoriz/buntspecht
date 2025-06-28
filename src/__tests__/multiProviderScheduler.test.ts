@@ -132,45 +132,6 @@ describe('MultiProviderScheduler', () => {
     });
   });
 
-  describe('legacy configuration support', () => {
-    it('should handle legacy single-provider configuration', async () => {
-      config.bot = {
-        messageProvider: 'ping',
-        cronSchedule: '0 * * * *',
-        messageProviderConfig: { message: 'Legacy ping' }
-      };
-
-      await scheduler.initialize();
-
-      expect(logger.warn).toHaveBeenCalledWith('Using legacy single-provider configuration. Consider migrating to the new multi-provider format.');
-      expect(logger.info).toHaveBeenCalledWith('Successfully initialized 1 provider(s)');
-    });
-
-    it('should prefer new configuration over legacy when both exist', async () => {
-      config.bot = {
-        // Legacy config
-        messageProvider: 'ping',
-        cronSchedule: '0 * * * *',
-        messageProviderConfig: { message: 'Legacy ping' },
-        // New config
-        providers: [
-          {
-            name: 'new-provider',
-            type: 'ping',
-            cronSchedule: '*/30 * * * *',
-            enabled: true,
-            config: { message: 'New ping' }
-          }
-        ]
-      };
-
-      await scheduler.initialize();
-
-      // Should not show legacy warning since new config takes precedence
-      expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('legacy'));
-      expect(logger.info).toHaveBeenCalledWith('Successfully initialized 1 provider(s)');
-    });
-  });
 
   describe('provider execution', () => {
     beforeEach(async () => {
