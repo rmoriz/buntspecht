@@ -53,7 +53,7 @@ enabled = true
 accounts = ["personal", "bot"]  # An Personal und Bot Account
 
 [bot.providers.config]
-command = "curl -s 'https://api.github.com/repos/beispiel/mein-projekt' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
 template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
 timeout = 15000
 
