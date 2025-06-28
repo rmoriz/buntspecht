@@ -221,7 +221,7 @@ command = "echo '{\"hostname\": \"'$(hostname)'\", \"uptime\": \"'$(uptime -p)'\
 template = "🖥️ Server {{hostname}} läuft seit {{uptime}}. Load: {{load}}"
 
 # Verschachtelte JSON-Eigenschaften
-command = "curl -s 'https://api.beispiel.de/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
+command = "curl -s 'https://api.example.com/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
 template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Posts"
 ```
 

@@ -100,7 +100,7 @@ level = "info"
 # 3. jsoncommand Provider:
 #    type = "jsoncommand"
 #    [config]
-#    command = "curl -s 'https://api.beispiel.de/data' | jq '{name: .name, count: .count}'"
+#    command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
 #    template = "Statistik: {{name}} hat {{count}} Eintraege"
 #    timeout = 30000  # Optional: Timeout in Millisekunden
 #    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
