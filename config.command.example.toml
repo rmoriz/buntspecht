@@ -1,0 +1,46 @@
+# Buntspecht Configuration Example - Command Provider
+# Copy this file to config.toml and adjust the values
+
+[mastodon]
+# Your Mastodon instance URL (e.g. "https://mastodon.social")
+instance = "https://your-mastodon-instance.com"
+
+# Your access token (obtained from Mastodon settings)
+accessToken = "your-access-token-here"
+
+[bot]
+# Schedule for posting (default: "0 * * * *" = every hour)
+# Format: "Minute Hour Day Month Weekday"
+# Examples:
+#   "0 * * * *"     = every hour
+#   "*/30 * * * *"  = every 30 minutes
+#   "0 9 * * *"     = every day at 9:00 AM
+#   "0 9 * * 1"     = every Monday at 9:00 AM
+#   "*/15 9-17 * * 1-5" = every 15 min between 9-17, Mon-Fri
+cronSchedule = "0 * * * *"
+
+# Message Provider: command
+messageProvider = "command"
+
+# Configuration for the Command Provider
+[bot.messageProviderConfig]
+# The command to execute (required)
+command = "date '+Today is %A, %B %d, %Y at %H:%M UTC'"
+
+# Optional: Timeout in milliseconds (default: 30000 = 30 seconds)
+timeout = 10000
+
+# Optional: Working directory for the command
+# cwd = "/path/to/working/directory"
+
+# Optional: Maximum buffer size for stdout/stderr (default: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Environment variables
+# [bot.messageProviderConfig.env]
+# MY_CUSTOM_VAR = "some value"
+# ANOTHER_VAR = "another value"
+
+[logging]
+# Log level: debug, info, warn, error
+level = "info"
