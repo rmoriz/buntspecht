@@ -1,5 +1,6 @@
 import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { PingProvider, PingProviderConfig } from './pingProvider';
+import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { Logger } from '../utils/logger';
 
 /**
@@ -25,6 +26,10 @@ export class MessageProviderFactory {
         provider = new PingProvider(config as PingProviderConfig);
         break;
       
+      case 'command':
+        provider = new CommandProvider(config as CommandProviderConfig);
+        break;
+      
       default:
         logger.warn(`Unknown message provider type: ${providerType}, falling back to ping`);
         provider = new PingProvider(config as PingProviderConfig);
@@ -45,6 +50,6 @@ export class MessageProviderFactory {
    * @returns Array of available provider type names
    */
   public static getAvailableProviders(): string[] {
-    return ['ping'];
+    return ['ping', 'command'];
   }
 }

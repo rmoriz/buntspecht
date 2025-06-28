@@ -23,13 +23,21 @@ message = "PING"
 cronSchedule = "0 * * * *"
 
 # Message Provider (Standard: "ping")
-# Verfuegbare Provider: ping
+# Verfuegbare Provider: ping, command
 messageProvider = "ping"
 
 # Konfiguration fuer den Message Provider
 [bot.messageProviderConfig]
 # Fuer den ping Provider: die Nachricht die gepostet werden soll
 message = "PING"
+
+# Fuer den command Provider: das auszufuehrende Kommando
+# command = "echo 'Hello from command!'"
+# timeout = 30000  # Timeout in Millisekunden (Standard: 30000)
+# cwd = "/path/to/working/directory"  # Arbeitsverzeichnis (optional)
+# maxBuffer = 1048576  # Maximale Puffergroesse fuer stdout/stderr (Standard: 1MB)
+# [bot.messageProviderConfig.env]  # Umgebungsvariablen (optional)
+# MY_VAR = "value"
 
 [logging]
 # Protokoll-Stufe: debug, info, warn, error
