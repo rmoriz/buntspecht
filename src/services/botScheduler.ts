@@ -46,14 +46,16 @@ export class BotScheduler {
       await this.initialize();
     }
 
-    if (!cron.validate(this.config.bot.cronSchedule)) {
-      throw new Error(`Invalid cron schedule: ${this.config.bot.cronSchedule}`);
+    const cronSchedule = this.config.bot.cronSchedule || '0 * * * *';
+    
+    if (!cron.validate(cronSchedule)) {
+      throw new Error(`Invalid cron schedule: ${cronSchedule}`);
     }
 
-    this.logger.info(`Starting bot scheduler with cron: ${this.config.bot.cronSchedule}`);
+    this.logger.info(`Starting bot scheduler with cron: ${cronSchedule}`);
     this.logger.info(`Using message provider: ${this.messageProvider!.getProviderName()}`);
 
-    this.task = cron.schedule(this.config.bot.cronSchedule, async () => {
+    this.task = cron.schedule(cronSchedule, async () => {
       await this.executeTask();
     }, {
       scheduled: false,
@@ -118,6 +120,6 @@ export class BotScheduler {
    * Returns the current cron schedule
    */
   public getSchedule(): string {
-    return this.config.bot.cronSchedule;
+    return this.config.bot.cronSchedule || '0 * * * *';
   }
 }

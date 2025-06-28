@@ -10,6 +10,8 @@ export function parseCliArguments(): CliOptions {
     .version('1.0.0')
     .option('-c, --config <path>', 'path to configuration file')
     .option('--test-post', 'post a test message immediately and exit')
+    .option('--test-provider <name>', 'post a test message from specific provider and exit')
+    .option('--list-providers', 'list all configured providers and exit')
     .option('--verify', 'verify connection to Mastodon and exit')
     .parse();
 
@@ -18,6 +20,8 @@ export function parseCliArguments(): CliOptions {
   return {
     config: options.config,
     testPost: options.testPost,
+    testProvider: options.testProvider,
+    listProviders: options.listProviders,
     verify: options.verify,
-  } as CliOptions & { testPost?: boolean; verify?: boolean };
+  } as CliOptions;
 }

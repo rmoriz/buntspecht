@@ -8,10 +8,11 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
 - 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos oder JSON-basierte Templates
+- 🔄 **Multi-Provider-Unterstützung**: Mehrere Provider parallel mit individuellen Zeitplänen
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung (89+ Tests)
+- 🧪 Vollständige Testabdeckung (105+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
@@ -207,6 +208,71 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 - Fehlende Variablen werden als `{{variable}}` im Text belassen
 - JSON-Werte werden automatisch zu Strings konvertiert
 
+## Multi-Provider-Konfiguration
+
+Buntspecht unterstützt die gleichzeitige Ausführung mehrerer Provider mit individuellen Zeitplänen. Dies ermöglicht es, verschiedene Arten von Nachrichten zu unterschiedlichen Zeiten zu posten.
+
+### Konfiguration
+
+```toml
+[bot]
+# Multi-Provider Konfiguration
+# Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
+
+# Provider 1: Stündliche Ping-Nachrichten
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Jede Stunde
+enabled = true
+
+[bot.providers.config]
+message = "🤖 Stündlicher Ping von Buntspecht!"
+
+# Provider 2: Tägliche Systemstatistiken
+[[bot.providers]]
+name = "daily-stats"
+type = "command"
+cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
+enabled = true
+
+[bot.providers.config]
+command = "uptime"
+timeout = 10000
+
+# Provider 3: GitHub Repository-Updates (alle 6 Stunden)
+[[bot.providers]]
+name = "github-stats"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
+enabled = true
+
+[bot.providers.config]
+command = "curl -s 'https://api.github.com/repos/owner/repo' | jq '{name: .name, stars: .stargazers_count}'"
+template = "📊 Repository {{name}} hat {{stars}} Sterne!"
+```
+
+### Vorteile der Multi-Provider-Konfiguration
+
+- **Unabhängige Zeitpläne**: Jeder Provider kann zu unterschiedlichen Zeiten ausgeführt werden
+- **Verschiedene Nachrichtentypen**: Mischung aus statischen Nachrichten, Kommandos und JSON-Templates
+- **Individuelle Konfiguration**: Jeder Provider hat seine eigenen Einstellungen
+- **Selektive Aktivierung**: Provider können einzeln aktiviert/deaktiviert werden
+- **Fehlertoleranz**: Fehler in einem Provider beeinträchtigen andere nicht
+
+### Rückwärtskompatibilität
+
+Die alte Einzelprovider-Konfiguration wird weiterhin unterstützt:
+
+```toml
+[bot]
+messageProvider = "ping"
+cronSchedule = "0 * * * *"
+
+[bot.messageProviderConfig]
+message = "PING"
+```
+
 ## Verwendung
 
 ### Bot starten
@@ -231,8 +297,14 @@ npm start -- --help
 # Verbindung testen
 npm start -- --verify
 
-# Sofort eine Test-Nachricht posten
+# Sofort eine Test-Nachricht posten (alle Provider)
 npm start -- --test-post
+
+# Test-Nachricht von spezifischem Provider posten (nur Multi-Provider-Modus)
+npm start -- --test-provider provider-name
+
+# Alle konfigurierten Provider auflisten
+npm start -- --list-providers
 
 # Spezifische Konfigurationsdatei verwenden
 npm start -- --config /pfad/zur/config.toml
