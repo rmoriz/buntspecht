@@ -74,19 +74,36 @@ export class ConfigLoader {
   }
 
   private static validateConfig(config: Record<string, unknown>): void {
-    const mastodon = config.mastodon as Record<string, unknown> | undefined;
-    if (!mastodon) {
-      throw new Error('Missing [mastodon] section in config');
-    }
-    
-    if (!mastodon.instance) {
-      throw new Error('Missing mastodon.instance in config');
-    }
-    
-    if (!mastodon.accessToken) {
-      throw new Error('Missing mastodon.accessToken in config');
+    // Validate accounts section
+    const accounts = config.accounts as Array<Record<string, unknown>> | undefined;
+    if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+      throw new Error('Missing or empty accounts array in config. At least one account must be configured.');
     }
 
+    // Validate each account
+    const accountNames = new Set<string>();
+    for (let i = 0; i < accounts.length; i++) {
+      const account = accounts[i];
+      
+      if (!account.name || typeof account.name !== 'string') {
+        throw new Error(`Account ${i + 1}: Missing or invalid name`);
+      }
+      
+      if (accountNames.has(account.name as string)) {
+        throw new Error(`Duplicate account name: "${account.name}"`);
+      }
+      accountNames.add(account.name as string);
+      
+      if (!account.instance || typeof account.instance !== 'string') {
+        throw new Error(`Account "${account.name}": Missing or invalid instance`);
+      }
+      
+      if (!account.accessToken || typeof account.accessToken !== 'string') {
+        throw new Error(`Account "${account.name}": Missing or invalid accessToken`);
+      }
+    }
+
+    // Validate bot section
     const bot = config.bot as Record<string, unknown> | undefined;
     if (!bot) {
       throw new Error('Missing [bot] section in config');
@@ -96,6 +113,27 @@ export class ConfigLoader {
       throw new Error('Missing or empty bot.providers array in config. At least one provider must be configured.');
     }
 
+    // Validate each provider
+    for (let i = 0; i < bot.providers.length; i++) {
+      const provider = bot.providers[i] as Record<string, unknown>;
+      
+      if (!provider.name || typeof provider.name !== 'string') {
+        throw new Error(`Provider ${i + 1}: Missing or invalid name`);
+      }
+      
+      if (!provider.accounts || !Array.isArray(provider.accounts) || provider.accounts.length === 0) {
+        throw new Error(`Provider "${provider.name}": Missing or empty accounts array`);
+      }
+      
+      // Validate that all referenced accounts exist
+      for (const accountName of provider.accounts as string[]) {
+        if (!accountNames.has(accountName)) {
+          throw new Error(`Provider "${provider.name}" references unknown account: "${accountName}"`);
+        }
+      }
+    }
+
+    // Validate logging section
     const logging = config.logging as Record<string, unknown> | undefined;
     if (!logging) {
       throw new Error('Missing [logging] section in config');

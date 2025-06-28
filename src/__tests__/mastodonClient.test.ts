@@ -40,10 +40,13 @@ describe('MastodonClient', () => {
     createRestAPIClient.mockReturnValue(mockMastodonApi);
 
     config = {
-      mastodon: {
-        instance: 'https://test.mastodon',
-        accessToken: 'test-token',
-      },
+      accounts: [
+        {
+          name: 'test-account',
+          instance: 'https://test.mastodon',
+          accessToken: 'test-token',
+        }
+      ],
       bot: {
         providers: [
           {
@@ -51,6 +54,7 @@ describe('MastodonClient', () => {
             type: 'ping',
             cronSchedule: '0 * * * *',
             enabled: true,
+            accounts: ['test-account'],
             config: { message: 'PING' }
           }
         ]
@@ -64,6 +68,7 @@ describe('MastodonClient', () => {
     jest.spyOn(logger, 'info').mockImplementation();
     jest.spyOn(logger, 'error').mockImplementation();
     jest.spyOn(logger, 'debug').mockImplementation();
+    jest.spyOn(logger, 'warn').mockImplementation();
 
     client = new MastodonClient(config, logger);
   });
@@ -73,51 +78,126 @@ describe('MastodonClient', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize Masto client with correct config', () => {
+    it('should initialize Masto clients for all accounts', () => {
       const { createRestAPIClient } = require('masto');
       
       expect(createRestAPIClient).toHaveBeenCalledWith({
         url: 'https://test.mastodon',
         accessToken: 'test-token',
       });
+      expect(createRestAPIClient).toHaveBeenCalledTimes(1);
+    });
+
+    it('should initialize multiple clients for multiple accounts', () => {
+      const { createRestAPIClient } = require('masto');
+      createRestAPIClient.mockClear();
+
+      const multiAccountConfig = {
+        ...config,
+        accounts: [
+          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+        ]
+      };
+
+      new MastodonClient(multiAccountConfig, logger);
+
+      expect(createRestAPIClient).toHaveBeenCalledWith({
+        url: 'https://mastodon.social',
+        accessToken: 'token1',
+      });
+      expect(createRestAPIClient).toHaveBeenCalledWith({
+        url: 'https://fosstodon.org',
+        accessToken: 'token2',
+      });
+      expect(createRestAPIClient).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('postStatus', () => {
-    it('should post status successfully', async () => {
+    it('should post status successfully to specified account', async () => {
       const mockStatus = { id: '12345' };
       mockMastodonApi.v1.statuses.create.mockResolvedValue(mockStatus);
 
-      await client.postStatus('Test message');
+      await client.postStatus('Test message', ['test-account']);
 
       expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledWith({
         status: 'Test message',
       });
-      expect(logger.info).toHaveBeenCalledWith('Posting status: "Test message"');
-      expect(logger.info).toHaveBeenCalledWith('Status posted successfully. ID: 12345');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to test-account (https://test.mastodon): "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Status posted successfully to test-account. ID: 12345');
     });
 
-    it('should handle post status error', async () => {
+    it('should post status to multiple accounts', async () => {
+      const multiAccountConfig = {
+        ...config,
+        accounts: [
+          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+        ]
+      };
+
+      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const mockStatus1 = { id: '111' };
+      const mockStatus2 = { id: '222' };
+      
+      mockMastodonApi.v1.statuses.create
+        .mockResolvedValueOnce(mockStatus1)
+        .mockResolvedValueOnce(mockStatus2);
+
+      await multiClient.postStatus('Test message', ['account1', 'account2']);
+
+      expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledTimes(2);
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account1 (https://mastodon.social): "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account2 (https://fosstodon.org): "Test message"');
+    });
+
+    it('should throw error when no accounts specified', async () => {
+      await expect(client.postStatus('Test message', [])).rejects.toThrow(
+        'No accounts specified for posting'
+      );
+    });
+
+    it('should throw error when account not found', async () => {
+      await expect(client.postStatus('Test message', ['nonexistent'])).rejects.toThrow(
+        'Failed to post to all accounts: nonexistent: Account "nonexistent" not found in configuration'
+      );
+    });
+
+    it('should handle partial failures gracefully', async () => {
+      const multiAccountConfig = {
+        ...config,
+        accounts: [
+          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+        ]
+      };
+
+      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const mockStatus = { id: '111' };
+      
+      mockMastodonApi.v1.statuses.create
+        .mockResolvedValueOnce(mockStatus)
+        .mockRejectedValueOnce(new Error('API Error'));
+
+      // Should not throw, but should log warning
+      await multiClient.postStatus('Test message', ['account1', 'account2']);
+
+      expect(logger.warn).toHaveBeenCalledWith('Some posts failed: account2: API Error');
+    });
+
+    it('should throw error when all posts fail', async () => {
       const error = new Error('API Error');
       mockMastodonApi.v1.statuses.create.mockRejectedValue(error);
 
-      await expect(client.postStatus('Test message')).rejects.toThrow(
-        'Failed to post status: API Error'
-      );
-      expect(logger.error).toHaveBeenCalledWith('Failed to post status:', error);
-    });
-
-    it('should handle unknown error', async () => {
-      mockMastodonApi.v1.statuses.create.mockRejectedValue('Unknown error');
-
-      await expect(client.postStatus('Test message')).rejects.toThrow(
-        'Failed to post status: Unknown error'
+      await expect(client.postStatus('Test message', ['test-account'])).rejects.toThrow(
+        'Failed to post to all accounts: test-account: API Error'
       );
     });
   });
 
   describe('verifyConnection', () => {
-    it('should verify connection successfully', async () => {
+    it('should verify connection successfully for all accounts', async () => {
       const mockAccount = { username: 'testuser' };
       mockMastodonApi.v1.accounts.verifyCredentials.mockResolvedValue(mockAccount);
 
@@ -125,9 +205,9 @@ describe('MastodonClient', () => {
 
       expect(result).toBe(true);
       expect(mockMastodonApi.v1.accounts.verifyCredentials).toHaveBeenCalled();
-      expect(logger.debug).toHaveBeenCalledWith('Verifying Mastodon connection...');
+      expect(logger.debug).toHaveBeenCalledWith('Verifying connection for account: test-account...');
       expect(logger.info).toHaveBeenCalledWith(
-        'Connected to Mastodon as: @testuser@test.mastodon'
+        'Connected to test-account as: @testuser@test.mastodon'
       );
     });
 
@@ -138,12 +218,22 @@ describe('MastodonClient', () => {
       const result = await client.verifyConnection();
 
       expect(result).toBe(false);
-      expect(logger.error).toHaveBeenCalledWith('Failed to verify Mastodon connection:', error);
+      expect(logger.error).toHaveBeenCalledWith('Failed to verify connection for test-account:', error);
+    });
+
+    it('should return false when no accounts configured', async () => {
+      const emptyConfig = { ...config, accounts: [] };
+      const emptyClient = new MastodonClient(emptyConfig, logger);
+
+      const result = await emptyClient.verifyConnection();
+
+      expect(result).toBe(false);
+      expect(logger.error).toHaveBeenCalledWith('No accounts configured');
     });
   });
 
   describe('getAccountInfo', () => {
-    it('should get account info successfully', async () => {
+    it('should get account info successfully for specific account', async () => {
       const mockAccountData = {
         username: 'testuser',
         displayName: 'Test User',
@@ -152,7 +242,7 @@ describe('MastodonClient', () => {
       };
       mockMastodonApi.v1.accounts.verifyCredentials.mockResolvedValue(mockAccountData);
 
-      const result = await client.getAccountInfo();
+      const result = await client.getAccountInfo('test-account');
 
       expect(result).toEqual(mockAccountData);
       expect(mockMastodonApi.v1.accounts.verifyCredentials).toHaveBeenCalled();
@@ -162,18 +252,72 @@ describe('MastodonClient', () => {
       const error = new Error('API Error');
       mockMastodonApi.v1.accounts.verifyCredentials.mockRejectedValue(error);
 
-      await expect(client.getAccountInfo()).rejects.toThrow(
-        'Failed to get account info: API Error'
+      await expect(client.getAccountInfo('test-account')).rejects.toThrow(
+        'Failed to get account info for test-account: API Error'
       );
-      expect(logger.error).toHaveBeenCalledWith('Failed to get account info:', error);
+      expect(logger.error).toHaveBeenCalledWith('Failed to get account info for test-account:', error);
     });
 
-    it('should handle unknown error in getAccountInfo', async () => {
-      mockMastodonApi.v1.accounts.verifyCredentials.mockRejectedValue('Unknown error');
-
-      await expect(client.getAccountInfo()).rejects.toThrow(
-        'Failed to get account info: Unknown error'
+    it('should throw error for unknown account', async () => {
+      await expect(client.getAccountInfo('nonexistent')).rejects.toThrow(
+        'Account "nonexistent" not found in configuration'
       );
+    });
+  });
+
+  describe('getAllAccountsInfo', () => {
+    it('should get info for all accounts', async () => {
+      const mockAccountData = {
+        username: 'testuser',
+        displayName: 'Test User',
+        followersCount: 100,
+        followingCount: 50,
+      };
+      mockMastodonApi.v1.accounts.verifyCredentials.mockResolvedValue(mockAccountData);
+
+      const result = await client.getAllAccountsInfo();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        accountName: 'test-account',
+        account: mockAccountData,
+        instance: 'https://test.mastodon'
+      });
+    });
+
+    it('should continue with other accounts if one fails', async () => {
+      const multiAccountConfig = {
+        ...config,
+        accounts: [
+          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+        ]
+      };
+
+      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const mockAccountData = { username: 'user1', displayName: 'User 1', followersCount: 10, followingCount: 5 };
+      
+      mockMastodonApi.v1.accounts.verifyCredentials
+        .mockResolvedValueOnce(mockAccountData)
+        .mockRejectedValueOnce(new Error('API Error'));
+
+      const result = await multiClient.getAllAccountsInfo();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].accountName).toBe('account1');
+      expect(logger.error).toHaveBeenCalledWith('Failed to get account info for account2:', expect.any(Error));
+    });
+  });
+
+  describe('utility methods', () => {
+    it('should return account names', () => {
+      const names = client.getAccountNames();
+      expect(names).toEqual(['test-account']);
+    });
+
+    it('should check if account exists', () => {
+      expect(client.hasAccount('test-account')).toBe(true);
+      expect(client.hasAccount('nonexistent')).toBe(false);
     });
   });
 });

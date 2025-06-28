@@ -26,10 +26,13 @@ describe('MastodonPingBot', () => {
 
   beforeEach(() => {
     mockConfig = {
-      mastodon: {
-        instance: 'https://test.mastodon',
-        accessToken: 'test-token',
-      },
+      accounts: [
+        {
+          name: 'test-account',
+          instance: 'https://test.mastodon',
+          accessToken: 'test-token',
+        }
+      ],
       bot: {
         providers: [
           {
@@ -37,6 +40,7 @@ describe('MastodonPingBot', () => {
             type: 'ping',
             cronSchedule: '0 * * * *',
             enabled: true,
+            accounts: ['test-account'],
             config: { message: 'TEST PING' }
           }
         ]
@@ -64,12 +68,18 @@ describe('MastodonPingBot', () => {
     // Mock MastodonClient
     mockMastodonClient = {
       verifyConnection: jest.fn().mockResolvedValue(true),
-      getAccountInfo: jest.fn().mockResolvedValue({
-        username: 'testuser',
-        displayName: 'Test User',
-        followersCount: 100,
-        followingCount: 50,
-      }),
+      getAllAccountsInfo: jest.fn().mockResolvedValue([
+        {
+          accountName: 'test-account',
+          account: {
+            username: 'testuser',
+            displayName: 'Test User',
+            followersCount: 100,
+            followingCount: 50,
+          },
+          instance: 'https://test.mastodon'
+        }
+      ]),
       postStatus: jest.fn(),
     } as unknown as jest.Mocked<MastodonClient>;
     MockMastodonClient.mockImplementation(() => mockMastodonClient);
@@ -160,20 +170,20 @@ describe('MastodonPingBot', () => {
     it('should verify connection and display account info', async () => {
       await bot.verify();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Verifying connection...');
+      expect(mockLogger.info).toHaveBeenCalledWith('Verifying connections...');
       expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
-      expect(mockMastodonClient.getAccountInfo).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('Account: @testuser');
-      expect(mockLogger.info).toHaveBeenCalledWith('Display Name: Test User');
-      expect(mockLogger.info).toHaveBeenCalledWith('Followers: 100');
-      expect(mockLogger.info).toHaveBeenCalledWith('Following: 50');
-      expect(mockLogger.info).toHaveBeenCalledWith('Connection verified successfully');
+      expect(mockMastodonClient.getAllAccountsInfo).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith('Successfully verified 1 account(s):');
+      expect(mockLogger.info).toHaveBeenCalledWith('  test-account: @testuser@test.mastodon');
+      expect(mockLogger.info).toHaveBeenCalledWith('    Display Name: Test User');
+      expect(mockLogger.info).toHaveBeenCalledWith('    Followers: 100, Following: 50');
+      expect(mockLogger.info).toHaveBeenCalledWith('All connections verified successfully');
     });
 
     it('should throw error if verification fails', async () => {
       mockMastodonClient.verifyConnection.mockResolvedValue(false);
 
-      await expect(bot.verify()).rejects.toThrow('Connection verification failed');
+      await expect(bot.verify()).rejects.toThrow('Connection verification failed for one or more accounts');
     });
   });
 

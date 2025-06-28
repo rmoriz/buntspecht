@@ -13,7 +13,8 @@ const mockOs = os as jest.Mocked<typeof os>;
 
 describe('ConfigLoader', () => {
   const mockConfig = `
-[mastodon]
+[[accounts]]
+name = "test-account"
 instance = "https://test.mastodon"
 accessToken = "test-token"
 
@@ -23,6 +24,7 @@ name = "test-provider"
 type = "ping"
 cronSchedule = "0 * * * *"
 enabled = true
+accounts = ["test-account"]
 
 [bot.providers.config]
 message = "TEST PING"
@@ -46,10 +48,13 @@ level = "debug"
 
       const config = ConfigLoader.loadConfig(cliOptions);
 
-      expect(config.mastodon.instance).toBe('https://test.mastodon');
-      expect(config.mastodon.accessToken).toBe('test-token');
+      expect(config.accounts).toHaveLength(1);
+      expect(config.accounts[0].name).toBe('test-account');
+      expect(config.accounts[0].instance).toBe('https://test.mastodon');
+      expect(config.accounts[0].accessToken).toBe('test-token');
       expect(config.bot.providers).toHaveLength(1);
       expect(config.bot.providers[0].name).toBe('test-provider');
+      expect(config.bot.providers[0].accounts).toEqual(['test-account']);
       expect(config.bot.providers[0].config.message).toBe('TEST PING');
       expect(config.logging.level).toBe('debug');
     });
@@ -73,7 +78,7 @@ level = "debug"
 
       const config = ConfigLoader.loadConfig(cliOptions);
 
-      expect(config.mastodon.instance).toBe('https://test.mastodon');
+      expect(config.accounts[0].instance).toBe('https://test.mastodon');
     });
 
     it('should throw error if BUNTSPECHT_CONFIG file does not exist', () => {
@@ -95,7 +100,7 @@ level = "debug"
 
       const config = ConfigLoader.loadConfig(cliOptions);
 
-      expect(config.mastodon.instance).toBe('https://test.mastodon');
+      expect(config.accounts[0].instance).toBe('https://test.mastodon');
     });
 
     it('should load config from home directory', () => {
@@ -107,7 +112,7 @@ level = "debug"
 
       const config = ConfigLoader.loadConfig(cliOptions);
 
-      expect(config.mastodon.instance).toBe('https://test.mastodon');
+      expect(config.accounts[0].instance).toBe('https://test.mastodon');
     });
 
     it('should throw error if no config file found', () => {
@@ -122,7 +127,8 @@ level = "debug"
 
     it('should set default values for optional fields', () => {
       const minimalConfig = `
-[mastodon]
+[[accounts]]
+name = "minimal-account"
 instance = "https://test.mastodon"
 accessToken = "test-token"
 
@@ -132,6 +138,7 @@ name = "minimal-provider"
 type = "ping"
 cronSchedule = "0 * * * *"
 enabled = true
+accounts = ["minimal-account"]
 
 [bot.providers.config]
 message = "PING"
@@ -152,7 +159,8 @@ message = "PING"
 
     it('should throw error for missing required fields', () => {
       const invalidConfig = `
-[mastodon]
+[[accounts]]
+name = "test-account"
 instance = "https://test.mastodon"
 # missing accessToken
 
@@ -161,6 +169,7 @@ instance = "https://test.mastodon"
 name = "test"
 type = "ping"
 cronSchedule = "0 * * * *"
+accounts = ["test-account"]
 
 [logging]
 `;
@@ -170,13 +179,14 @@ cronSchedule = "0 * * * *"
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
-        'Missing mastodon.accessToken in config'
+        'Account "test-account": Missing or invalid accessToken'
       );
     });
 
     it('should throw error for missing providers', () => {
       const invalidConfig = `
-[mastodon]
+[[accounts]]
+name = "test-account"
 instance = "https://test.mastodon"
 accessToken = "test-token"
 
@@ -193,6 +203,60 @@ level = "info"
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
         'Missing or empty bot.providers array in config. At least one provider must be configured.'
+      );
+    });
+
+    it('should throw error for provider with missing accounts', () => {
+      const invalidConfig = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+# missing accounts
+
+[logging]
+level = "info"
+`;
+      
+      const cliOptions: CliOptions = {};
+      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.readFileSync.mockReturnValue(invalidConfig);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Provider "test-provider": Missing or empty accounts array'
+      );
+    });
+
+    it('should throw error for provider referencing unknown account', () => {
+      const invalidConfig = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+accounts = ["unknown-account"]
+
+[logging]
+level = "info"
+`;
+      
+      const cliOptions: CliOptions = {};
+      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.readFileSync.mockReturnValue(invalidConfig);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Provider "test-provider" references unknown account: "unknown-account"'
       );
     });
 

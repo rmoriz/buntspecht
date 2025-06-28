@@ -1,70 +1,170 @@
 import { createRestAPIClient, type mastodon } from 'masto';
-import { BotConfig } from '../types/config';
+import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 
+interface AccountClient {
+  name: string;
+  config: AccountConfig;
+  client: mastodon.rest.Client;
+}
+
 export class MastodonClient {
-  private client!: mastodon.rest.Client;
+  private clients: Map<string, AccountClient> = new Map();
   private config: BotConfig;
   private logger: Logger;
 
   constructor(config: BotConfig, logger: Logger) {
     this.config = config;
     this.logger = logger;
-    this.initializeClient();
+    this.initializeClients();
   }
 
-  private initializeClient(): void {
-    this.client = createRestAPIClient({
-      url: this.config.mastodon.instance,
-      accessToken: this.config.mastodon.accessToken,
-    });
-  }
-
-  /**
-   * Posts a status message to Mastodon
-   */
-  public async postStatus(message: string): Promise<void> {
-    try {
-      this.logger.info(`Posting status: "${message}"`);
-      
-      const status = await this.client.v1.statuses.create({
-        status: message,
+  private initializeClients(): void {
+    for (const accountConfig of this.config.accounts) {
+      const client = createRestAPIClient({
+        url: accountConfig.instance,
+        accessToken: accountConfig.accessToken,
       });
 
-      this.logger.info(`Status posted successfully. ID: ${status.id}`);
-    } catch (error) {
-      this.logger.error('Failed to post status:', error);
-      throw new Error(`Failed to post status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.clients.set(accountConfig.name, {
+        name: accountConfig.name,
+        config: accountConfig,
+        client,
+      });
+
+      this.logger.debug(`Initialized client for account: ${accountConfig.name} (${accountConfig.instance})`);
     }
   }
 
   /**
-   * Verifies the connection to Mastodon by fetching account info
+   * Posts a status message to specified accounts
+   */
+  public async postStatus(message: string, accountNames: string[]): Promise<void> {
+    if (accountNames.length === 0) {
+      throw new Error('No accounts specified for posting');
+    }
+
+    const results: Array<{ account: string; success: boolean; error?: string }> = [];
+
+    for (const accountName of accountNames) {
+      const accountClient = this.clients.get(accountName);
+      if (!accountClient) {
+        const error = `Account "${accountName}" not found in configuration`;
+        this.logger.error(error);
+        results.push({ account: accountName, success: false, error });
+        continue;
+      }
+
+      try {
+        this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}): "${message}"`);
+        
+        const status = await accountClient.client.v1.statuses.create({
+          status: message,
+        });
+
+        this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}`);
+        results.push({ account: accountName, success: true });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Failed to post status to ${accountName}:`, error);
+        results.push({ account: accountName, success: false, error: errorMessage });
+      }
+    }
+
+    // Check if any posts were successful
+    const successfulPosts = results.filter(r => r.success);
+    const failedPosts = results.filter(r => !r.success);
+
+    if (successfulPosts.length === 0) {
+      // All posts failed
+      const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
+      throw new Error(`Failed to post to all accounts: ${errors}`);
+    } else if (failedPosts.length > 0) {
+      // Some posts failed, log warning but don't throw
+      const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
+      this.logger.warn(`Some posts failed: ${errors}`);
+    }
+  }
+
+  /**
+   * Verifies the connection to all configured accounts
    */
   public async verifyConnection(): Promise<boolean> {
-    try {
-      this.logger.debug('Verifying Mastodon connection...');
-      
-      const account = await this.client.v1.accounts.verifyCredentials();
-      
-      this.logger.info(`Connected to Mastodon as: @${account.username}@${new URL(this.config.mastodon.instance).hostname}`);
-      return true;
-    } catch (error) {
-      this.logger.error('Failed to verify Mastodon connection:', error);
+    if (this.clients.size === 0) {
+      this.logger.error('No accounts configured');
       return false;
+    }
+
+    let allSuccessful = true;
+
+    for (const [accountName, accountClient] of this.clients) {
+      try {
+        this.logger.debug(`Verifying connection for account: ${accountName}...`);
+        
+        const account = await accountClient.client.v1.accounts.verifyCredentials();
+        
+        this.logger.info(`Connected to ${accountName} as: @${account.username}@${new URL(accountClient.config.instance).hostname}`);
+      } catch (error) {
+        this.logger.error(`Failed to verify connection for ${accountName}:`, error);
+        allSuccessful = false;
+      }
+    }
+
+    return allSuccessful;
+  }
+
+  /**
+   * Gets account information for a specific account
+   */
+  public async getAccountInfo(accountName: string): Promise<mastodon.v1.Account> {
+    const accountClient = this.clients.get(accountName);
+    if (!accountClient) {
+      throw new Error(`Account "${accountName}" not found in configuration`);
+    }
+
+    try {
+      const account = await accountClient.client.v1.accounts.verifyCredentials();
+      return account;
+    } catch (error) {
+      this.logger.error(`Failed to get account info for ${accountName}:`, error);
+      throw new Error(`Failed to get account info for ${accountName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Gets the current user's account information
+   * Gets account information for all configured accounts
    */
-  public async getAccountInfo(): Promise<mastodon.v1.Account> {
-    try {
-      const account = await this.client.v1.accounts.verifyCredentials();
-      return account;
-    } catch (error) {
-      this.logger.error('Failed to get account info:', error);
-      throw new Error(`Failed to get account info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  public async getAllAccountsInfo(): Promise<Array<{ accountName: string; account: mastodon.v1.Account; instance: string }>> {
+    const accountsInfo: Array<{ accountName: string; account: mastodon.v1.Account; instance: string }> = [];
+
+    for (const [accountName, accountClient] of this.clients) {
+      try {
+        const account = await accountClient.client.v1.accounts.verifyCredentials();
+        accountsInfo.push({
+          accountName,
+          account,
+          instance: accountClient.config.instance
+        });
+      } catch (error) {
+        this.logger.error(`Failed to get account info for ${accountName}:`, error);
+        // Continue with other accounts even if one fails
+      }
     }
+
+    return accountsInfo;
+  }
+
+  /**
+   * Gets the list of configured account names
+   */
+  public getAccountNames(): string[] {
+    return Array.from(this.clients.keys());
+  }
+
+  /**
+   * Checks if an account exists in the configuration
+   */
+  public hasAccount(accountName: string): boolean {
+    return this.clients.has(accountName);
   }
 }

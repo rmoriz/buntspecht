@@ -65,6 +65,18 @@ export class MultiProviderScheduler {
       throw new Error(`Invalid cron schedule for provider "${providerConfig.name}": ${providerConfig.cronSchedule}`);
     }
 
+    // Validate accounts
+    if (!providerConfig.accounts || providerConfig.accounts.length === 0) {
+      throw new Error(`Provider "${providerConfig.name}" must specify at least one account`);
+    }
+
+    // Validate that all specified accounts exist in configuration
+    for (const accountName of providerConfig.accounts) {
+      if (!this.mastodonClient.hasAccount(accountName)) {
+        throw new Error(`Provider "${providerConfig.name}" references unknown account: "${accountName}"`);
+      }
+    }
+
     // Create message provider
     const messageProvider = await MessageProviderFactory.createProvider(
       providerConfig.type,
@@ -87,7 +99,7 @@ export class MultiProviderScheduler {
       config: providerConfig
     });
 
-    this.logger.info(`Initialized provider "${providerConfig.name}" with schedule: ${providerConfig.cronSchedule}`);
+    this.logger.info(`Initialized provider "${providerConfig.name}" with schedule: ${providerConfig.cronSchedule} for accounts: ${providerConfig.accounts.join(', ')}`);
   }
 
   /**
@@ -147,8 +159,15 @@ export class MultiProviderScheduler {
   private async executeProviderTask(providerName: string, provider: MessageProvider): Promise<void> {
     try {
       this.logger.debug(`Executing task for provider: ${providerName}`);
+      
+      // Find the provider config to get account names
+      const providerConfig = this.getProviderConfigs().find(p => p.name === providerName);
+      if (!providerConfig) {
+        throw new Error(`Provider configuration not found for: ${providerName}`);
+      }
+
       const message = await provider.generateMessage();
-      await this.mastodonClient.postStatus(message);
+      await this.mastodonClient.postStatus(message, providerConfig.accounts);
       this.logger.info(`Successfully posted message from provider: ${providerName}`);
     } catch (error) {
       this.logger.error(`Failed to execute task for provider "${providerName}":`, error);

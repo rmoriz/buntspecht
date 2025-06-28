@@ -1,44 +1,60 @@
 # Buntspecht Konfiguration
 # Kopiere diese Datei zu config.toml und passe die Werte an
 
-[mastodon]
-# Deine Mastodon-Instanz URL (z.B. "https://mastodon.social")
-instance = "https://deine-mastodon-instanz.com"
+# Fediverse/Mastodon Accounts
+# Du kannst mehrere Accounts konfigurieren und Provider koennen an einen oder mehrere Accounts posten
 
-# Dein Zugangstoken (aus den Mastodon-Einstellungen erhalten)
-accessToken = "dein-zugangstoken-hier"
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "dein-hauptaccount-token-hier"
+
+[[accounts]]
+name = "backup-account"
+instance = "https://fosstodon.org"
+accessToken = "dein-backup-account-token-hier"
+
+# Optional: Weitere Accounts
+# [[accounts]]
+# name = "work-account"
+# instance = "https://deine-firmen-instanz.com"
+# accessToken = "dein-arbeits-token-hier"
 
 [bot]
 # Multi-Provider Konfiguration
 # Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
+# Jeder Provider kann an einen oder mehrere Accounts posten
 
-# Provider 1: Stuendliche Ping-Nachrichten
+# Provider 1: Stuendliche Ping-Nachrichten (an beide Accounts)
 [[bot.providers]]
 name = "hourly-ping"
 type = "ping"
 cronSchedule = "0 * * * *"  # Jede Stunde
 enabled = true
+accounts = ["main-account", "backup-account"]  # Postet an beide Accounts
 
 [bot.providers.config]
 message = "🤖 Stuendlicher Ping von Buntspecht!"
 
-# Provider 2: Taegliche Systemstatistiken (deaktiviert)
+# Provider 2: Taegliche Systemstatistiken (nur an Hauptaccount, deaktiviert)
 [[bot.providers]]
 name = "daily-stats"
 type = "command"
 cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
 enabled = false
+accounts = ["main-account"]  # Nur an Hauptaccount
 
 [bot.providers.config]
 command = "uptime"
 timeout = 10000
 
-# Provider 3: GitHub Repository-Updates (alle 6 Stunden, deaktiviert)
+# Provider 3: GitHub Repository-Updates (nur an Backup-Account, deaktiviert)
 [[bot.providers]]
 name = "github-stats"
 type = "jsoncommand"
 cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
 enabled = false
+accounts = ["backup-account"]  # Nur an Backup-Account
 
 [bot.providers.config]
 command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"

@@ -21,12 +21,16 @@ describe('MultiProviderScheduler', () => {
 
     mockMastodonClient = new MastodonClient({} as BotConfig, logger) as jest.Mocked<MastodonClient>;
     mockMastodonClient.postStatus = jest.fn().mockResolvedValue(undefined);
+    mockMastodonClient.hasAccount = jest.fn().mockReturnValue(true);
 
     config = {
-      mastodon: {
-        instance: 'https://test.social',
-        accessToken: 'test-token'
-      },
+      accounts: [
+        {
+          name: 'test-account',
+          instance: 'https://test.social',
+          accessToken: 'test-token'
+        }
+      ],
       bot: {
         providers: []
       },
@@ -55,6 +59,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test message' }
         }
       ];
@@ -73,6 +78,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Ping message' }
         },
         {
@@ -80,6 +86,7 @@ describe('MultiProviderScheduler', () => {
           type: 'command',
           cronSchedule: '*/30 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { command: 'echo "test"' }
         }
       ];
@@ -98,6 +105,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Enabled message' }
         },
         {
@@ -105,6 +113,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: false,
+          accounts: ['test-account'],
           config: { message: 'Disabled message' }
         }
       ];
@@ -123,6 +132,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: 'invalid-cron',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test message' }
         }
       ];
@@ -141,6 +151,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test message' }
         }
       ];
@@ -151,14 +162,14 @@ describe('MultiProviderScheduler', () => {
     it('should execute all tasks immediately', async () => {
       await scheduler.executeAllTasksNow();
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message');
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account']);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
     it('should execute specific provider task', async () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message');
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account']);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
@@ -183,6 +194,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test message' }
         }
       ];
@@ -219,6 +231,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Ping' }
         },
         {
@@ -226,6 +239,7 @@ describe('MultiProviderScheduler', () => {
           type: 'command',
           cronSchedule: '*/30 * * * *',
           enabled: false,
+          accounts: ['test-account'],
           config: { command: 'echo test' }
         }
       ];
@@ -250,6 +264,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '0 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test 1' }
         },
         {
@@ -257,6 +272,7 @@ describe('MultiProviderScheduler', () => {
           type: 'ping',
           cronSchedule: '*/30 * * * *',
           enabled: true,
+          accounts: ['test-account'],
           config: { message: 'Test 2' }
         }
       ];

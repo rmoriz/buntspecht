@@ -1,66 +1,80 @@
 # Buntspecht Multi-Provider Konfiguration Beispiel
 # Kopiere diese Datei zu config.toml und passe die Werte an
 
-[mastodon]
-# Deine Mastodon-Instanz URL (z.B. "https://mastodon.social")
-instance = "https://deine-mastodon-instanz.com"
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "personal"
+instance = "https://mastodon.social"
+accessToken = "dein-persoenlicher-token"
 
-# Dein Zugangstoken (aus den Mastodon-Einstellungen erhalten)
-accessToken = "dein-zugangstoken-hier"
+[[accounts]]
+name = "work"
+instance = "https://fosstodon.org"
+accessToken = "dein-arbeits-token"
+
+[[accounts]]
+name = "bot"
+instance = "https://botsin.space"
+accessToken = "dein-bot-token"
 
 [bot]
 # Multi-Provider Konfiguration
 # Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
 
-# Provider 1: Stündliche Ping-Nachrichten
+# Provider 1: Stündliche Ping-Nachrichten (an alle Accounts)
 [[bot.providers]]
 name = "hourly-ping"
 type = "ping"
 cronSchedule = "0 * * * *"  # Jede Stunde
 enabled = true
+accounts = ["personal", "work", "bot"]  # An alle drei Accounts
 
 [bot.providers.config]
 message = "🤖 Stündlicher Ping von Buntspecht!"
 
-# Provider 2: Tägliche Systemstatistiken
+# Provider 2: Tägliche Systemstatistiken (nur an Work-Account)
 [[bot.providers]]
 name = "daily-stats"
 type = "command"
 cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
 enabled = true
+accounts = ["work"]  # Nur an Work-Account
 
 [bot.providers.config]
 command = "uptime"
 timeout = 10000
 
-# Provider 3: GitHub Repository-Updates (alle 6 Stunden)
+# Provider 3: GitHub Repository-Updates (an Personal und Bot Account)
 [[bot.providers]]
 name = "github-stats"
 type = "jsoncommand"
 cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
 enabled = true
+accounts = ["personal", "bot"]  # An Personal und Bot Account
 
 [bot.providers.config]
 command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
 template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
 timeout = 15000
 
-# Provider 4: Wöchentliche Zusammenfassung (deaktiviert)
+# Provider 4: Wöchentliche Zusammenfassung (nur an Personal Account, deaktiviert)
 [[bot.providers]]
 name = "weekly-summary"
 type = "ping"
 cronSchedule = "0 10 * * 1"  # Jeden Montag um 10:00 Uhr
 enabled = false  # Deaktiviert
+accounts = ["personal"]  # Nur an Personal Account
 
 [bot.providers.config]
 message = "📅 Wöchentliche Zusammenfassung: Eine neue Woche beginnt!"
 
-# Provider 5: Wetter-Updates (alle 3 Stunden)
+# Provider 5: Wetter-Updates (nur an Bot Account)
 [[bot.providers]]
 name = "weather-updates"
 type = "jsoncommand"
 cronSchedule = "0 */3 * * *"  # Alle 3 Stunden
 enabled = true
+accounts = ["bot"]  # Nur an Bot Account
 
 [bot.providers.config]
 # Beispiel mit OpenWeatherMap API (API-Key erforderlich)

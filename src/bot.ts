@@ -62,19 +62,23 @@ export class MastodonPingBot {
    * Verifies the connection and displays account info
    */
   public async verify(): Promise<void> {
-    this.logger.info('Verifying connection...');
+    this.logger.info('Verifying connections...');
     
     const isConnected = await this.mastodonClient.verifyConnection();
     if (!isConnected) {
-      throw new Error('Connection verification failed');
+      throw new Error('Connection verification failed for one or more accounts');
     }
 
-    const accountInfo = await this.mastodonClient.getAccountInfo();
-    this.logger.info(`Account: @${accountInfo.username}`);
-    this.logger.info(`Display Name: ${accountInfo.displayName}`);
-    this.logger.info(`Followers: ${accountInfo.followersCount}`);
-    this.logger.info(`Following: ${accountInfo.followingCount}`);
-    this.logger.info('Connection verified successfully');
+    const accountsInfo = await this.mastodonClient.getAllAccountsInfo();
+    this.logger.info(`Successfully verified ${accountsInfo.length} account(s):`);
+    
+    for (const { accountName, account, instance } of accountsInfo) {
+      this.logger.info(`  ${accountName}: @${account.username}@${new URL(instance).hostname}`);
+      this.logger.info(`    Display Name: ${account.displayName}`);
+      this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+    }
+    
+    this.logger.info('All connections verified successfully');
   }
 
   /**

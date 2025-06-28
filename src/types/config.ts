@@ -1,16 +1,20 @@
+export interface AccountConfig {
+  name: string;
+  instance: string;
+  accessToken: string;
+}
+
 export interface ProviderConfig {
   name: string;
   type: string;
   cronSchedule: string;
   enabled?: boolean;
+  accounts: string[]; // Array of account names to post to
   config: { [key: string]: unknown };
 }
 
 export interface BotConfig {
-  mastodon: {
-    instance: string;
-    accessToken: string;
-  };
+  accounts: AccountConfig[];
   bot: {
     providers: ProviderConfig[];
   };
