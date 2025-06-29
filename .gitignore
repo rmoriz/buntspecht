@@ -10,7 +10,10 @@ build/
 
 # Compiled binaries
 buntspecht
-buntspecht-*
+buntspecht-linux-*
+buntspecht-darwin-*
+buntspecht-windows-*
+buntspecht-*.exe
 
 # Bun build cache
 .*.bun-build
