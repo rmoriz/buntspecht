@@ -27,7 +27,7 @@ RUN apk add --no-cache curl iputils jq procps
 
 # Create app user
 RUN addgroup -g 1001 -S bunjs && \
-    adduser -S botuser -u 1001
+    adduser -S buntspecht -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -45,12 +45,12 @@ COPY --from=builder /app/dist ./dist
 COPY config.example.toml ./
 
 # Create config directory
-RUN mkdir -p /home/botuser/.config/buntspecht && \
-    chown -R botuser:bunjs /home/botuser/.config && \
-    chown -R botuser:bunjs /app
+RUN mkdir -p /home/buntspecht/.config/buntspecht && \
+    chown -R buntspecht:bunjs /home/buntspecht/.config && \
+    chown -R buntspecht:bunjs /app
 
 # Switch to non-root user
-USER botuser
+USER buntspecht
 
 # Expose port (if needed for health checks)
 EXPOSE 3000
