@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-unused-vars */
+
 import { Logger } from '../utils/logger';
 
 export interface TelemetryConfig {
@@ -51,54 +54,54 @@ export class TelemetryService {
   }
 
   // Tracing methods - all no-ops
-  startSpan(name: string, attributes?: Record<string, string | number | boolean>): any {
+  startSpan(_name: string, _attributes?: Record<string, string | number | boolean>): unknown {
     return {
-      setAttributes: () => {},
-      setStatus: () => {},
-      recordException: () => {},
-      end: () => {}
+      setAttributes: (): void => {},
+      setStatus: (): void => {},
+      recordException: (): void => {},
+      end: (): void => {}
     };
   }
 
-  endSpan(span: any): void {
+  endSpan(_span: unknown): void {
     // No-op
   }
 
-  addSpanEvent(span: any, name: string, attributes?: Record<string, string | number | boolean>): void {
+  addSpanEvent(_span: unknown, _name: string, _attributes?: Record<string, string | number | boolean>): void {
     // No-op
   }
 
-  recordException(span: any, exception: Error): void {
+  recordException(_span: unknown, _exception: Error): void {
     // No-op
   }
 
   // Metrics methods - all no-ops
-  incrementCounter(name: string, value: number = 1, attributes?: Record<string, string | number | boolean>): void {
+  incrementCounter(_name: string, _value: number = 1, _attributes?: Record<string, string | number | boolean>): void {
     // No-op
   }
 
-  recordHistogram(name: string, value: number, attributes?: Record<string, string | number | boolean>): void {
+  recordHistogram(_name: string, _value: number, _attributes?: Record<string, string | number | boolean>): void {
     // No-op
   }
 
-  setGauge(name: string, value: number, attributes?: Record<string, string | number | boolean>): void {
+  setGauge(_name: string, _value: number, _attributes?: Record<string, string | number | boolean>): void {
     // No-op
   }
 
   // Convenience methods
-  recordPost(success: boolean, provider?: string, account?: string): void {
+  recordPost(_success: boolean, _provider?: string, _account?: string): void {
     // No-op
   }
 
-  recordProviderExecution(provider: string, duration: number, success: boolean): void {
+  recordProviderExecution(_provider: string, _duration: number, _success: boolean): void {
     // No-op
   }
 
-  recordError(error: Error, context?: string): void {
+  recordError(_error: Error, _context?: string): void {
     // No-op
   }
 
-  updateActiveConnections(count: number): void {
+  updateActiveConnections(_count: number): void {
     // No-op
   }
 }

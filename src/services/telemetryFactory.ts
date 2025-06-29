@@ -5,7 +5,7 @@ import { TelemetryConfig } from './telemetryStub';
  * Factory function to create the appropriate TelemetryService implementation
  * based on the runtime environment
  */
-export async function createTelemetryService(config: TelemetryConfig, logger: Logger) {
+export async function createTelemetryService(config: TelemetryConfig, logger: Logger): Promise<unknown> {
   // Multiple checks to detect if we're running in a binary environment
   const isBinary = typeof process !== 'undefined' && (
     // Check if the executable name contains 'buntspecht-'
