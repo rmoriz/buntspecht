@@ -1,137 +1,137 @@
-# Buntspecht Konfiguration
-# Kopiere diese Datei zu config.toml und passe die Werte an
+# Buntspecht Configuration
+# Copy this file to config.toml and adjust the values
 
 # Fediverse/Mastodon Accounts
-# Du kannst mehrere Accounts konfigurieren und Provider koennen an einen oder mehrere Accounts posten
+# You can configure multiple accounts and providers can post to one or multiple accounts
 
 [[accounts]]
 name = "main-account"
 instance = "https://mastodon.social"
-accessToken = "dein-hauptaccount-token-hier"
+accessToken = "your-main-account-token-here"
 
 [[accounts]]
 name = "backup-account"
 instance = "https://fosstodon.org"
-accessToken = "dein-backup-account-token-hier"
+accessToken = "your-backup-account-token-here"
 
-# Optional: Weitere Accounts
+# Optional: Additional accounts
 # [[accounts]]
 # name = "work-account"
-# instance = "https://deine-firmen-instanz.com"
-# accessToken = "dein-arbeits-token-hier"
+# instance = "https://your-company-instance.com"
+# accessToken = "your-work-token-here"
 
 [bot]
-# Multi-Provider Konfiguration
-# Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
-# Jeder Provider kann an einen oder mehrere Accounts posten
+# Multi-Provider Configuration
+# Each provider can have its own schedule and configuration
+# Each provider can post to one or multiple accounts
 
-# Provider 1: Stuendliche Ping-Nachrichten (an beide Accounts)
+# Provider 1: Hourly ping messages (to both accounts)
 [[bot.providers]]
 name = "hourly-ping"
 type = "ping"
-cronSchedule = "0 * * * *"  # Jede Stunde
+cronSchedule = "0 * * * *"  # Every hour
 enabled = true
-accounts = ["main-account", "backup-account"]  # Postet an beide Accounts
+accounts = ["main-account", "backup-account"]  # Posts to both accounts
 
 [bot.providers.config]
-message = "🤖 Stuendlicher Ping von Buntspecht!"
+message = "Hourly ping from Buntspecht!"
 
-# Provider 2: Taegliche Systemstatistiken (nur an Hauptaccount, deaktiviert)
+# Provider 2: Daily system statistics (only to main account, disabled)
 [[bot.providers]]
 name = "daily-stats"
 type = "command"
-cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
+cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
 enabled = false
-accounts = ["main-account"]  # Nur an Hauptaccount
+accounts = ["main-account"]  # Only to main account
 
 [bot.providers.config]
 command = "uptime"
 timeout = 10000
 
-# Provider 3: GitHub Repository-Updates (nur an Backup-Account, deaktiviert)
+# Provider 3: GitHub repository updates (only to backup account, disabled)
 [[bot.providers]]
 name = "github-stats"
 type = "jsoncommand"
-cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
+cronSchedule = "0 */6 * * *"  # Every 6 hours
 enabled = false
-accounts = ["backup-account"]  # Nur an Backup-Account
+accounts = ["backup-account"]  # Only to backup account
 
 [bot.providers.config]
 command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
-template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
+template = "Repository {{name}} ({{language}}): {{stars}} stars and {{forks}} forks"
 timeout = 15000
 
 [logging]
-# Protokoll-Stufe: debug, info, warn, error
+# Log level: debug, info, warn, error
 level = "info"
 
 [telemetry]
-# OpenTelemetry Konfiguration fuer Monitoring und Observability
-# WICHTIG: Telemetrie funktioniert nur mit 'bun run' oder 'npm start', NICHT mit Single Binaries!
-# Single Binaries (buntspecht-linux-x64, etc.) haben OpenTelemetry-Dependencies ausgeschlossen.
-# Fuer Telemetrie verwende Docker oder fuehre den Bot direkt mit Bun/Node.js aus.
-enabled = false  # Telemetrie aktivieren/deaktivieren
+# OpenTelemetry configuration for monitoring and observability
+# IMPORTANT: Telemetry only works with 'bun run' or 'npm start', NOT with single binaries!
+# Single binaries (buntspecht-linux-x64, etc.) have OpenTelemetry dependencies excluded.
+# For telemetry use Docker or run the bot directly with Bun/Node.js.
+enabled = false  # Enable/disable telemetry
 serviceName = "buntspecht"
 serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
-# Jaeger fuer Distributed Tracing
+# Jaeger for distributed tracing
 enabled = false
 endpoint = "http://localhost:14268/api/traces"
 
 [telemetry.prometheus]
-# Prometheus fuer Metriken
+# Prometheus for metrics
 enabled = false
 port = 9090
 endpoint = "/metrics"
 
 [telemetry.tracing]
-# Tracing aktivieren/deaktivieren
+# Enable/disable tracing
 enabled = false
 
 [telemetry.metrics]
-# Metriken aktivieren/deaktivieren
+# Enable/disable metrics
 enabled = false
 
-# Hinweise:
-# - Jeder Provider laeuft unabhaengig mit seinem eigenen Zeitplan
-# - Provider koennen einzeln aktiviert/deaktiviert werden mit 'enabled = true/false'
-# - Verschiedene Provider-Typen koennen gemischt werden
-# - Jeder Provider kann eigene Umgebungsvariablen haben
-# - Bei Fehlern in einem Provider werden die anderen nicht beeintraechtigt
+# Notes:
+# - Each provider runs independently with its own schedule
+# - Providers can be individually enabled/disabled with 'enabled = true/false'
+# - Different provider types can be mixed
+# - Each provider can have its own environment variables
+# - Errors in one provider do not affect others
 #
-# Cron-Schedule Beispiele:
-# "0 * * * *"       = jede Stunde
-# "*/30 * * * *"    = alle 30 Minuten  
-# "0 9 * * *"       = jeden Tag um 9:00 Uhr
-# "0 9 * * 1"       = jeden Montag um 9:00 Uhr
-# "0 */6 * * *"     = alle 6 Stunden
-# "0 9,17 * * 1-5"  = Mo-Fr um 9:00 und 17:00 Uhr
+# Cron schedule examples:
+# "0 * * * *"       = every hour
+# "*/30 * * * *"    = every 30 minutes  
+# "0 9 * * *"       = every day at 9:00 AM
+# "0 9 * * 1"       = every Monday at 9:00 AM
+# "0 */6 * * *"     = every 6 hours
+# "0 9,17 * * 1-5"  = Mon-Fri at 9:00 AM and 5:00 PM
 #
-# Provider-Typen:
+# Provider types:
 #
 # 1. ping Provider:
 #    type = "ping"
 #    [config]
-#    message = "Deine Nachricht hier"
+#    message = "Your message here"
 #
 # 2. command Provider:
 #    type = "command"
 #    [config]
-#    command = "date '+Heute ist %A, der %d. %B %Y um %H:%M Uhr UTC'"
-#    timeout = 30000  # Optional: Timeout in Millisekunden
-#    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
-#    maxBuffer = 1048576  # Optional: Maximale Puffergroesse
-#    [config.env]  # Optional: Umgebungsvariablen
-#    MEINE_VAR = "wert"
+#    command = "date '+Today is %A, %B %d, %Y at %H:%M UTC'"
+#    timeout = 30000  # Optional: timeout in milliseconds
+#    cwd = "/path/to/working/directory"  # Optional: working directory
+#    maxBuffer = 1048576  # Optional: maximum buffer size
+#    [config.env]  # Optional: environment variables
+#    MY_VAR = "value"
 #
 # 3. jsoncommand Provider:
 #    type = "jsoncommand"
 #    [config]
 #    command = "curl -s 'https://api.example.com/data' | jq '{name: .name, count: .count}'"
-#    template = "Statistik: {{name}} hat {{count}} Eintraege"
-#    timeout = 30000  # Optional: Timeout in Millisekunden
-#    cwd = "/pfad/zum/arbeitsverzeichnis"  # Optional: Arbeitsverzeichnis
-#    maxBuffer = 1048576  # Optional: Maximale Puffergroesse
-#    [config.env]  # Optional: Umgebungsvariablen
-#    API_KEY = "dein-schluessel"
+#    template = "Statistics: {{name}} has {{count}} entries"
+#    timeout = 30000  # Optional: timeout in milliseconds
+#    cwd = "/path/to/working/directory"  # Optional: working directory
+#    maxBuffer = 1048576  # Optional: maximum buffer size
+#    [config.env]  # Optional: environment variables
+#    API_KEY = "your-key"

@@ -192,6 +192,23 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+  check-german-readme:
+    runs-on: ubuntu-latest
+    # Check if German README needs updating when English README changes
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Check German README status
+      run: node scripts/update-german-readme.js
+      continue-on-error: true
+
   security:
     runs-on: ubuntu-latest
     # Security scanning using GitHub's built-in tools and free alternatives

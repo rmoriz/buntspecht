@@ -1,65 +1,65 @@
-# Buntspecht Telemetrie Konfiguration Beispiel
-# Diese Datei zeigt, wie OpenTelemetry für Monitoring und Observability konfiguriert wird
+# Buntspecht Telemetry Configuration Example
+# This file shows how to configure OpenTelemetry for monitoring and observability
 #
-# WICHTIGER HINWEIS FUER SINGLE BINARY BUILDS:
-# OpenTelemetry funktioniert NICHT mit den vorkompilierten Single Binaries (buntspecht-linux-x64, etc.)!
-# Die OpenTelemetry-Dependencies werden bei 'bun build --compile' ausgeschlossen (--external @opentelemetry/*).
+# IMPORTANT NOTE FOR SINGLE BINARY BUILDS:
+# OpenTelemetry does NOT work with pre-compiled single binaries (buntspecht-linux-x64, etc.)!
+# OpenTelemetry dependencies are excluded during 'bun build --compile' (--external @opentelemetry/*).
 # 
-# Fuer Telemetrie verwende eine der folgenden Optionen:
-# 1. 'bun run dist/index.js' (nach 'bun run build')
+# For telemetry use one of the following options:
+# 1. 'bun run dist/index.js' (after 'bun run build')
 # 2. 'npm start' 
 # 3. Docker: 'docker run ...'
-# 4. 'bun run dev' (Development-Modus)
+# 4. 'bun run dev' (development mode)
 
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "main-account"
 instance = "https://mastodon.social"
-accessToken = "dein-token-hier"
+accessToken = "your-token-here"
 
 [bot]
-# Einfacher Provider für Telemetrie-Tests
+# Simple provider for telemetry testing
 [[bot.providers]]
 name = "telemetry-test"
 type = "ping"
-cronSchedule = "*/5 * * * *"  # Alle 5 Minuten für häufige Telemetrie-Daten
+cronSchedule = "*/5 * * * *"  # Every 5 minutes for frequent telemetry data
 enabled = true
 accounts = ["main-account"]
 
 [bot.providers.config]
-message = "🔍 Telemetrie-Test: {{timestamp}}"
+message = "Telemetry test: {{timestamp}}"
 
 [logging]
-level = "debug"  # Debug-Level für detaillierte Telemetrie-Logs
+level = "debug"  # Debug level for detailed telemetry logs
 
 [telemetry]
-# OpenTelemetry Konfiguration für Monitoring und Observability
-enabled = true  # Telemetrie aktiviert
+# OpenTelemetry configuration for monitoring and observability
+enabled = true  # Telemetry enabled
 serviceName = "buntspecht"
 serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
-# Jaeger für Distributed Tracing
-# Installiere Jaeger lokal: docker run -d --name jaeger -p 16686:16686 -p 14268:14268 jaegertracing/all-in-one:latest
+# Jaeger for distributed tracing
+# Install Jaeger locally: docker run -d --name jaeger -p 16686:16686 -p 14268:14268 jaegertracing/all-in-one:latest
 enabled = true
 endpoint = "http://localhost:14268/api/traces"
 
 [telemetry.prometheus]
-# Prometheus für Metriken
-# Metriken sind verfügbar unter http://localhost:9090/metrics
+# Prometheus for metrics
+# Metrics are available at http://localhost:9090/metrics
 enabled = true
 port = 9090
 endpoint = "/metrics"
 
 [telemetry.tracing]
-# Tracing aktivieren für detaillierte Ausführungsverfolgung
+# Enable tracing for detailed execution tracking
 enabled = true
 
 [telemetry.metrics]
-# Metriken aktivieren für Performance-Monitoring
+# Enable metrics for performance monitoring
 enabled = true
 
-# Telemetrie-Hinweise:
+# Telemetry Notes:
 #
 # 1. Jaeger Setup (Distributed Tracing):
 #    docker run -d --name jaeger \
@@ -69,9 +69,9 @@ enabled = true
 #    
 #    Jaeger UI: http://localhost:16686
 #
-# 2. Prometheus Setup (Metriken):
-#    Die Metriken sind direkt unter http://localhost:9090/metrics verfügbar
-#    Für ein vollständiges Prometheus-Setup:
+# 2. Prometheus Setup (Metrics):
+#    Metrics are directly available at http://localhost:9090/metrics
+#    For a complete Prometheus setup:
 #    
 #    prometheus.yml:
 #    global:
@@ -81,27 +81,27 @@ enabled = true
 #        static_configs:
 #          - targets: ['localhost:9090']
 #
-# 3. Verfügbare Metriken:
-#    - buntspecht_posts_total: Anzahl der gesendeten Posts
-#    - buntspecht_errors_total: Anzahl der Fehler
-#    - buntspecht_provider_execution_duration_seconds: Ausführungszeit der Provider
-#    - buntspecht_active_connections: Anzahl aktiver Mastodon-Verbindungen
+# 3. Available Metrics:
+#    - buntspecht_posts_total: Number of posts sent
+#    - buntspecht_errors_total: Number of errors
+#    - buntspecht_provider_execution_duration_seconds: Provider execution time
+#    - buntspecht_active_connections: Number of active Mastodon connections
 #
-# 4. Verfügbare Traces:
-#    - mastodon.post_status: Mastodon-Post-Operationen
-#    - provider.execute_task: Provider-Ausführungen
+# 4. Available Traces:
+#    - mastodon.post_status: Mastodon post operations
+#    - provider.execute_task: Provider executions
 #
-# 5. Span-Attribute:
-#    - mastodon.accounts_count: Anzahl der Ziel-Accounts
-#    - mastodon.provider: Name des Providers
-#    - mastodon.message_length: Länge der Nachricht
-#    - provider.name: Name des Providers
-#    - provider.type: Typ des Providers
-#    - provider.accounts: Liste der Ziel-Accounts
+# 5. Span Attributes:
+#    - mastodon.accounts_count: Number of target accounts
+#    - mastodon.provider: Provider name
+#    - mastodon.message_length: Message length
+#    - provider.name: Provider name
+#    - provider.type: Provider type
+#    - provider.accounts: List of target accounts
 #
 # 6. Grafana Dashboard:
-#    Für erweiterte Visualisierung kann Grafana mit Prometheus und Jaeger verbunden werden
-#    Beispiel-Queries:
-#    - rate(buntspecht_posts_total[5m]): Posts pro Sekunde
-#    - buntspecht_errors_total: Gesamtanzahl Fehler
-#    - histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds): 95. Perzentil der Ausführungszeit
+#    For advanced visualization, Grafana can be connected with Prometheus and Jaeger
+#    Example queries:
+#    - rate(buntspecht_posts_total[5m]): Posts per second
+#    - buntspecht_errors_total: Total number of errors
+#    - histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds): 95th percentile execution time

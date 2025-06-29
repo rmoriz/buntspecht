@@ -1,133 +1,133 @@
-# Buntspecht Multi-Provider Konfiguration Beispiel
-# Kopiere diese Datei zu config.toml und passe die Werte an
+# Buntspecht Multi-Provider Configuration Example
+# Copy this file to config.toml and adjust the values
 
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "personal"
 instance = "https://mastodon.social"
-accessToken = "dein-persoenlicher-token"
+accessToken = "your-personal-token"
 
 [[accounts]]
 name = "work"
 instance = "https://fosstodon.org"
-accessToken = "dein-arbeits-token"
+accessToken = "your-work-token"
 
 [[accounts]]
 name = "bot"
 instance = "https://botsin.space"
-accessToken = "dein-bot-token"
+accessToken = "your-bot-token"
 
 [bot]
-# Multi-Provider Konfiguration
-# Jeder Provider kann einen eigenen Zeitplan und eigene Konfiguration haben
+# Multi-Provider Configuration
+# Each provider can have its own schedule and configuration
 
-# Provider 1: Stündliche Ping-Nachrichten (an alle Accounts)
+# Provider 1: Hourly ping messages (to all accounts)
 [[bot.providers]]
 name = "hourly-ping"
 type = "ping"
-cronSchedule = "0 * * * *"  # Jede Stunde
+cronSchedule = "0 * * * *"  # Every hour
 enabled = true
-accounts = ["personal", "work", "bot"]  # An alle drei Accounts
+accounts = ["personal", "work", "bot"]  # To all three accounts
 
 [bot.providers.config]
-message = "🤖 Stündlicher Ping von Buntspecht!"
+message = "Hourly ping from Buntspecht!"
 
-# Provider 2: Tägliche Systemstatistiken (nur an Work-Account)
+# Provider 2: Daily system statistics (only to work account)
 [[bot.providers]]
 name = "daily-stats"
 type = "command"
-cronSchedule = "0 9 * * *"  # Jeden Tag um 9:00 Uhr
+cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
 enabled = true
-accounts = ["work"]  # Nur an Work-Account
+accounts = ["work"]  # Only to work account
 
 [bot.providers.config]
 command = "uptime"
 timeout = 10000
 
-# Provider 3: GitHub Repository-Updates (an Personal und Bot Account)
+# Provider 3: GitHub repository updates (to personal and bot account)
 [[bot.providers]]
 name = "github-stats"
 type = "jsoncommand"
-cronSchedule = "0 */6 * * *"  # Alle 6 Stunden
+cronSchedule = "0 */6 * * *"  # Every 6 hours
 enabled = true
-accounts = ["personal", "bot"]  # An Personal und Bot Account
+accounts = ["personal", "bot"]  # To personal and bot account
 
 [bot.providers.config]
 command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count, language: .language}'"
-template = "📊 Repository {{name}} ({{language}}): {{stars}} ⭐ und {{forks}} 🍴"
+template = "Repository {{name}} ({{language}}): {{stars}} stars and {{forks}} forks"
 timeout = 15000
 
-# Provider 4: Wöchentliche Zusammenfassung (nur an Personal Account, deaktiviert)
+# Provider 4: Weekly summary (only to personal account, disabled)
 [[bot.providers]]
 name = "weekly-summary"
 type = "ping"
-cronSchedule = "0 10 * * 1"  # Jeden Montag um 10:00 Uhr
-enabled = false  # Deaktiviert
-accounts = ["personal"]  # Nur an Personal Account
+cronSchedule = "0 10 * * 1"  # Every Monday at 10:00 AM
+enabled = false  # Disabled
+accounts = ["personal"]  # Only to personal account
 
 [bot.providers.config]
-message = "📅 Wöchentliche Zusammenfassung: Eine neue Woche beginnt!"
+message = "Weekly summary: A new week begins!"
 
-# Provider 5: Wetter-Updates (nur an Bot Account)
+# Provider 5: Weather updates (only to bot account)
 [[bot.providers]]
 name = "weather-updates"
 type = "jsoncommand"
-cronSchedule = "0 */3 * * *"  # Alle 3 Stunden
+cronSchedule = "0 */3 * * *"  # Every 3 hours
 enabled = true
-accounts = ["bot"]  # Nur an Bot Account
+accounts = ["bot"]  # Only to bot account
 
 [bot.providers.config]
-# Beispiel mit OpenWeatherMap API (API-Key erforderlich)
-command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=DEIN_API_SCHLUESSEL&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name, humidity: .main.humidity}'"
-template = "🌤️ Wetter in {{city}}: {{temp}}°C, {{desc}} (Luftfeuchtigkeit: {{humidity}}%)"
+# Example with OpenWeatherMap API (API key required)
+command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name, humidity: .main.humidity}'"
+template = "Weather in {{city}}: {{temp}}°C, {{desc}} (humidity: {{humidity}}%)"
 timeout = 10000
 
 [bot.providers.config.env]
-API_KEY = "dein-openweathermap-api-schluessel"
+API_KEY = "your-openweathermap-api-key"
 
 [logging]
-# Protokoll-Stufe: debug, info, warn, error
+# Log level: debug, info, warn, error
 level = "info"
 
 [telemetry]
-# OpenTelemetry Konfiguration fuer Monitoring und Observability
-# WICHTIG: Telemetrie funktioniert nur mit 'bun run' oder 'npm start', NICHT mit Single Binaries!
-# Single Binaries (buntspecht-linux-x64, etc.) haben OpenTelemetry-Dependencies ausgeschlossen.
-# Fuer Telemetrie verwende Docker oder fuehre den Bot direkt mit Bun/Node.js aus.
-enabled = false  # Telemetrie aktivieren/deaktivieren
+# OpenTelemetry configuration for monitoring and observability
+# IMPORTANT: Telemetry only works with 'bun run' or 'npm start', NOT with single binaries!
+# Single binaries (buntspecht-linux-x64, etc.) have OpenTelemetry dependencies excluded.
+# For telemetry use Docker or run the bot directly with Bun/Node.js.
+enabled = false  # Enable/disable telemetry
 serviceName = "buntspecht"
 serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
-# Jaeger fuer Distributed Tracing
+# Jaeger for distributed tracing
 enabled = false
 endpoint = "http://localhost:14268/api/traces"
 
 [telemetry.prometheus]
-# Prometheus fuer Metriken
+# Prometheus for metrics
 enabled = false
 port = 9090
 endpoint = "/metrics"
 
 [telemetry.tracing]
-# Tracing aktivieren/deaktivieren
+# Enable/disable tracing
 enabled = false
 
 [telemetry.metrics]
-# Metriken aktivieren/deaktivieren
+# Enable/disable metrics
 enabled = false
 
-# Hinweise:
-# - Jeder Provider läuft unabhängig mit seinem eigenen Zeitplan
-# - Provider können einzeln aktiviert/deaktiviert werden mit 'enabled = true/false'
-# - Verschiedene Provider-Typen können gemischt werden
-# - Jeder Provider kann eigene Umgebungsvariablen haben
-# - Bei Fehlern in einem Provider werden die anderen nicht beeinträchtigt
+# Notes:
+# - Each provider runs independently with its own schedule
+# - Providers can be individually enabled/disabled with 'enabled = true/false'
+# - Different provider types can be mixed
+# - Each provider can have its own environment variables
+# - Errors in one provider do not affect others
 #
-# Cron-Schedule Beispiele:
-# "0 * * * *"       = jede Stunde
-# "*/30 * * * *"    = alle 30 Minuten  
-# "0 9 * * *"       = jeden Tag um 9:00 Uhr
-# "0 9 * * 1"       = jeden Montag um 9:00 Uhr
-# "0 */6 * * *"     = alle 6 Stunden
-# "0 9,17 * * 1-5"  = Mo-Fr um 9:00 und 17:00 Uhr
+# Cron schedule examples:
+# "0 * * * *"       = every hour
+# "*/30 * * * *"    = every 30 minutes  
+# "0 9 * * *"       = every day at 9:00 AM
+# "0 9 * * 1"       = every Monday at 9:00 AM
+# "0 */6 * * *"     = every 6 hours
+# "0 9,17 * * 1-5"  = Mon-Fri at 9:00 AM and 5:00 PM
