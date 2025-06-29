@@ -1,5 +1,15 @@
 # Buntspecht Telemetrie Konfiguration Beispiel
 # Diese Datei zeigt, wie OpenTelemetry für Monitoring und Observability konfiguriert wird
+#
+# WICHTIGER HINWEIS FUER SINGLE BINARY BUILDS:
+# OpenTelemetry funktioniert NICHT mit den vorkompilierten Single Binaries (buntspecht-linux-x64, etc.)!
+# Die OpenTelemetry-Dependencies werden bei 'bun build --compile' ausgeschlossen (--external @opentelemetry/*).
+# 
+# Fuer Telemetrie verwende eine der folgenden Optionen:
+# 1. 'bun run dist/index.js' (nach 'bun run build')
+# 2. 'npm start' 
+# 3. Docker: 'docker run ...'
+# 4. 'bun run dev' (Development-Modus)
 
 # Fediverse/Mastodon Accounts
 [[accounts]]
@@ -26,7 +36,7 @@ level = "debug"  # Debug-Level für detaillierte Telemetrie-Logs
 # OpenTelemetry Konfiguration für Monitoring und Observability
 enabled = true  # Telemetrie aktiviert
 serviceName = "buntspecht"
-serviceVersion = "1.0.0"
+serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
 # Jaeger für Distributed Tracing

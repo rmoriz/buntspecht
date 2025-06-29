@@ -55,7 +55,7 @@ describe('MastodonPingBot', () => {
       telemetry: {
         enabled: false,
         serviceName: 'buntspecht',
-        serviceVersion: '1.0.0',
+        serviceVersion: '0.2.0',
         jaeger: {
           enabled: false,
           endpoint: 'http://localhost:14268/api/traces',

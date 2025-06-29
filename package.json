@@ -1,13 +1,22 @@
 {
   "name": "buntspecht",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "A Mastodon bot that posts PING messages every hour",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "build:bun": "bun build src/index.ts --outdir dist --target node",
+    "build:binary": "bun build --compile --minify --external @opentelemetry/* --outfile=buntspecht src/index.ts",
+    "build:binaries": "npm run build:binary:linux-x64 && npm run build:binary:linux-arm64 && npm run build:binary:linux-armv8 && npm run build:binary:macos-x64 && npm run build:binary:macos-arm64",
+    "build:binary:linux-x64": "bun build --compile --minify --external @opentelemetry/* --target=bun-linux-x64 --outfile=dist/buntspecht-linux-x64 src/index.ts",
+    "build:binary:linux-arm64": "bun build --compile --minify --external @opentelemetry/* --target=bun-linux-arm64 --outfile=dist/buntspecht-linux-arm64 src/index.ts",
+    "build:binary:linux-armv8": "bun build --compile --minify --external @opentelemetry/* --target=bun-linux-arm64 --outfile=dist/buntspecht-linux-armv8 src/index.ts",
+    "build:binary:macos-x64": "bun build --compile --minify --external @opentelemetry/* --target=bun-darwin-x64 --outfile=dist/buntspecht-macos-x64 src/index.ts",
+    "build:binary:macos-arm64": "bun build --compile --minify --external @opentelemetry/* --target=bun-darwin-arm64 --outfile=dist/buntspecht-macos-arm64 src/index.ts",
+    "start": "bun run dist/index.js",
+    "dev": "bun run src/index.ts",
     "test": "jest",
+    "test:bun": "bun test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
@@ -47,6 +56,6 @@
     "typescript": "^5.3.2"
   },
   "engines": {
-    "node": ">=20.10.0"
+    "bun": ">=1.2.0"
   }
 }

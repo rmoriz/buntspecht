@@ -1,36 +1,42 @@
 # Multi-stage build for production
-FROM node:20-alpine AS builder
+FROM oven/bun:1.2-alpine AS builder
+
+# Install additional tools
+RUN apk add --no-cache curl iputils jq procps
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json bun.lock* ./
 
 # Install all dependencies (including devDependencies for building)
-RUN npm ci && npm cache clean --force
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN bun run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM oven/bun:1.2-alpine AS production
+
+# Install additional tools
+RUN apk add --no-cache curl iputils jq procps
 
 # Create app user
-RUN addgroup -g 1001 -S nodejs && \
+RUN addgroup -g 1001 -S bunjs && \
     adduser -S botuser -u 1001
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json bun.lock* ./
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN bun install --frozen-lockfile --production
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
@@ -40,8 +46,8 @@ COPY config.example.toml ./
 
 # Create config directory
 RUN mkdir -p /home/botuser/.config/buntspecht && \
-    chown -R botuser:nodejs /home/botuser/.config && \
-    chown -R botuser:nodejs /app
+    chown -R botuser:bunjs /home/botuser/.config && \
+    chown -R botuser:bunjs /app
 
 # Switch to non-root user
 USER botuser
@@ -51,12 +57,12 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "console.log('Bot is running')" || exit 1
+    CMD bun -e "console.log('Bot is running')" || exit 1
 
 # Set default command
-CMD ["node", "dist/index.js"]
+CMD ["bun", "run", "dist/index.js"]
 
 # Labels for metadata
 LABEL maintainer="your-email@example.com"
-LABEL description="Buntspecht - Ein Fediverse/Mastodon-Bot der PING-Nachrichten nach Zeitplan postet"
-LABEL version="1.0.0"
+LABEL description="Buntspecht - A reliable Fediverse bot for automated messages with flexible sources"
+LABEL version="0.2.0"

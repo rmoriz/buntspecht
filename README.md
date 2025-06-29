@@ -20,8 +20,42 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - 📡 Moderne Mastodon-API-Integration mit masto.js
 - 🔧 Erweiterbare Provider-Architektur
 - 📊 **OpenTelemetry-Integration**: Monitoring, Tracing und Metriken für Observability
+- ⚡ **Bun-Runtime**: Schnellere Performance und native TypeScript-Unterstützung
+- 📦 **Single Binary**: Standalone-Executables für alle Plattformen ohne Dependencies
 
 ## Installation
+
+### Voraussetzungen
+
+- **Bun**: Version 1.2.0 oder höher
+- **Git**: Für das Klonen des Repositories
+
+```bash
+# Bun-Version prüfen
+bun --version
+# Sollte 1.2.0 oder höher anzeigen
+```
+
+### Installation
+
+#### Option 1: Vorkompilierte Binaries (Empfohlen)
+
+Laden Sie die passende Binary für Ihr System von den [GitHub Releases](../../releases) herunter:
+
+- **Linux x64**: `buntspecht-linux-x64`
+- **Linux ARM64**: `buntspecht-linux-arm64`
+- **Linux ARMv8**: `buntspecht-linux-armv8`
+- **macOS Intel**: `buntspecht-macos-x64`
+- **macOS Apple Silicon**: `buntspecht-macos-arm64`
+
+```bash
+# Beispiel für Linux x64
+wget https://github.com/rmoriz/buntspecht/releases/latest/download/buntspecht-linux-x64
+chmod +x buntspecht-linux-x64
+./buntspecht-linux-x64 --help
+```
+
+#### Option 2: Aus Quellcode kompilieren
 
 ```bash
 # Repository klonen
@@ -29,10 +63,13 @@ git clone <repository-url>
 cd buntspecht
 
 # Dependencies installieren
-npm install
+bun install
 
 # TypeScript kompilieren
-npm run build
+bun run build
+
+# Optional: Eigene Binary erstellen
+bun run build:binary
 ```
 
 ## Konfiguration
@@ -346,40 +383,42 @@ message = "📅 Neue Arbeitswoche beginnt!"
 
 ```bash
 # Mit Standard-Konfiguration
-npm start
+bun start
 
 # Mit spezifischer Konfigurationsdatei
-npm start -- --config /pfad/zur/config.toml
+bun start --config /pfad/zur/config.toml
 
-# Development-Modus
-npm run dev
+# Development-Modus (direkte TypeScript-Ausführung)
+bun run dev
 ```
 
 ### CLI-Optionen
 
 ```bash
 # Hilfe anzeigen
-npm start -- --help
+bun start --help
 
 # Verbindung testen
-npm start -- --verify
+bun start --verify
 
 # Sofort eine Test-Nachricht posten (alle Provider)
-npm start -- --test-post
+bun start --test-post
 
 # Test-Nachricht von spezifischem Provider posten
-npm start -- --test-provider provider-name
+bun start --test-provider provider-name
 
 # Alle konfigurierten Provider auflisten
-npm start -- --list-providers
+bun start --list-providers
 
 # Spezifische Konfigurationsdatei verwenden
-npm start -- --config /pfad/zur/config.toml
+bun start --config /pfad/zur/config.toml
 ```
 
 ## Telemetrie und Monitoring
 
 Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und Metriken. Dies ermöglicht es, die Performance und das Verhalten des Bots zu überwachen und zu analysieren.
+
+> **⚠️ Wichtiger Hinweis für Single Binary Builds**: OpenTelemetry-Dependencies werden bei der Erstellung von Single Binaries mit `bun build --compile` ausgeschlossen (`--external @opentelemetry/*`), da sie zur Laufzeit nicht verfügbar sind. Telemetrie funktioniert nur bei der Ausführung mit `bun run` oder `npm start`, nicht mit den vorkompilierten Binaries. Für Produktionsumgebungen mit Telemetrie verwenden Sie Docker oder führen Sie den Bot direkt mit Bun/Node.js aus.
 
 ### Telemetrie-Konfiguration
 
@@ -388,7 +427,7 @@ Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und M
 # OpenTelemetry aktivieren/deaktivieren
 enabled = true
 serviceName = "buntspecht"
-serviceVersion = "1.0.0"
+serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
 # Jaeger für Distributed Tracing
@@ -534,6 +573,13 @@ cronSchedule = "*/15 9-17 * * 1-5"
 
 ### Migration History
 
+**2025-06**: Migration von Node.js zu Bun
+- **Runtime**: Wechsel von Node.js zu Bun v1.2+ für bessere Performance
+- **Build-System**: TypeScript-Kompilierung mit Bun-Unterstützung
+- **Docker**: Optimierte Container mit oven/bun:1.2-alpine Base-Image
+- **Tools**: Zusätzliche Container-Tools (curl, ping, uptime, jq)
+- **Kompatibilität**: Vollständige Rückwärtskompatibilität aller Features
+
 **2025-06**: Migration von `mastodon-api` zu `masto.js`
 - **Grund**: Bessere TypeScript-Unterstützung und aktive Entwicklung
 - **Vorteile**: Native Typen, strukturierte v1/v2 API, moderne Architektur
@@ -545,24 +591,55 @@ cronSchedule = "*/15 9-17 * * 1-5"
 ### Tests ausführen
 
 ```bash
-# Alle Tests
-npm test
+# Alle Tests (mit Jest für Kompatibilität)
+bun run test
 
 # Tests mit Watch-Modus
-npm run test:watch
+bun run test:watch
 
 # Test-Coverage
-npm run test:coverage
+bun run test:coverage
+
+# Alternative: Native Bun-Tests (experimentell)
+bun run test:bun
 ```
 
 ### Code-Qualität
 
 ```bash
 # Linting
-npm run lint
+bun run lint
 
 # Linting mit Auto-Fix
-npm run lint:fix
+bun run lint:fix
+```
+
+### Binary-Builds
+
+```bash
+# Lokale Binary erstellen
+bun run build:binary
+
+# Alle Plattformen (Cross-Compilation)
+bun run build:binaries
+
+# Spezifische Plattform
+bun run build:binary:linux-x64
+bun run build:binary:linux-arm64
+bun run build:binary:macos-x64
+bun run build:binary:macos-arm64
+```
+
+**Hinweis**: Binary-Builds enthalten keine OpenTelemetry-Unterstützung aufgrund von Kompatibilitätsproblemen. Telemetrie ist automatisch deaktiviert.
+
+#### Build-Scripts
+
+```bash
+# Alle Binaries mit einem Befehl erstellen
+./scripts/build-all-binaries.sh
+
+# Alle Binaries testen
+./scripts/test-binaries.sh
 ```
 
 ### Projektstruktur
@@ -653,12 +730,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: "18"
-      - run: npm ci
-      - run: npm test
-      - run: npm run lint
+          bun-version: "1.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - run: bun run lint
 
   build:
     needs: test
@@ -697,7 +774,7 @@ jobs:
 level = "debug"
 
 # Oder via Environment:
-DEBUG=* npm start
+DEBUG=* bun start
 ```
 
 ## Lizenz

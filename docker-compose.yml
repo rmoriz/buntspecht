@@ -15,11 +15,12 @@ services:
       - ./logs:/app/logs
     environment:
       - NODE_ENV=production
+      - BUN_ENV=production
       # Optional: Override config path
       # - BUNTSPECHT_CONFIG=/app/config.toml
     # Optional: Health check endpoint
     healthcheck:
-      test: ["CMD", "node", "-e", "console.log('Bot is running')"]
+      test: ["CMD", "bun", "-e", "console.log('Bot is running')"]
       interval: 30s
       timeout: 10s
       retries: 3

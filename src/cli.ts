@@ -6,8 +6,8 @@ export function parseCliArguments(): CliOptions {
 
   program
     .name('buntspecht')
-    .description('Buntspecht - Ein Fediverse/Mastodon-Bot der PING-Nachrichten nach Zeitplan postet')
-    .version('1.0.0')
+    .description('Buntspecht - A reliable Fediverse bot for automated messages with flexible sources')
+    .version('0.2.0')
     .option('-c, --config <path>', 'path to configuration file')
     .option('--test-post', 'post a test message immediately and exit')
     .option('--test-provider <name>', 'post a test message from specific provider and exit')

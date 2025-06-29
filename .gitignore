@@ -8,6 +8,13 @@ yarn-error.log*
 dist/
 build/
 
+# Compiled binaries
+buntspecht
+buntspecht-*
+
+# Bun build cache
+.*.bun-build
+
 # Environment variables
 .env
 .env.local

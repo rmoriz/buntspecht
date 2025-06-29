@@ -67,9 +67,12 @@ level = "info"
 
 [telemetry]
 # OpenTelemetry Konfiguration fuer Monitoring und Observability
+# WICHTIG: Telemetrie funktioniert nur mit 'bun run' oder 'npm start', NICHT mit Single Binaries!
+# Single Binaries (buntspecht-linux-x64, etc.) haben OpenTelemetry-Dependencies ausgeschlossen.
+# Fuer Telemetrie verwende Docker oder fuehre den Bot direkt mit Bun/Node.js aus.
 enabled = false  # Telemetrie aktivieren/deaktivieren
 serviceName = "buntspecht"
-serviceVersion = "1.0.0"
+serviceVersion = "0.2.0"
 
 [telemetry.jaeger]
 # Jaeger fuer Distributed Tracing
