@@ -3,7 +3,7 @@
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
 [![Deutsch](https://img.shields.io/badge/lang-Deutsch-green.svg)](README.de.md)
 
-<img src="buntspecht-logo.jpeg" alt="Buntspecht Logo" width="150"/>
+<img src="buntspecht-header.jpeg" alt="Buntspecht Header"/>
 
 A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on schedule. Supports various message sources like static texts or external commands.
 
