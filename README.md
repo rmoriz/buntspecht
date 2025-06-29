@@ -51,6 +51,8 @@ Download the appropriate binary for your system from [GitHub Releases](../../rel
 - **macOS Intel**: `buntspecht-macos-x64`
 - **macOS Apple Silicon**: `buntspecht-macos-arm64`
 
+> **⚠️ Note**: Single binaries have OpenTelemetry dependencies excluded for size optimization. For telemetry support, use Docker or run with `bun run`.
+
 ```bash
 # Example for Linux x64
 wget https://github.com/rmoriz/buntspecht/releases/latest/download/buntspecht-linux-x64
@@ -339,6 +341,8 @@ docker run -d \
 
 Buntspecht includes comprehensive OpenTelemetry support for monitoring and observability.
 
+> **⚠️ Important Note for Single Binary Builds**: OpenTelemetry dependencies are excluded when creating single binaries with `bun build --compile` (`--external @opentelemetry/*`) as they are not available at runtime. Telemetry only works when running with `bun run` or `npm start`, NOT with pre-compiled binaries. For production environments with telemetry, use Docker or run the bot directly with Bun/Node.js.
+
 ### Configuration
 
 Add telemetry configuration to your `config.toml`:
@@ -438,6 +442,8 @@ bun run build:all-binaries
 # Test all binaries
 bun run test:binaries
 ```
+
+> **⚠️ Note**: Binary builds exclude OpenTelemetry dependencies (`--external @opentelemetry/*`) for compatibility. Telemetry is automatically disabled in single binaries.
 
 ### Project Structure
 
