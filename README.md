@@ -495,6 +495,31 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 💬 **Discussions**: [GitHub Discussions](../../discussions)
 - 📧 **Email**: [your-email@example.com](mailto:your-email@example.com)
 
+## AI-Assisted Development
+
+This project was developed entirely with the assistance of **Claude 3.5 Sonnet (Anthropic)**. The AI solution supported:
+
+### 🤖 **AI Technologies Used:**
+
+- **Claude 3.5 Sonnet**: Main development, code generation, and architecture
+- **Rovo Dev Agent**: Interactive development environment with tool integration
+
+### 🛠️ **AI-Assisted Development Areas:**
+
+- **Code Architecture**: Complete TypeScript project structure with provider system
+- **Test Development**: 108+ comprehensive unit tests with Jest
+- **Provider System**: Extensible message provider architecture
+- **Command Integration**: External command execution with error handling
+- **Docker Configuration**: Multi-stage builds and CI/CD pipeline
+- **Documentation**: German localization and technical documentation
+- **Best Practices**: ESLint rules, Git workflows, and project organization
+- **Library Migration**: Complete migration from mastodon-api to masto.js
+- **API Modernization**: Adaptation to modern TypeScript standards
+
+### 💡 **Development Approach:**
+
+Development was carried out through natural language requirements that were transformed by AI into functional, production-ready code. Modern development standards and best practices were automatically considered throughout the process.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
