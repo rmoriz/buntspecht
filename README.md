@@ -79,421 +79,728 @@ bun run build:binary
 
 ## Configuration
 
-### Configuration File Locations
+The bot searches for configuration files in the following priority order:
 
-Buntspecht searches for configuration files in the following order (first found wins):
+1. **CLI Parameter**: `--config /path/to/config.toml`
+2. **Environment Variable**: `BUNTSPECHT_CONFIG=/path/to/config.toml`
+3. **Current Directory**: `./config.toml`
+4. **Home Directory**: `~/.config/buntspecht/config.toml`
 
-1. `./config.toml` (current directory)
-2. `~/.config/buntspecht/config.toml` (user config directory)
-3. `/etc/buntspecht/config.toml` (system config directory)
-4. Path specified via `BUNTSPECHT_CONFIG` environment variable
-
-### Basic Configuration
-
-Create a `config.toml` file based on the provided examples:
+### Create Configuration File
 
 ```bash
 # Copy example configuration
 cp config.example.toml config.toml
+
+# Edit configuration
+nano config.toml
 ```
 
-### Mastodon Access Token
+### Configuration Format
 
-To use Buntspecht, you need an access token for your Mastodon account:
+```toml
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-access-token-here"
+
+[bot]
+# Multi-Provider Configuration
+# Each provider can have its own schedule and configuration
+# Each provider can post to one or multiple accounts
+
+# Provider 1: Hourly ping messages
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Every hour
+enabled = true
+accounts = ["main-account"]  # Which accounts to post to
+
+[bot.providers.config]
+message = "🤖 Hourly ping from Buntspecht!"
+
+# Provider 2: Daily system statistics (disabled)
+[[bot.providers]]
+name = "daily-stats"
+type = "command"
+cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
+enabled = false
+accounts = ["main-account"]  # Which accounts to post to
+
+[bot.providers.config]
+command = "uptime"
+timeout = 10000
+
+[logging]
+# Log level: debug, info, warn, error
+level = "info"
+```
+
+### Get Access Token
 
 1. Go to your Mastodon instance
-2. Navigate to Settings → Development → New Application
-3. Create a new application with the following permissions:
-   - `write:statuses` (to post messages)
-4. Copy the generated access token
+2. Settings → Development → New Application
+3. Name: "Buntspecht Bot" (or any name)
+4. Scopes: `write:statuses`
+5. Create application and copy access token
 
-### Configuration Examples
+## Message Providers
 
-#### Simple Configuration (Single Account, Single Provider)
+Buntspecht supports various message sources through an extensible provider system. Each provider runs independently with its own schedule and can be individually enabled/disabled.
 
-```toml
-# Basic bot configuration
-[bot]
-name = "MyBot"
-dry_run = false
+### Ping Provider
 
-# Mastodon account configuration
-[[accounts]]
-name = "main"
-server = "https://mastodon.social"
-access_token = "your-access-token-here"
-
-# Message provider configuration
-[[providers]]
-name = "daily_messages"
-type = "command"
-command = "echo 'Hello World! Today is $(date)'"
-schedule = "0 9 * * *"  # Daily at 9:00 AM
-accounts = ["main"]
-```
-
-#### Advanced Configuration (Multiple Accounts, Multiple Providers)
+Posts static messages:
 
 ```toml
-# Advanced bot configuration
-[bot]
-name = "AdvancedBot"
-dry_run = false
-
-# Multiple Mastodon accounts
-[[accounts]]
-name = "main"
-server = "https://mastodon.social"
-access_token = "your-main-access-token"
-
-[[accounts]]
-name = "backup"
-server = "https://fosstodon.org"
-access_token = "your-backup-access-token"
-
-# Static message provider
-[[providers]]
-name = "morning_greeting"
-type = "static"
-message = "Good morning! ☀️ Have a great day!"
-schedule = "0 8 * * *"  # Daily at 8:00 AM
-accounts = ["main"]
-
-# Command-based provider
-[[providers]]
-name = "system_status"
-type = "command"
-command = "/usr/local/bin/get-system-status.sh"
-schedule = "0 */6 * * *"  # Every 6 hours
-accounts = ["main", "backup"]
-
-# JSON template provider
-[[providers]]
-name = "weather_update"
-type = "json"
-command = "curl -s 'https://api.weather.com/current'"
-template = "Current weather: {{weather.description}}, {{weather.temperature}}°C"
-schedule = "0 12,18 * * *"  # Daily at 12:00 and 18:00
-accounts = ["main"]
-```
-
-### Provider Types
-
-#### 1. Static Provider
-
-Posts predefined static messages.
-
-```toml
-[[providers]]
-name = "static_example"
-type = "static"
-message = "This is a static message"
-schedule = "0 9 * * *"
-accounts = ["main"]
-```
-
-#### 2. Command Provider
-
-Executes a command and posts its output.
-
-```toml
-[[providers]]
-name = "command_example"
-type = "command"
-command = "fortune"
-schedule = "0 12 * * *"
-accounts = ["main"]
-```
-
-#### 3. JSON Provider
-
-Executes a command that returns JSON and uses templates for formatting.
-
-```toml
-[[providers]]
-name = "json_example"
-type = "json"
-command = "curl -s 'https://api.example.com/data'"
-template = "Status: {{status}}, Value: {{data.value}}"
-schedule = "0 */2 * * *"
-accounts = ["main"]
-```
-
-**Template Variables:**
-- `{{variable}}` - Simple variable from JSON
-- `{{object.property}}` - Nested object property
-- `{{array.0}}` - Array element access
-
-#### 4. Ping Provider
-
-Simple health check provider that posts a ping message.
-
-```toml
-[[providers]]
-name = "ping_example"
+[[bot.providers]]
+name = "ping-provider"
 type = "ping"
-schedule = "0 0 * * *"  # Daily at midnight
-accounts = ["main"]
+cronSchedule = "0 * * * *"
+enabled = true
+
+[bot.providers.config]
+message = "PING"
 ```
 
-### Schedule Format
+### Command Provider
 
-Buntspecht uses cron syntax for scheduling:
+Executes external commands and posts their output:
+
+```toml
+[[bot.providers]]
+name = "command-provider"
+type = "command"
+cronSchedule = "0 * * * *"
+enabled = true
+
+[bot.providers.config]
+# The command to execute (required)
+command = "date '+Today is %A, %B %d, %Y at %H:%M UTC'"
+
+# Optional: Timeout in milliseconds (default: 30000)
+timeout = 10000
+
+# Optional: Working directory for the command
+# cwd = "/path/to/working/directory"
+
+# Optional: Maximum buffer size for stdout/stderr (default: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Environment variables
+# [bot.providers.config.env]
+# MY_VAR = "a value"
+# OTHER_VAR = "another value"
+```
+
+#### Command Provider Examples
+
+```toml
+# Current date and time
+command = "date '+Today is %A, %B %d, %Y at %H:%M UTC'"
+
+# System status
+command = "uptime"
+
+# Weather (with curl and API)
+command = "curl -s 'https://wttr.in/Berlin?format=3'"
+
+# Random quote
+command = "fortune"
+
+# Git status
+command = "git log --oneline -1"
+```
+
+### JSON Command Provider
+
+Executes external commands that output JSON and applies templates with variables from the JSON data:
+
+```toml
+[[bot.providers]]
+name = "json-provider"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = true
+
+[bot.providers.config]
+# The command to execute (required) - must output JSON
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, language: .language}'"
+
+# Template for the message (required)
+# Use {{variable}} for JSON properties
+# Supports nested properties with dot notation: {{user.name}}
+template = "📊 Repository {{name}} has {{stars}} stars! Programming language: {{language}}"
+
+# Optional: Timeout in milliseconds (default: 30000)
+timeout = 10000
+
+# Optional: Working directory for the command
+# cwd = "/path/to/working/directory"
+
+# Optional: Maximum buffer size for stdout/stderr (default: 1MB)
+# maxBuffer = 1048576
+
+# Optional: Environment variables
+# [bot.providers.config.env]
+# API_KEY = "your-api-key"
+```
+
+#### JSON Command Provider Examples
+
+```toml
+# GitHub repository statistics
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count, forks: .forks_count}'"
+template = "📊 {{name}}: {{stars}} ⭐ and {{forks}} 🍴"
+
+# Weather API with JSON
+command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name}'"
+template = "🌤️ Weather in {{city}}: {{temp}}°C, {{desc}}"
+
+# System information as JSON
+command = "echo '{\"hostname\": \"'$(hostname)'\", \"uptime\": \"'$(uptime -p)'\", \"load\": \"'$(uptime | awk -F\"load average:\" \"{print $2}\" | xargs)'\"}''"
+template = "🖥️ Server {{hostname}} running since {{uptime}}. Load: {{load}}"
+
+# Nested JSON properties
+command = "curl -s 'https://api.example.com/user/123' | jq '{user: {name: .name, email: .email}, stats: {posts: .post_count}}'"
+template = "👤 User {{user.name}} ({{user.email}}) has {{stats.posts}} posts"
+```
+
+#### Template Syntax
+
+- `{{variable}}` - Simple variable from JSON
+- `{{nested.property}}` - Nested property with dot notation
+- `{{ variable }}` - Whitespace around variable names is ignored
+- Missing variables are left as `{{variable}}` in the text
+- JSON values are automatically converted to strings
+
+## Multi-Account and Multi-Provider Configuration
+
+Buntspecht supports multiple Fediverse/Mastodon accounts with their own access tokens as well as simultaneous execution of multiple providers with individual schedules. This allows posting different types of messages at different times to different accounts.
+
+### Multi-Account Configuration
+
+First, configure multiple accounts:
+
+```toml
+# Multiple Fediverse/Mastodon accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-main-account-token-here"
+
+[[accounts]]
+name = "backup-account"
+instance = "https://fosstodon.org"
+accessToken = "your-backup-account-token-here"
+
+[[accounts]]
+name = "work-account"
+instance = "https://your-company-instance.com"
+accessToken = "your-work-token-here"
+```
+
+### Multi-Provider Configuration with Account Assignment
+
+Then configure providers and assign them to accounts:
+
+```toml
+[bot]
+# Multi-Provider Configuration
+# Each provider can have its own schedule and configuration
+# Each provider can post to one or multiple accounts
+
+# Provider 1: Hourly ping messages (to all accounts)
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Every hour
+enabled = true
+accounts = ["main-account", "backup-account", "work-account"]  # To all accounts
+
+[bot.providers.config]
+message = "🤖 Hourly ping from Buntspecht!"
+
+# Provider 2: Daily system statistics (only to main account)
+[[bot.providers]]
+name = "daily-stats"
+type = "command"
+cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
+enabled = true
+accounts = ["main-account"]  # Only to main account
+
+[bot.providers.config]
+command = "uptime"
+timeout = 10000
+
+# Provider 3: GitHub repository updates (to main and backup account)
+[[bot.providers]]
+name = "github-stats"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = true
+accounts = ["main-account", "backup-account"]  # To two accounts
+
+[bot.providers.config]
+command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count}'"
+template = "📊 Repository {{name}} has {{stars}} stars!"
+
+# Provider 4: Work updates (only to work account)
+[[bot.providers]]
+name = "work-updates"
+type = "ping"
+cronSchedule = "0 10 * * 1"  # Every Monday at 10:00 AM
+enabled = true
+accounts = ["work-account"]  # Only to work account
+
+[bot.providers.config]
+message = "📅 New work week begins!"
+```
+
+### Advantages of Multi-Account and Multi-Provider Configuration
+
+- **Flexible account assignment**: Each provider can post to any accounts
+- **Robust error handling**: If posting to one account fails, others are still attempted
+- **Independent schedules**: Each provider can run at different times
+- **Individual activation**: Providers can be individually enabled/disabled
+- **Different message types**: Mix static messages, commands, and JSON templates
+- **Error tolerance**: Errors in one provider don't affect other providers
+- **Flexible configuration**: Each provider can have its own environment variables and settings
+- **Account separation**: Different content can be sent to different audiences
+
+### Cron Schedule Examples
 
 ```
-┌───────────── minute (0 - 59)
-│ ┌───────────── hour (0 - 23)
-│ │ ┌───────────── day of month (1 - 31)
-│ │ │ ┌───────────── month (1 - 12)
-│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
-│ │ │ │ │
-* * * * *
+"0 * * * *"       = every hour
+"*/30 * * * *"    = every 30 minutes  
+"0 9 * * *"       = every day at 9:00 AM
+"0 9 * * 1"       = every Monday at 9:00 AM
+"0 */6 * * *"     = every 6 hours
+"0 9,17 * * 1-5"  = Mon-Fri at 9:00 AM and 5:00 PM
+"*/15 9-17 * * 1-5" = every 15 min between 9-17, Mon-Fri
 ```
-
-**Examples:**
-- `0 9 * * *` - Daily at 9:00 AM
-- `0 */6 * * *` - Every 6 hours
-- `0 12 * * 1-5` - Weekdays at 12:00 PM
-- `30 8 1 * *` - First day of month at 8:30 AM
 
 ## Usage
 
-### Starting the Bot
-
-#### Using Pre-compiled Binary
+### Start Bot
 
 ```bash
-# Start with default config
-./buntspecht-linux-x64
+# With default configuration
+bun start
 
-# Start with specific config file
-BUNTSPECHT_CONFIG=/path/to/config.toml ./buntspecht-linux-x64
+# With specific configuration file
+bun start --config /path/to/config.toml
 
-# Dry run mode (no actual posting)
-./buntspecht-linux-x64 --dry-run
-```
-
-#### Using Bun
-
-```bash
-# Start with default config
-bun run start
-
-# Start with specific config file
-BUNTSPECHT_CONFIG=/path/to/config.toml bun run start
-
-# Development mode with auto-reload
+# Development mode (direct TypeScript execution)
 bun run dev
 ```
 
-### Command Line Options
+### CLI Options
 
 ```bash
 # Show help
-./buntspecht --help
+bun start --help
 
-# Show version
-./buntspecht --version
+# Test connection
+bun start --verify
 
-# Dry run mode (test without posting)
-./buntspecht --dry-run
+# Post a test message immediately (all providers)
+bun start --test-post
 
-# Verbose logging
-./buntspecht --verbose
+# Post test message from specific provider
+bun start --test-provider provider-name
 
-# Specify config file
-./buntspecht --config /path/to/config.toml
+# List all configured providers
+bun start --list-providers
+
+# Use specific configuration file
+bun start --config /path/to/config.toml
 ```
 
-### Docker Usage
+## Telemetry and Monitoring
 
-#### Using Docker Compose (Recommended)
+Buntspecht supports OpenTelemetry for comprehensive monitoring, tracing, and metrics. This allows monitoring and analyzing the performance and behavior of the bot.
 
-```bash
-# Copy and edit configuration
-cp config.example.toml config.toml
-# Edit config.toml with your settings
+> **⚠️ Important Note for Single Binary Builds**: OpenTelemetry dependencies are excluded when creating single binaries with `bun build --compile` (`--external @opentelemetry/*`) as they are not available at runtime. Telemetry only works when running with `bun run` or `npm start`, not with pre-compiled binaries. For production environments with telemetry, use Docker or run the bot directly with Bun/Node.js.
 
-# Start the bot
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop the bot
-docker-compose down
-```
-
-#### Using Docker directly
-
-```bash
-# Build image
-docker build -t buntspecht .
-
-# Run container
-docker run -d \
-  --name buntspecht \
-  -v $(pwd)/config.toml:/app/config.toml:ro \
-  buntspecht
-```
-
-## OpenTelemetry Integration
-
-Buntspecht includes comprehensive OpenTelemetry support for monitoring and observability.
-
-> **⚠️ Important Note for Single Binary Builds**: OpenTelemetry dependencies are excluded when creating single binaries with `bun build --compile` (`--external @opentelemetry/*`) as they are not available at runtime. Telemetry only works when running with `bun run` or `npm start`, NOT with pre-compiled binaries. For production environments with telemetry, use Docker or run the bot directly with Bun/Node.js.
-
-### Configuration
-
-Add telemetry configuration to your `config.toml`:
+### Telemetry Configuration
 
 ```toml
 [telemetry]
+# Enable/disable OpenTelemetry
 enabled = true
-service_name = "buntspecht"
-service_version = "1.0.0"
+serviceName = "buntspecht"
+serviceVersion = "0.2.0"
 
-# OTLP Exporter (e.g., for Jaeger, Grafana)
-[telemetry.otlp]
-endpoint = "http://localhost:4318"
-headers = { "api-key" = "your-api-key" }
-
-# Console Exporter (for development)
-[telemetry.console]
+[telemetry.jaeger]
+# Jaeger for Distributed Tracing
 enabled = true
+endpoint = "http://localhost:14268/api/traces"
 
-# Prometheus Metrics
 [telemetry.prometheus]
+# Prometheus for metrics
 enabled = true
 port = 9090
 endpoint = "/metrics"
+
+[telemetry.tracing]
+# Enable tracing
+enabled = true
+
+[telemetry.metrics]
+# Enable metrics
+enabled = true
 ```
 
-### Metrics
+### Available Metrics
 
-Buntspecht exports the following metrics:
+- **`buntspecht_posts_total`**: Number of successfully sent posts (with labels: account, provider)
+- **`buntspecht_errors_total`**: Number of errors (with labels: error_type, provider, account)
+- **`buntspecht_provider_execution_duration_seconds`**: Provider execution time (with label: provider)
+- **`buntspecht_active_connections`**: Number of active Mastodon connections
 
-- `buntspecht_messages_sent_total` - Total messages sent
-- `buntspecht_messages_failed_total` - Total failed messages
-- `buntspecht_provider_executions_total` - Provider execution count
-- `buntspecht_provider_execution_duration` - Provider execution time
+### Available Traces
 
-### Traces
+- **`mastodon.post_status`**: Mastodon post operations with attributes like:
+  - `mastodon.accounts_count`: Number of target accounts
+  - `mastodon.provider`: Provider name
+  - `mastodon.message_length`: Message length
 
-Automatic tracing for:
-- Provider executions
-- Message posting
-- Configuration loading
-- Error handling
+- **`provider.execute_task`**: Provider executions with attributes like:
+  - `provider.name`: Provider name
+  - `provider.type`: Provider type
+  - `provider.accounts`: List of target accounts
+
+### Monitoring Setup
+
+#### Jaeger (Distributed Tracing)
+
+```bash
+# Start Jaeger with Docker
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 14268:14268 \
+  jaegertracing/all-in-one:latest
+
+# Open Jaeger UI
+open http://localhost:16686
+```
+
+#### Prometheus (Metrics)
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'buntspecht'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+```bash
+# Start Prometheus with Docker
+docker run -d --name prometheus \
+  -p 9090:9090 \
+  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+# Fetch metrics directly
+curl http://localhost:9090/metrics
+```
+
+#### Grafana Dashboard
+
+Example queries for Grafana:
+
+```promql
+# Posts per minute
+rate(buntspecht_posts_total[1m])
+
+# Error rate
+rate(buntspecht_errors_total[5m])
+
+# 95th percentile of provider execution time
+histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds)
+
+# Active connections
+buntspecht_active_connections
+```
+
+### Telemetry Example Configuration
+
+For a complete telemetry configuration see `config.telemetry.example.toml`.
+
+### Cron Schedule Examples
+
+```toml
+# Every hour
+cronSchedule = "0 * * * *"
+
+# Every 30 minutes
+cronSchedule = "*/30 * * * *"
+
+# Daily at 9:00 AM
+cronSchedule = "0 9 * * *"
+
+# Every Monday at 9:00 AM
+cronSchedule = "0 9 * * 1"
+
+# Every 15 minutes between 9-17, Mon-Fri
+cronSchedule = "*/15 9-17 * * 1-5"
+```
+
+## Technologies
+
+### Core Dependencies
+
+- **[masto.js](https://github.com/neet/masto.js)** (v6.8.0): Modern TypeScript library for Mastodon API
+- **[node-cron](https://github.com/node-cron/node-cron)** (v3.0.3): Cron job scheduling
+- **[toml](https://github.com/BinaryMuse/toml-node)** (v3.0.0): TOML configuration files
+- **[commander](https://github.com/tj/commander.js)** (v11.1.0): CLI argument parsing
+
+### Telemetry & Monitoring
+
+- **[@opentelemetry/sdk-node](https://github.com/open-telemetry/opentelemetry-js)** (v0.202.0): OpenTelemetry Node.js SDK
+- **[@opentelemetry/auto-instrumentations-node](https://github.com/open-telemetry/opentelemetry-js-contrib)** (v0.60.1): Automatic instrumentation
+- **[@opentelemetry/exporter-jaeger](https://github.com/open-telemetry/opentelemetry-js)** (v2.0.1): Jaeger exporter for tracing
+- **[@opentelemetry/exporter-prometheus](https://github.com/open-telemetry/opentelemetry-js)** (v0.202.0): Prometheus exporter for metrics
+
+### Development Tools
+
+- **TypeScript** (v5.3.2): Static typing
+- **Jest** (v29.7.0): Test framework with 77+ tests
+- **ESLint** (v8.54.0): Code quality and linting
+- **Docker**: Containerization and CI/CD
+
+### Migration History
+
+**2025-06**: Migration from Node.js to Bun
+- **Runtime**: Switch from Node.js to Bun v1.2+ for better performance
+- **Build System**: TypeScript compilation with Bun support
+- **Docker**: Optimized containers with oven/bun:1.2-alpine base image
+- **Tools**: Additional container tools (curl, ping, uptime, jq)
+- **Compatibility**: Full backward compatibility of all features
+
+**2025-06**: Migration from `mastodon-api` to `masto.js`
+- **Reason**: Better TypeScript support and active development
+- **Benefits**: Native types, structured v1/v2 API, modern architecture
+- **Compatibility**: All tests and functionality fully maintained
+- **Breaking Changes**: None for end users - only internal API changes
 
 ## Development
 
-### Setup
+### Run Tests
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd buntspecht
+# All tests (with Jest for compatibility)
+bun run test
 
-# Install dependencies
-bun install
+# Tests with watch mode
+bun run test:watch
 
-# Run tests
-bun test
+# Test coverage
+bun run test:coverage
 
-# Run tests with coverage
-bun test --coverage
+# Alternative: Native Bun tests (experimental)
+bun run test:bun
+```
 
-# Type checking
-bun run type-check
+### Code Quality
 
+```bash
 # Linting
 bun run lint
 
-# Build
-bun run build
+# Linting with auto-fix
+bun run lint:fix
 ```
 
-### Testing
+### Binary Builds
 
 ```bash
-# Run all tests
-bun test
-
-# Run specific test file
-bun test src/__tests__/bot.test.ts
-
-# Run tests in watch mode
-bun test --watch
-
-# Generate coverage report
-bun test --coverage
-```
-
-### Building Binaries
-
-```bash
-# Build for current platform
+# Create local binary
 bun run build:binary
 
-# Build for all platforms
-bun run build:all-binaries
+# All platforms (cross-compilation)
+bun run build:binaries
 
-# Test all binaries
-bun run test:binaries
+# Specific platform
+bun run build:binary:linux-x64
+bun run build:binary:linux-arm64
+bun run build:binary:macos-x64
+bun run build:binary:macos-arm64
 ```
 
-> **⚠️ Note**: Binary builds exclude OpenTelemetry dependencies (`--external @opentelemetry/*`) for compatibility. Telemetry is automatically disabled in single binaries.
+**Note**: Binary builds contain no OpenTelemetry support due to compatibility issues. Telemetry is automatically disabled.
+
+#### Build Scripts
+
+```bash
+# Create all binaries with one command
+./scripts/build-all-binaries.sh
+
+# Test all binaries
+./scripts/test-binaries.sh
+```
 
 ### Project Structure
 
 ```
 src/
-├── bot.ts                 # Main bot logic
-├── cli.ts                 # Command line interface
-├── index.ts               # Entry point
-├── config/
-│   └── configLoader.ts    # Configuration loading
-├── messages/
-│   ├── commandProvider.ts # Command message provider
-│   ├── jsonCommandProvider.ts # JSON template provider
-│   ├── messageProvider.ts # Base provider interface
-│   ├── messageProviderFactory.ts # Provider factory
-│   └── pingProvider.ts    # Ping provider
-├── services/
-│   ├── mastodonClient.ts  # Mastodon API client
-│   ├── multiProviderScheduler.ts # Multi-provider scheduler
-│   └── telemetry.ts       # OpenTelemetry setup
-├── types/
-│   └── config.ts          # TypeScript type definitions
-└── utils/
-    └── logger.ts          # Logging utilities
+├── __tests__/          # Test files (77+ tests)
+├── config/             # Configuration
+│   └── configLoader.ts
+├── messages/           # Message Provider System
+│   ├── messageProvider.ts
+│   ├── messageProviderFactory.ts
+│   ├── pingProvider.ts
+│   ├── commandProvider.ts
+│   └── index.ts
+├── services/           # Main services
+│   ├── mastodonClient.ts
+│   └── botScheduler.ts
+├── types/              # TypeScript types
+│   └── config.ts
+├── utils/              # Utility functions
+│   └── logger.ts
+├── bot.ts              # Main bot class
+├── cli.ts              # CLI argument parser
+└── index.ts            # Entry point
 ```
+
+## Docker
+
+### Build Image
+
+```bash
+docker build -t buntspecht .
+```
+
+### Run Container
+
+```bash
+# With volume for configuration
+docker run -d \
+  --name ping-bot \
+  -v $(pwd)/config.toml:/app/config.toml:ro \
+  buntspecht
+
+# With environment variable
+docker run -d \
+  --name ping-bot \
+  -e BUNTSPECHT_CONFIG=/app/config.toml \
+  -v $(pwd)/config.toml:/app/config.toml:ro \
+  buntspecht
+```
+
+### Docker Compose
+
+```yaml
+version: "3.8"
+services:
+  buntspecht:
+    build: .
+    container_name: ping-bot
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+```
+
+## CI/CD
+
+The Dockerfile is optimized for CI/CD pipelines:
+
+- Multi-stage build for smaller images
+- Non-root user for security
+- Health checks
+- Proper layer caching
+
+### GitHub Actions Example
+
+```yaml
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - run: bun run lint
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build Docker image
+        run: docker build -t buntspecht .
+```
+
+## Troubleshooting
+
+### Common Problems
+
+1. **"No configuration file found"**
+
+   - Make sure a `config.toml` exists
+   - Check the paths in the priority order
+
+2. **"Failed to connect to Mastodon"**
+
+   - Check the `instance` URL
+   - Validate the `accessToken`
+   - Test with `--verify`
+
+3. **"Invalid cron schedule"**
+   - Use the standard format: "Minute Hour Day Month Weekday"
+   - Test your cron expression online
+
+### Debugging
+
+```bash
+# Enable debug logs
+# In config.toml:
+[logging]
+level = "debug"
+
+# Or via environment:
+DEBUG=* bun start
+```
+
+## License
+
+MIT License - see LICENSE file for details.
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-
-- Use TypeScript for all new code
-- Follow ESLint configuration
-- Write tests for new features
-- Update documentation as needed
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push branch (`git push origin feature/amazing-feature`)
+5. Create pull request
 
 ## Support
 
-- 🐛 **Issues**: [GitHub Issues](../../issues)
-- 💬 **Discussions**: [GitHub Discussions](../../discussions)
-- 📧 **Email**: [your-email@example.com](mailto:your-email@example.com)
+For problems or questions:
+
+1. Check the [Issues](../../issues)
+2. Create a new issue with detailed description
+3. Add logs and configuration (without secrets!)
 
 ## AI-Assisted Development
 
@@ -507,7 +814,7 @@ This project was developed entirely with the assistance of **Claude 3.5 Sonnet (
 ### 🛠️ **AI-Assisted Development Areas:**
 
 - **Code Architecture**: Complete TypeScript project structure with provider system
-- **Test Development**: 108+ comprehensive unit tests with Jest
+- **Test Development**: 77+ comprehensive unit tests with Jest
 - **Provider System**: Extensible message provider architecture
 - **Command Integration**: External command execution with error handling
 - **Docker Configuration**: Multi-stage builds and CI/CD pipeline
@@ -518,8 +825,8 @@ This project was developed entirely with the assistance of **Claude 3.5 Sonnet (
 
 ### 💡 **Development Approach:**
 
-Development was carried out through natural language requirements that were transformed by AI into functional, production-ready code. Modern development standards and best practices were automatically considered throughout the process.
+Development was carried out through natural language requirements that were transformed by the AI into functional, production-ready code. Modern development standards and best practices were automatically considered throughout the process.
 
-## Changelog
+---
 
-See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
+**Buntspecht** - A reliable Fediverse bot for automated messages with flexible sources 🐦
