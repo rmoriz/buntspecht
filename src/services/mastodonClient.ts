@@ -1,6 +1,7 @@
 import { createRestAPIClient, type mastodon } from 'masto';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
+import { TelemetryService } from './telemetry';
 
 interface AccountClient {
   name: string;
@@ -12,10 +13,12 @@ export class MastodonClient {
   private clients: Map<string, AccountClient> = new Map();
   private config: BotConfig;
   private logger: Logger;
+  private telemetry: TelemetryService;
 
-  constructor(config: BotConfig, logger: Logger) {
+  constructor(config: BotConfig, logger: Logger, telemetry: TelemetryService) {
     this.config = config;
     this.logger = logger;
+    this.telemetry = telemetry;
     this.initializeClients();
   }
 
@@ -39,50 +42,71 @@ export class MastodonClient {
   /**
    * Posts a status message to specified accounts
    */
-  public async postStatus(message: string, accountNames: string[]): Promise<void> {
-    if (accountNames.length === 0) {
-      throw new Error('No accounts specified for posting');
-    }
+  public async postStatus(message: string, accountNames: string[], provider?: string): Promise<void> {
+    const span = this.telemetry.startSpan('mastodon.post_status', {
+      'mastodon.accounts_count': accountNames.length,
+      'mastodon.provider': provider || 'unknown',
+      'mastodon.message_length': message.length,
+    });
 
-    const results: Array<{ account: string; success: boolean; error?: string }> = [];
-
-    for (const accountName of accountNames) {
-      const accountClient = this.clients.get(accountName);
-      if (!accountClient) {
-        const error = `Account "${accountName}" not found in configuration`;
-        this.logger.error(error);
-        results.push({ account: accountName, success: false, error });
-        continue;
+    try {
+      if (accountNames.length === 0) {
+        throw new Error('No accounts specified for posting');
       }
 
-      try {
-        this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}): "${message}"`);
-        
-        const status = await accountClient.client.v1.statuses.create({
-          status: message,
-        });
+      const results: Array<{ account: string; success: boolean; error?: string }> = [];
 
-        this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}`);
-        results.push({ account: accountName, success: true });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.error(`Failed to post status to ${accountName}:`, error);
-        results.push({ account: accountName, success: false, error: errorMessage });
+      for (const accountName of accountNames) {
+        const accountClient = this.clients.get(accountName);
+        if (!accountClient) {
+          const error = `Account "${accountName}" not found in configuration`;
+          this.logger.error(error);
+          this.telemetry.recordError('account_not_found', provider, accountName);
+          results.push({ account: accountName, success: false, error });
+          continue;
+        }
+
+        try {
+          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}): "${message}"`);
+          
+          const status = await accountClient.client.v1.statuses.create({
+            status: message,
+          });
+
+          this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}`);
+          this.telemetry.recordPost(accountName, provider || 'unknown');
+          results.push({ account: accountName, success: true });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger.error(`Failed to post status to ${accountName}:`, error);
+          this.telemetry.recordError('post_failed', provider, accountName);
+          results.push({ account: accountName, success: false, error: errorMessage });
+        }
       }
-    }
 
-    // Check if any posts were successful
-    const successfulPosts = results.filter(r => r.success);
-    const failedPosts = results.filter(r => !r.success);
+      // Check if any posts were successful
+      const successfulPosts = results.filter(r => r.success);
+      const failedPosts = results.filter(r => !r.success);
 
-    if (successfulPosts.length === 0) {
-      // All posts failed
-      const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
-      throw new Error(`Failed to post to all accounts: ${errors}`);
-    } else if (failedPosts.length > 0) {
-      // Some posts failed, log warning but don't throw
-      const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
-      this.logger.warn(`Some posts failed: ${errors}`);
+      if (successfulPosts.length === 0) {
+        // All posts failed
+        const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
+        span?.setStatus({ code: 2, message: 'All posts failed' }); // ERROR
+        throw new Error(`Failed to post to all accounts: ${errors}`);
+      } else if (failedPosts.length > 0) {
+        // Some posts failed, log warning but don't throw
+        const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
+        this.logger.warn(`Some posts failed: ${errors}`);
+        span?.setStatus({ code: 1, message: 'Some posts failed' }); // WARNING
+      } else {
+        span?.setStatus({ code: 1 }); // OK
+      }
+    } catch (error) {
+      span?.recordException(error as Error);
+      span?.setStatus({ code: 2, message: (error as Error).message }); // ERROR
+      throw error;
+    } finally {
+      span?.end();
     }
   }
 

@@ -1,20 +1,23 @@
 import { ConfigLoader } from './config/configLoader';
 import { MastodonClient } from './services/mastodonClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
+import { TelemetryService } from './services/telemetry';
 import { Logger } from './utils/logger';
 import { BotConfig, CliOptions } from './types/config';
 
 export class MastodonPingBot {
   private config: BotConfig;
   private logger: Logger;
+  private telemetry: TelemetryService;
   private mastodonClient: MastodonClient;
   private scheduler: MultiProviderScheduler;
 
   constructor(cliOptions: CliOptions) {
     this.config = ConfigLoader.loadConfig(cliOptions);
     this.logger = new Logger(this.config.logging.level);
-    this.mastodonClient = new MastodonClient(this.config, this.logger);
-    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger);
+    this.telemetry = new TelemetryService(this.config.telemetry!, this.logger);
+    this.mastodonClient = new MastodonClient(this.config, this.logger, this.telemetry);
+    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger, this.telemetry);
   }
 
   /**
@@ -22,6 +25,9 @@ export class MastodonPingBot {
    */
   public async initialize(): Promise<void> {
     this.logger.info('Initializing Buntspecht...');
+    
+    // Initialize telemetry first
+    await this.telemetry.initialize();
     
     const isConnected = await this.mastodonClient.verifyConnection();
     if (!isConnected) {
@@ -45,9 +51,10 @@ export class MastodonPingBot {
   /**
    * Stops the bot scheduler
    */
-  public stop(): void {
+  public async stop(): Promise<void> {
     this.logger.info('Stopping Buntspecht...');
     this.scheduler.stop();
+    await this.telemetry.shutdown();
   }
 
   /**
@@ -85,9 +92,9 @@ export class MastodonPingBot {
    * Graceful shutdown handler
    */
   public setupGracefulShutdown(): void {
-    const shutdown = (signal: string) => {
+    const shutdown = async (signal: string) => {
       this.logger.info(`Received ${signal}, shutting down gracefully...`);
-      this.stop();
+      await this.stop();
       process.exit(0);
     };
 

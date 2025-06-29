@@ -1,4 +1,5 @@
 import { MastodonClient } from '../services/mastodonClient';
+import { TelemetryService } from '../services/telemetry';
 import { Logger } from '../utils/logger';
 import { BotConfig } from '../types/config';
 
@@ -20,6 +21,7 @@ describe('MastodonClient', () => {
   let mockMastodonApi: MockMastodonApi;
   let config: BotConfig;
   let logger: Logger;
+  let telemetry: TelemetryService;
   let client: MastodonClient;
 
   beforeEach(() => {
@@ -70,7 +72,26 @@ describe('MastodonClient', () => {
     jest.spyOn(logger, 'debug').mockImplementation();
     jest.spyOn(logger, 'warn').mockImplementation();
 
-    client = new MastodonClient(config, logger);
+    // Create mock telemetry service
+    telemetry = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      startSpan: jest.fn().mockReturnValue({
+        setAttributes: jest.fn(),
+        setStatus: jest.fn(),
+        recordException: jest.fn(),
+        end: jest.fn(),
+      }),
+      recordPost: jest.fn(),
+      recordError: jest.fn(),
+      recordProviderExecution: jest.fn(),
+      updateActiveConnections: jest.fn(),
+      isEnabled: jest.fn().mockReturnValue(false),
+      getTracer: jest.fn(),
+      getMeter: jest.fn(),
+    } as unknown as jest.Mocked<TelemetryService>;
+
+    client = new MastodonClient(config, logger, telemetry);
   });
 
   afterEach(() => {
@@ -100,7 +121,7 @@ describe('MastodonClient', () => {
         ]
       };
 
-      new MastodonClient(multiAccountConfig, logger);
+      new MastodonClient(multiAccountConfig, logger, telemetry);
 
       expect(createRestAPIClient).toHaveBeenCalledWith({
         url: 'https://mastodon.social',
@@ -137,7 +158,7 @@ describe('MastodonClient', () => {
         ]
       };
 
-      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const multiClient = new MastodonClient(multiAccountConfig, logger, telemetry);
       const mockStatus1 = { id: '111' };
       const mockStatus2 = { id: '222' };
       
@@ -173,7 +194,7 @@ describe('MastodonClient', () => {
         ]
       };
 
-      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const multiClient = new MastodonClient(multiAccountConfig, logger, telemetry);
       const mockStatus = { id: '111' };
       
       mockMastodonApi.v1.statuses.create
@@ -223,7 +244,7 @@ describe('MastodonClient', () => {
 
     it('should return false when no accounts configured', async () => {
       const emptyConfig = { ...config, accounts: [] };
-      const emptyClient = new MastodonClient(emptyConfig, logger);
+      const emptyClient = new MastodonClient(emptyConfig, logger, telemetry);
 
       const result = await emptyClient.verifyConnection();
 
@@ -294,7 +315,7 @@ describe('MastodonClient', () => {
         ]
       };
 
-      const multiClient = new MastodonClient(multiAccountConfig, logger);
+      const multiClient = new MastodonClient(multiAccountConfig, logger, telemetry);
       const mockAccountData = { username: 'user1', displayName: 'User 1', followersCount: 10, followingCount: 5 };
       
       mockMastodonApi.v1.accounts.verifyCredentials

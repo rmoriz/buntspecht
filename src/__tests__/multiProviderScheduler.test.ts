@@ -1,5 +1,6 @@
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
 import { MastodonClient } from '../services/mastodonClient';
+import { TelemetryService } from '../services/telemetry';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 
@@ -9,6 +10,7 @@ jest.mock('../services/mastodonClient');
 describe('MultiProviderScheduler', () => {
   let scheduler: MultiProviderScheduler;
   let mockMastodonClient: jest.Mocked<MastodonClient>;
+  let mockTelemetry: jest.Mocked<TelemetryService>;
   let logger: Logger;
   let config: BotConfig;
 
@@ -19,7 +21,26 @@ describe('MultiProviderScheduler', () => {
     jest.spyOn(logger, 'error').mockImplementation();
     jest.spyOn(logger, 'debug').mockImplementation();
 
-    mockMastodonClient = new MastodonClient({} as BotConfig, logger) as jest.Mocked<MastodonClient>;
+    // Create mock telemetry service
+    mockTelemetry = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      startSpan: jest.fn().mockReturnValue({
+        setAttributes: jest.fn(),
+        setStatus: jest.fn(),
+        recordException: jest.fn(),
+        end: jest.fn(),
+      }),
+      recordPost: jest.fn(),
+      recordError: jest.fn(),
+      recordProviderExecution: jest.fn(),
+      updateActiveConnections: jest.fn(),
+      isEnabled: jest.fn().mockReturnValue(false),
+      getTracer: jest.fn(),
+      getMeter: jest.fn(),
+    } as unknown as jest.Mocked<TelemetryService>;
+
+    mockMastodonClient = new MastodonClient({} as BotConfig, logger, mockTelemetry) as jest.Mocked<MastodonClient>;
     mockMastodonClient.postStatus = jest.fn().mockResolvedValue(undefined);
     mockMastodonClient.hasAccount = jest.fn().mockReturnValue(true);
 
@@ -39,7 +60,7 @@ describe('MultiProviderScheduler', () => {
       }
     };
 
-    scheduler = new MultiProviderScheduler(mockMastodonClient, config, logger);
+    scheduler = new MultiProviderScheduler(mockMastodonClient, config, logger, mockTelemetry);
   });
 
   afterEach(() => {
@@ -162,14 +183,14 @@ describe('MultiProviderScheduler', () => {
     it('should execute all tasks immediately', async () => {
       await scheduler.executeAllTasksNow();
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account']);
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider');
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
     it('should execute specific provider task', async () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account']);
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider');
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 

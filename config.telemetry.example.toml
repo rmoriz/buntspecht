@@ -1,0 +1,97 @@
+# Buntspecht Telemetrie Konfiguration Beispiel
+# Diese Datei zeigt, wie OpenTelemetry für Monitoring und Observability konfiguriert wird
+
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "dein-token-hier"
+
+[bot]
+# Einfacher Provider für Telemetrie-Tests
+[[bot.providers]]
+name = "telemetry-test"
+type = "ping"
+cronSchedule = "*/5 * * * *"  # Alle 5 Minuten für häufige Telemetrie-Daten
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+message = "🔍 Telemetrie-Test: {{timestamp}}"
+
+[logging]
+level = "debug"  # Debug-Level für detaillierte Telemetrie-Logs
+
+[telemetry]
+# OpenTelemetry Konfiguration für Monitoring und Observability
+enabled = true  # Telemetrie aktiviert
+serviceName = "buntspecht"
+serviceVersion = "1.0.0"
+
+[telemetry.jaeger]
+# Jaeger für Distributed Tracing
+# Installiere Jaeger lokal: docker run -d --name jaeger -p 16686:16686 -p 14268:14268 jaegertracing/all-in-one:latest
+enabled = true
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+# Prometheus für Metriken
+# Metriken sind verfügbar unter http://localhost:9090/metrics
+enabled = true
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+# Tracing aktivieren für detaillierte Ausführungsverfolgung
+enabled = true
+
+[telemetry.metrics]
+# Metriken aktivieren für Performance-Monitoring
+enabled = true
+
+# Telemetrie-Hinweise:
+#
+# 1. Jaeger Setup (Distributed Tracing):
+#    docker run -d --name jaeger \
+#      -p 16686:16686 \
+#      -p 14268:14268 \
+#      jaegertracing/all-in-one:latest
+#    
+#    Jaeger UI: http://localhost:16686
+#
+# 2. Prometheus Setup (Metriken):
+#    Die Metriken sind direkt unter http://localhost:9090/metrics verfügbar
+#    Für ein vollständiges Prometheus-Setup:
+#    
+#    prometheus.yml:
+#    global:
+#      scrape_interval: 15s
+#    scrape_configs:
+#      - job_name: 'buntspecht'
+#        static_configs:
+#          - targets: ['localhost:9090']
+#
+# 3. Verfügbare Metriken:
+#    - buntspecht_posts_total: Anzahl der gesendeten Posts
+#    - buntspecht_errors_total: Anzahl der Fehler
+#    - buntspecht_provider_execution_duration_seconds: Ausführungszeit der Provider
+#    - buntspecht_active_connections: Anzahl aktiver Mastodon-Verbindungen
+#
+# 4. Verfügbare Traces:
+#    - mastodon.post_status: Mastodon-Post-Operationen
+#    - provider.execute_task: Provider-Ausführungen
+#
+# 5. Span-Attribute:
+#    - mastodon.accounts_count: Anzahl der Ziel-Accounts
+#    - mastodon.provider: Name des Providers
+#    - mastodon.message_length: Länge der Nachricht
+#    - provider.name: Name des Providers
+#    - provider.type: Typ des Providers
+#    - provider.accounts: Liste der Ziel-Accounts
+#
+# 6. Grafana Dashboard:
+#    Für erweiterte Visualisierung kann Grafana mit Prometheus und Jaeger verbunden werden
+#    Beispiel-Queries:
+#    - rate(buntspecht_posts_total[5m]): Posts pro Sekunde
+#    - buntspecht_errors_total: Gesamtanzahl Fehler
+#    - histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds): 95. Perzentil der Ausführungszeit

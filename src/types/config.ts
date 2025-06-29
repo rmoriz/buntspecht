@@ -13,6 +13,27 @@ export interface ProviderConfig {
   config: { [key: string]: unknown };
 }
 
+export interface TelemetryConfig {
+  enabled: boolean;
+  serviceName: string;
+  serviceVersion: string;
+  jaeger?: {
+    enabled: boolean;
+    endpoint?: string;
+  };
+  prometheus?: {
+    enabled: boolean;
+    port?: number;
+    endpoint?: string;
+  };
+  tracing?: {
+    enabled: boolean;
+  };
+  metrics?: {
+    enabled: boolean;
+  };
+}
+
 export interface BotConfig {
   accounts: AccountConfig[];
   bot: {
@@ -21,6 +42,7 @@ export interface BotConfig {
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';
   };
+  telemetry?: TelemetryConfig;
 }
 
 export interface CliOptions {

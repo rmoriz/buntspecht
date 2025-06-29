@@ -2,6 +2,7 @@ import { MastodonPingBot } from '../bot';
 import { ConfigLoader } from '../config/configLoader';
 import { MastodonClient } from '../services/mastodonClient';
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
+import { TelemetryService } from '../services/telemetry';
 import { Logger } from '../utils/logger';
 import { CliOptions, BotConfig } from '../types/config';
 
@@ -9,16 +10,19 @@ import { CliOptions, BotConfig } from '../types/config';
 jest.mock('../config/configLoader');
 jest.mock('../services/mastodonClient');
 jest.mock('../services/multiProviderScheduler');
+jest.mock('../services/telemetry');
 jest.mock('../utils/logger');
 
 const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
 const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonClient>;
 const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
+const MockTelemetryService = TelemetryService as jest.MockedClass<typeof TelemetryService>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
 
 describe('MastodonPingBot', () => {
   let mockConfig: BotConfig;
   let mockLogger: jest.Mocked<Logger>;
+  let mockTelemetry: jest.Mocked<TelemetryService>;
   let mockMastodonClient: jest.Mocked<MastodonClient>;
   let mockScheduler: jest.Mocked<MultiProviderScheduler>;
   let cliOptions: CliOptions;
@@ -48,6 +52,26 @@ describe('MastodonPingBot', () => {
       logging: {
         level: 'info',
       },
+      telemetry: {
+        enabled: false,
+        serviceName: 'buntspecht',
+        serviceVersion: '1.0.0',
+        jaeger: {
+          enabled: false,
+          endpoint: 'http://localhost:14268/api/traces',
+        },
+        prometheus: {
+          enabled: false,
+          port: 9090,
+          endpoint: '/metrics',
+        },
+        tracing: {
+          enabled: false,
+        },
+        metrics: {
+          enabled: false,
+        },
+      },
     };
 
     // Mock ConfigLoader
@@ -64,6 +88,26 @@ describe('MastodonPingBot', () => {
       isInfoEnabled: jest.fn(),
     } as unknown as jest.Mocked<Logger>;
     MockLogger.mockImplementation(() => mockLogger);
+
+    // Mock TelemetryService
+    mockTelemetry = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      startSpan: jest.fn().mockReturnValue({
+        setAttributes: jest.fn(),
+        setStatus: jest.fn(),
+        recordException: jest.fn(),
+        end: jest.fn(),
+      }),
+      recordPost: jest.fn(),
+      recordError: jest.fn(),
+      recordProviderExecution: jest.fn(),
+      updateActiveConnections: jest.fn(),
+      isEnabled: jest.fn().mockReturnValue(false),
+      getTracer: jest.fn(),
+      getMeter: jest.fn(),
+    } as unknown as jest.Mocked<TelemetryService>;
+    MockTelemetryService.mockImplementation(() => mockTelemetry);
 
     // Mock MastodonClient
     mockMastodonClient = {
@@ -111,11 +155,13 @@ describe('MastodonPingBot', () => {
     it('should initialize all components', () => {
       expect(MockConfigLoader.loadConfig).toHaveBeenCalledWith(cliOptions);
       expect(MockLogger).toHaveBeenCalledWith('info');
-      expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger);
+      expect(MockTelemetryService).toHaveBeenCalledWith(mockConfig.telemetry, mockLogger);
+      expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger, mockTelemetry);
       expect(MockMultiProviderScheduler).toHaveBeenCalledWith(
         mockMastodonClient,
         mockConfig,
-        mockLogger
+        mockLogger,
+        mockTelemetry
       );
     });
   });
@@ -125,6 +171,7 @@ describe('MastodonPingBot', () => {
       await bot.initialize();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Initializing Buntspecht...');
+      expect(mockTelemetry.initialize).toHaveBeenCalled();
       expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
       expect(mockScheduler.initialize).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Bot initialized successfully');

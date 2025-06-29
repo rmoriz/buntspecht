@@ -19,6 +19,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
 - 🔧 Erweiterbare Provider-Architektur
+- 📊 **OpenTelemetry-Integration**: Monitoring, Tracing und Metriken für Observability
 
 ## Installation
 
@@ -376,6 +377,119 @@ npm start -- --list-providers
 npm start -- --config /pfad/zur/config.toml
 ```
 
+## Telemetrie und Monitoring
+
+Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und Metriken. Dies ermöglicht es, die Performance und das Verhalten des Bots zu überwachen und zu analysieren.
+
+### Telemetrie-Konfiguration
+
+```toml
+[telemetry]
+# OpenTelemetry aktivieren/deaktivieren
+enabled = true
+serviceName = "buntspecht"
+serviceVersion = "1.0.0"
+
+[telemetry.jaeger]
+# Jaeger für Distributed Tracing
+enabled = true
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+# Prometheus für Metriken
+enabled = true
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+# Tracing aktivieren
+enabled = true
+
+[telemetry.metrics]
+# Metriken aktivieren
+enabled = true
+```
+
+### Verfügbare Metriken
+
+- **`buntspecht_posts_total`**: Anzahl der erfolgreich gesendeten Posts (mit Labels: account, provider)
+- **`buntspecht_errors_total`**: Anzahl der Fehler (mit Labels: error_type, provider, account)
+- **`buntspecht_provider_execution_duration_seconds`**: Ausführungszeit der Provider (mit Label: provider)
+- **`buntspecht_active_connections`**: Anzahl aktiver Mastodon-Verbindungen
+
+### Verfügbare Traces
+
+- **`mastodon.post_status`**: Mastodon-Post-Operationen mit Attributen wie:
+  - `mastodon.accounts_count`: Anzahl der Ziel-Accounts
+  - `mastodon.provider`: Name des Providers
+  - `mastodon.message_length`: Länge der Nachricht
+
+- **`provider.execute_task`**: Provider-Ausführungen mit Attributen wie:
+  - `provider.name`: Name des Providers
+  - `provider.type`: Typ des Providers
+  - `provider.accounts`: Liste der Ziel-Accounts
+
+### Monitoring-Setup
+
+#### Jaeger (Distributed Tracing)
+
+```bash
+# Jaeger mit Docker starten
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 14268:14268 \
+  jaegertracing/all-in-one:latest
+
+# Jaeger UI öffnen
+open http://localhost:16686
+```
+
+#### Prometheus (Metriken)
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'buntspecht'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+```bash
+# Prometheus mit Docker starten
+docker run -d --name prometheus \
+  -p 9090:9090 \
+  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+# Metriken direkt abrufen
+curl http://localhost:9090/metrics
+```
+
+#### Grafana Dashboard
+
+Beispiel-Queries für Grafana:
+
+```promql
+# Posts pro Minute
+rate(buntspecht_posts_total[1m])
+
+# Fehlerrate
+rate(buntspecht_errors_total[5m])
+
+# 95. Perzentil der Provider-Ausführungszeit
+histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds)
+
+# Aktive Verbindungen
+buntspecht_active_connections
+```
+
+### Telemetrie-Beispielkonfiguration
+
+Für eine vollständige Telemetrie-Konfiguration siehe `config.telemetry.example.toml`.
+
 ### Cron-Schedule Beispiele
 
 ```toml
@@ -403,6 +517,13 @@ cronSchedule = "*/15 9-17 * * 1-5"
 - **[node-cron](https://github.com/node-cron/node-cron)** (v3.0.3): Cron-Job-Scheduling
 - **[toml](https://github.com/BinaryMuse/toml-node)** (v3.0.0): TOML-Konfigurationsdateien
 - **[commander](https://github.com/tj/commander.js)** (v11.1.0): CLI-Argument-Parsing
+
+### Telemetry & Monitoring
+
+- **[@opentelemetry/sdk-node](https://github.com/open-telemetry/opentelemetry-js)** (v0.202.0): OpenTelemetry Node.js SDK
+- **[@opentelemetry/auto-instrumentations-node](https://github.com/open-telemetry/opentelemetry-js-contrib)** (v0.60.1): Automatische Instrumentierung
+- **[@opentelemetry/exporter-jaeger](https://github.com/open-telemetry/opentelemetry-js)** (v2.0.1): Jaeger-Exporter für Tracing
+- **[@opentelemetry/exporter-prometheus](https://github.com/open-telemetry/opentelemetry-js)** (v0.202.0): Prometheus-Exporter für Metriken
 
 ### Development Tools
 

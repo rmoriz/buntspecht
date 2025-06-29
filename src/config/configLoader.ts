@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as toml from 'toml';
-import { BotConfig, CliOptions } from '../types/config';
+import { BotConfig, CliOptions, TelemetryConfig } from '../types/config';
 
 export class ConfigLoader {
   private static getDefaultConfigPaths(): string[] {
@@ -63,6 +63,7 @@ export class ConfigLoader {
       const parsedConfig = toml.parse(configContent);
       
       this.validateConfig(parsedConfig);
+      this.setDefaults(parsedConfig);
       
       return parsedConfig as BotConfig;
     } catch (error) {
@@ -141,6 +142,70 @@ export class ConfigLoader {
 
     // Set defaults
     logging.level = logging.level || 'info';
+  }
+
+  private static setDefaults(config: Record<string, unknown>): void {
+    // Set telemetry defaults if not present
+    if (!config.telemetry) {
+      config.telemetry = this.getDefaultTelemetryConfig();
+    } else {
+      const telemetry = config.telemetry as Record<string, unknown>;
+      const defaults = this.getDefaultTelemetryConfig();
+      
+      // Merge with defaults
+      Object.keys(defaults).forEach(key => {
+        if (telemetry[key] === undefined) {
+          telemetry[key] = (defaults as unknown as Record<string, unknown>)[key];
+        }
+      });
+
+      // Set nested defaults
+      if (telemetry.jaeger && typeof telemetry.jaeger === 'object') {
+        const jaeger = telemetry.jaeger as Record<string, unknown>;
+        jaeger.enabled = jaeger.enabled ?? false;
+        jaeger.endpoint = jaeger.endpoint ?? 'http://localhost:14268/api/traces';
+      }
+
+      if (telemetry.prometheus && typeof telemetry.prometheus === 'object') {
+        const prometheus = telemetry.prometheus as Record<string, unknown>;
+        prometheus.enabled = prometheus.enabled ?? false;
+        prometheus.port = prometheus.port ?? 9090;
+        prometheus.endpoint = prometheus.endpoint ?? '/metrics';
+      }
+
+      if (telemetry.tracing && typeof telemetry.tracing === 'object') {
+        const tracing = telemetry.tracing as Record<string, unknown>;
+        tracing.enabled = tracing.enabled ?? false;
+      }
+
+      if (telemetry.metrics && typeof telemetry.metrics === 'object') {
+        const metrics = telemetry.metrics as Record<string, unknown>;
+        metrics.enabled = metrics.enabled ?? false;
+      }
+    }
+  }
+
+  private static getDefaultTelemetryConfig(): TelemetryConfig {
+    return {
+      enabled: false,
+      serviceName: 'buntspecht',
+      serviceVersion: '1.0.0',
+      jaeger: {
+        enabled: false,
+        endpoint: 'http://localhost:14268/api/traces',
+      },
+      prometheus: {
+        enabled: false,
+        port: 9090,
+        endpoint: '/metrics',
+      },
+      tracing: {
+        enabled: false,
+      },
+      metrics: {
+        enabled: false,
+      },
+    };
   }
 
   /**

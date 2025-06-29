@@ -1,5 +1,6 @@
 import * as cron from 'node-cron';
 import { MastodonClient } from './mastodonClient';
+import { TelemetryService } from './telemetry';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import { MessageProvider } from '../messages/messageProvider';
@@ -16,13 +17,15 @@ export class MultiProviderScheduler {
   private mastodonClient: MastodonClient;
   private config: BotConfig;
   private logger: Logger;
+  private telemetry: TelemetryService;
   private scheduledProviders: ScheduledProvider[] = [];
   private isRunning = false;
 
-  constructor(mastodonClient: MastodonClient, config: BotConfig, logger: Logger) {
+  constructor(mastodonClient: MastodonClient, config: BotConfig, logger: Logger, telemetry: TelemetryService) {
     this.mastodonClient = mastodonClient;
     this.config = config;
     this.logger = logger;
+    this.telemetry = telemetry;
   }
 
   /**
@@ -157,6 +160,12 @@ export class MultiProviderScheduler {
    * Executes a task for a specific provider
    */
   private async executeProviderTask(providerName: string, provider: MessageProvider): Promise<void> {
+    const startTime = Date.now();
+    const span = this.telemetry.startSpan('provider.execute_task', {
+      'provider.name': providerName,
+      'provider.type': provider.getProviderName(),
+    });
+
     try {
       this.logger.debug(`Executing task for provider: ${providerName}`);
       
@@ -166,12 +175,31 @@ export class MultiProviderScheduler {
         throw new Error(`Provider configuration not found for: ${providerName}`);
       }
 
+      span?.setAttributes({
+        'provider.accounts_count': providerConfig.accounts.length,
+        'provider.accounts': providerConfig.accounts.join(','),
+      });
+
       const message = await provider.generateMessage();
-      await this.mastodonClient.postStatus(message, providerConfig.accounts);
+      span?.setAttributes({
+        'provider.message_length': message.length,
+      });
+
+      await this.mastodonClient.postStatus(message, providerConfig.accounts, providerName);
+      
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      this.telemetry.recordProviderExecution(providerName, durationSeconds);
+      
       this.logger.info(`Successfully posted message from provider: ${providerName}`);
+      span?.setStatus({ code: 1 }); // OK
     } catch (error) {
       this.logger.error(`Failed to execute task for provider "${providerName}":`, error);
+      this.telemetry.recordError('provider_execution_failed', providerName);
+      span?.recordException(error as Error);
+      span?.setStatus({ code: 2, message: (error as Error).message }); // ERROR
       // Don't throw here to prevent other providers from being affected
+    } finally {
+      span?.end();
     }
   }
 

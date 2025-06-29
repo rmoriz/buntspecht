@@ -65,6 +65,31 @@ timeout = 15000
 # Protokoll-Stufe: debug, info, warn, error
 level = "info"
 
+[telemetry]
+# OpenTelemetry Konfiguration fuer Monitoring und Observability
+enabled = false  # Telemetrie aktivieren/deaktivieren
+serviceName = "buntspecht"
+serviceVersion = "1.0.0"
+
+[telemetry.jaeger]
+# Jaeger fuer Distributed Tracing
+enabled = false
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+# Prometheus fuer Metriken
+enabled = false
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+# Tracing aktivieren/deaktivieren
+enabled = false
+
+[telemetry.metrics]
+# Metriken aktivieren/deaktivieren
+enabled = false
+
 # Hinweise:
 # - Jeder Provider laeuft unabhaengig mit seinem eigenen Zeitplan
 # - Provider koennen einzeln aktiviert/deaktiviert werden mit 'enabled = true/false'
