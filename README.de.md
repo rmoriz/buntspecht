@@ -51,7 +51,7 @@ Laden Sie die passende Binary für Ihr System von den [GitHub Releases](../../re
 - **macOS Intel**: `buntspecht-macos-x64`
 - **macOS Apple Silicon**: `buntspecht-macos-arm64`
 
-> **⚠️ Hinweis**: Single Binaries haben OpenTelemetry-Dependencies zur Größenoptimierung ausgeschlossen. Für Telemetrie-Unterstützung verwenden Sie Docker oder führen Sie mit `bun run` aus.
+> **⚠️ Hinweis**: Single Binaries haben OpenTelemetry-Dependencies aus technischen Kompatibilitätsgründen ausgeschlossen. Für Telemetrie-Unterstützung verwenden Sie Docker oder führen Sie mit `bun run` aus.
 
 ```bash
 # Beispiel für Linux x64
