@@ -647,6 +647,29 @@ bun run build:binary:macos-arm64
 ./scripts/test-binaries.sh
 ```
 
+### Release Management
+
+```bash
+# Local build and test (no release)
+bun run release:local
+
+# Create releases
+bun run release:patch    # Bug fixes (1.0.0 → 1.0.1)
+bun run release:minor    # New features (1.0.0 → 1.1.0)
+bun run release:major    # Breaking changes (1.0.0 → 2.0.0)
+
+# Manual release script with options
+./scripts/release.sh --type patch --prerelease
+./scripts/release.sh --type minor --draft
+```
+
+**Automated Releases**: Releases are automatically triggered by conventional commits:
+- `feat:` → Minor version bump
+- `fix:` or `perf:` → Patch version bump  
+- `feat!:` or `BREAKING CHANGE:` → Major version bump
+
+See [RELEASE_PROCESS.md](RELEASE_PROCESS.md) for detailed release documentation.
+
 ### Project Structure
 
 ```

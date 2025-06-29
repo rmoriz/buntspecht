@@ -1,0 +1,287 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Create as prerelease'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create as draft'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: "1.2"
+    
+    - name: Install dependencies
+      run: bun install --frozen-lockfile
+    
+    - name: Run tests
+      run: bun run test
+    
+    - name: Run linter
+      run: bun run lint
+    
+    - name: Get current version
+      id: current_version
+      run: |
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT_VERSION"
+    
+    - name: Calculate new version
+      id: version
+      run: |
+        CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+        VERSION_TYPE="${{ github.event.inputs.version_type }}"
+        
+        # Split version into parts
+        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]}
+        PATCH=${VERSION_PARTS[2]}
+        
+        # Bump version based on type
+        case $VERSION_TYPE in
+          "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          "patch")
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+        TAG_NAME="v$NEW_VERSION"
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+        echo "Tag name: $TAG_NAME"
+    
+    - name: Update package.json version
+      run: |
+        NEW_VERSION="${{ steps.version.outputs.new_version }}"
+        # Update package.json
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.version = '$NEW_VERSION';
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        "
+        echo "Updated package.json to version $NEW_VERSION"
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        TAG_NAME="${{ steps.version.outputs.tag_name }}"
+        CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+        
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -z "$PREVIOUS_TAG" ]; then
+          echo "No previous tag found, generating changelog from first commit"
+          PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+        
+        echo "Generating changelog from $PREVIOUS_TAG to HEAD"
+        
+        # Generate changelog
+        CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD --no-merges)
+        
+        if [ -z "$CHANGELOG" ]; then
+          CHANGELOG="- No changes since last release"
+        fi
+        
+        # Create full changelog content
+        FULL_CHANGELOG="## What's Changed
+        
+        $CHANGELOG
+        
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$TAG_NAME"
+        
+        # Save changelog to file and output
+        echo "$FULL_CHANGELOG" > changelog.md
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$FULL_CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Commit version bump
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add package.json
+        git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}
+
+        Automated version bump using GitHub Actions and Bun tooling.
+        Release type: ${{ github.event.inputs.version_type }}"
+    
+    - name: Create and push tag
+      run: |
+        TAG_NAME="${{ steps.version.outputs.tag_name }}"
+        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+        git push origin HEAD:${{ github.ref_name }}
+        git push origin "$TAG_NAME"
+
+  build-and-release:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.create-release.outputs.tag_name }}
+    
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: "1.2"
+    
+    - name: Install dependencies
+      run: bun install --frozen-lockfile
+    
+    - name: Create dist directory
+      run: mkdir -p dist
+    
+    - name: Build all binaries
+      run: |
+        echo "🚀 Building Buntspecht binaries for all platforms..."
+        
+        echo "📦 Building Linux x64..."
+        bun run build:binary:linux-x64
+        
+        echo "📦 Building Linux ARM64..."
+        bun run build:binary:linux-arm64
+        
+        echo "📦 Building Linux ARMv8..."
+        bun run build:binary:linux-armv8
+        
+        echo "📦 Building macOS x64..."
+        bun run build:binary:macos-x64
+        
+        echo "📦 Building macOS ARM64..."
+        bun run build:binary:macos-arm64
+        
+        echo "✅ All binaries built successfully!"
+        ls -lh dist/buntspecht-*
+    
+    - name: Test binaries
+      run: |
+        echo "🧪 Testing binaries..."
+        
+        # Test Linux x64 binary (should work on Ubuntu runner)
+        if [ -f "dist/buntspecht-linux-x64" ]; then
+          echo "Testing Linux x64 binary..."
+          chmod +x dist/buntspecht-linux-x64
+          ./dist/buntspecht-linux-x64 --version || echo "Version test failed"
+          ./dist/buntspecht-linux-x64 --help >/dev/null || echo "Help test failed"
+        fi
+        
+        echo "✅ Binary testing complete!"
+    
+    - name: Calculate checksums
+      run: |
+        cd dist
+        for file in buntspecht-*; do
+          if [ -f "$file" ]; then
+            sha256sum "$file" >> checksums.txt
+          fi
+        done
+        echo "📋 Checksums:"
+        cat checksums.txt
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ needs.create-release.outputs.tag_name }}
+        name: "Release ${{ needs.create-release.outputs.tag_name }}"
+        body: |
+          # Buntspecht ${{ needs.create-release.outputs.new_version }}
+          
+          A reliable Fediverse bot for automated messages with flexible sources.
+          
+          ## 📦 Installation
+          
+          ### Download Binary
+          Download the appropriate binary for your platform from the assets below:
+          - `buntspecht-linux-x64` - Linux x86_64
+          - `buntspecht-linux-arm64` - Linux ARM64
+          - `buntspecht-linux-armv8` - Linux ARMv8
+          - `buntspecht-macos-x64` - macOS Intel
+          - `buntspecht-macos-arm64` - macOS Apple Silicon
+          
+          ### Docker
+          ```bash
+          docker pull ghcr.io/${{ github.repository_owner }}/buntspecht:latest
+          ```
+          
+          ### Verify Download
+          Check the `checksums.txt` file to verify your download integrity.
+          
+          ## 🚀 Quick Start
+          
+          1. Download the binary for your platform
+          2. Make it executable: `chmod +x buntspecht-*`
+          3. Create a config file: `cp config.example.toml config.toml`
+          4. Edit the config with your Mastodon credentials
+          5. Run: `./buntspecht-* --config config.toml`
+          
+          ## 📋 Release Notes
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ---
+          
+          **Note about OpenTelemetry**: This release includes OpenTelemetry instrumentation for observability. The binary releases are built with Bun's single binary compilation for optimal performance and easy deployment.
+        files: |
+          dist/buntspecht-linux-x64
+          dist/buntspecht-linux-arm64
+          dist/buntspecht-linux-armv8
+          dist/buntspecht-macos-x64
+          dist/buntspecht-macos-arm64
+          dist/checksums.txt
+        draft: ${{ github.event.inputs.draft }}
+        prerelease: ${{ github.event.inputs.prerelease }}
+        generate_release_notes: false

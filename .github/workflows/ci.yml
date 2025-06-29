@@ -115,40 +115,13 @@ jobs:
           dist/buntspecht-macos-arm64
         retention-days: 30
 
-  release:
-    needs: [test, build, binaries]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Download binaries
-      uses: actions/download-artifact@v4
-      with:
-        name: buntspecht-binaries
-        path: dist/
-        
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/buntspecht-linux-x64
-          dist/buntspecht-linux-arm64
-          dist/buntspecht-linux-armv8
-          dist/buntspecht-macos-x64
-          dist/buntspecht-macos-arm64
-        generate_release_notes: true
-        draft: false
-        prerelease: false
+  # Release job moved to dedicated release.yml workflow
+  # This ensures better control over release process and avoids conflicts
 
   docker:
     needs: [test, build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
       packages: write
@@ -176,6 +149,10 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
           type=sha
           type=raw,value=latest,enable={{is_default_branch}}
           
