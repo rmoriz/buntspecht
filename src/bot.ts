@@ -1,23 +1,21 @@
 import { ConfigLoader } from './config/configLoader';
 import { MastodonClient } from './services/mastodonClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
-import { TelemetryService } from './services/telemetry';
+import { createTelemetryService } from './services/telemetryFactory';
 import { Logger } from './utils/logger';
 import { BotConfig, CliOptions } from './types/config';
 
 export class MastodonPingBot {
   private config: BotConfig;
   private logger: Logger;
-  private telemetry: TelemetryService;
-  private mastodonClient: MastodonClient;
-  private scheduler: MultiProviderScheduler;
+  private telemetry: any; // Will be set in initialize()
+  private mastodonClient!: MastodonClient; // Initialized in initialize()
+  private scheduler!: MultiProviderScheduler; // Initialized in initialize()
 
   constructor(cliOptions: CliOptions) {
     this.config = ConfigLoader.loadConfig(cliOptions);
     this.logger = new Logger(this.config.logging.level);
-    this.telemetry = new TelemetryService(this.config.telemetry!, this.logger);
-    this.mastodonClient = new MastodonClient(this.config, this.logger, this.telemetry);
-    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger, this.telemetry);
+    // Telemetry will be initialized in initialize() method
   }
 
   /**
@@ -27,7 +25,12 @@ export class MastodonPingBot {
     this.logger.info('Initializing Buntspecht...');
     
     // Initialize telemetry first
+    this.telemetry = await createTelemetryService(this.config.telemetry!, this.logger);
     await this.telemetry.initialize();
+    
+    // Initialize other services with telemetry
+    this.mastodonClient = new MastodonClient(this.config, this.logger, this.telemetry);
+    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger, this.telemetry);
     
     const isConnected = await this.mastodonClient.verifyConnection();
     if (!isConnected) {

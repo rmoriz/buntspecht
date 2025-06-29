@@ -11,6 +11,7 @@ jest.mock('../config/configLoader');
 jest.mock('../services/mastodonClient');
 jest.mock('../services/multiProviderScheduler');
 jest.mock('../services/telemetry');
+jest.mock('../services/telemetryFactory');
 jest.mock('../utils/logger');
 
 const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
@@ -18,6 +19,11 @@ const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonCli
 const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
 const MockTelemetryService = TelemetryService as jest.MockedClass<typeof TelemetryService>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
+
+// Mock the telemetry factory
+jest.mock('../services/telemetryFactory', () => ({
+  createTelemetryService: jest.fn(),
+}));
 
 describe('MastodonPingBot', () => {
   let mockConfig: BotConfig;
@@ -28,7 +34,7 @@ describe('MastodonPingBot', () => {
   let cliOptions: CliOptions;
   let bot: MastodonPingBot;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockConfig = {
       accounts: [
         {
@@ -143,6 +149,10 @@ describe('MastodonPingBot', () => {
     } as unknown as jest.Mocked<MultiProviderScheduler>;
     MockMultiProviderScheduler.mockImplementation(() => mockScheduler);
 
+    // Mock the telemetry factory
+    const { createTelemetryService } = require('../services/telemetryFactory');
+    createTelemetryService.mockResolvedValue(mockTelemetry);
+
     cliOptions = {};
     bot = new MastodonPingBot(cliOptions);
   });
@@ -152,17 +162,10 @@ describe('MastodonPingBot', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize all components', () => {
+    it('should initialize config and logger', () => {
       expect(MockConfigLoader.loadConfig).toHaveBeenCalledWith(cliOptions);
       expect(MockLogger).toHaveBeenCalledWith('info');
-      expect(MockTelemetryService).toHaveBeenCalledWith(mockConfig.telemetry, mockLogger);
-      expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger, mockTelemetry);
-      expect(MockMultiProviderScheduler).toHaveBeenCalledWith(
-        mockMastodonClient,
-        mockConfig,
-        mockLogger,
-        mockTelemetry
-      );
+      // Other services are now initialized in initialize() method
     });
   });
 
@@ -171,7 +174,19 @@ describe('MastodonPingBot', () => {
       await bot.initialize();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Initializing Buntspecht...');
+      
+      // Check that telemetry factory was called
+      const { createTelemetryService } = require('../services/telemetryFactory');
+      expect(createTelemetryService).toHaveBeenCalledWith(mockConfig.telemetry, mockLogger);
+      
       expect(mockTelemetry.initialize).toHaveBeenCalled();
+      expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger, mockTelemetry);
+      expect(MockMultiProviderScheduler).toHaveBeenCalledWith(
+        mockMastodonClient,
+        mockConfig,
+        mockLogger,
+        mockTelemetry
+      );
       expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
       expect(mockScheduler.initialize).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Bot initialized successfully');
@@ -187,8 +202,9 @@ describe('MastodonPingBot', () => {
   });
 
   describe('start', () => {
-    it('should start the bot', () => {
-      bot.start();
+    it('should start the bot', async () => {
+      await bot.initialize();
+      await bot.start();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Starting Buntspecht...');
       expect(mockScheduler.start).toHaveBeenCalled();
@@ -196,16 +212,19 @@ describe('MastodonPingBot', () => {
   });
 
   describe('stop', () => {
-    it('should stop the bot', () => {
-      bot.stop();
+    it('should stop the bot', async () => {
+      await bot.initialize();
+      await bot.stop();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Stopping Buntspecht...');
       expect(mockScheduler.stop).toHaveBeenCalled();
+      expect(mockTelemetry.shutdown).toHaveBeenCalled();
     });
   });
 
   describe('testPost', () => {
     it('should post test message', async () => {
+      await bot.initialize();
       await bot.testPost();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Posting test message...');
@@ -215,6 +234,7 @@ describe('MastodonPingBot', () => {
 
   describe('verify', () => {
     it('should verify connection and display account info', async () => {
+      await bot.initialize();
       await bot.verify();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Verifying connections...');
@@ -228,6 +248,7 @@ describe('MastodonPingBot', () => {
     });
 
     it('should throw error if verification fails', async () => {
+      await bot.initialize();
       mockMastodonClient.verifyConnection.mockResolvedValue(false);
 
       await expect(bot.verify()).rejects.toThrow('Connection verification failed for one or more accounts');
@@ -269,7 +290,8 @@ describe('MastodonPingBot', () => {
   });
 
   describe('getProviderInfo', () => {
-    it('should return provider information', () => {
+    it('should return provider information', async () => {
+      await bot.initialize();
       const providerInfo = bot.getProviderInfo();
       
       expect(providerInfo).toEqual([
@@ -281,6 +303,7 @@ describe('MastodonPingBot', () => {
 
   describe('testPostFromProvider', () => {
     it('should post test message from specific provider', async () => {
+      await bot.initialize();
       await bot.testPostFromProvider('test-provider');
 
       expect(mockLogger.info).toHaveBeenCalledWith('Posting test message from provider: test-provider');
