@@ -9,7 +9,7 @@ import { MessageProviderFactory } from '../messages/messageProviderFactory';
 interface ScheduledProvider {
   name: string;
   provider: MessageProvider;
-  task: cron.ScheduledTask;
+  task?: cron.ScheduledTask; // Optional for push providers
   config: ProviderConfig;
 }
 
@@ -63,9 +63,14 @@ export class MultiProviderScheduler {
   private async initializeProvider(providerConfig: ProviderConfig): Promise<void> {
     this.logger.debug(`Initializing provider: ${providerConfig.name} (${providerConfig.type})`);
 
-    // Validate cron schedule
-    if (!cron.validate(providerConfig.cronSchedule)) {
-      throw new Error(`Invalid cron schedule for provider "${providerConfig.name}": ${providerConfig.cronSchedule}`);
+    // Check if this is a push provider (no cron schedule)
+    const isPushProvider = providerConfig.type.toLowerCase() === 'push' || !providerConfig.cronSchedule;
+
+    // Validate cron schedule for non-push providers
+    if (!isPushProvider) {
+      if (!cron.validate(providerConfig.cronSchedule!)) {
+        throw new Error(`Invalid cron schedule for provider "${providerConfig.name}": ${providerConfig.cronSchedule}`);
+      }
     }
 
     // Validate accounts
@@ -87,13 +92,17 @@ export class MultiProviderScheduler {
       this.logger
     );
 
-    // Create scheduled task
-    const task = cron.schedule(providerConfig.cronSchedule, async () => {
-      await this.executeProviderTask(providerConfig.name, messageProvider);
-    }, {
-      scheduled: false,
-      timezone: 'UTC'
-    });
+    let task: cron.ScheduledTask | undefined;
+
+    // Create scheduled task only for non-push providers
+    if (!isPushProvider) {
+      task = cron.schedule(providerConfig.cronSchedule!, async () => {
+        await this.executeProviderTask(providerConfig.name, messageProvider);
+      }, {
+        scheduled: false,
+        timezone: 'UTC'
+      });
+    }
 
     this.scheduledProviders.push({
       name: providerConfig.name,
@@ -102,7 +111,11 @@ export class MultiProviderScheduler {
       config: providerConfig
     });
 
-    this.logger.info(`Initialized provider "${providerConfig.name}" with schedule: ${providerConfig.cronSchedule} for accounts: ${providerConfig.accounts.join(', ')}`);
+    if (isPushProvider) {
+      this.logger.info(`Initialized push provider "${providerConfig.name}" for accounts: ${providerConfig.accounts.join(', ')}`);
+    } else {
+      this.logger.info(`Initialized provider "${providerConfig.name}" with schedule: ${providerConfig.cronSchedule} for accounts: ${providerConfig.accounts.join(', ')}`);
+    }
   }
 
   /**
@@ -127,13 +140,22 @@ export class MultiProviderScheduler {
 
     this.logger.info('Starting multi-provider scheduler...');
 
+    let scheduledCount = 0;
+    let pushCount = 0;
+
     for (const scheduledProvider of this.scheduledProviders) {
-      scheduledProvider.task.start();
-      this.logger.info(`Started provider "${scheduledProvider.name}" with schedule: ${scheduledProvider.config.cronSchedule}`);
+      if (scheduledProvider.task) {
+        scheduledProvider.task.start();
+        this.logger.info(`Started provider "${scheduledProvider.name}" with schedule: ${scheduledProvider.config.cronSchedule}`);
+        scheduledCount++;
+      } else {
+        this.logger.info(`Push provider "${scheduledProvider.name}" ready for external triggers`);
+        pushCount++;
+      }
     }
 
     this.isRunning = true;
-    this.logger.info(`Multi-provider scheduler started successfully with ${this.scheduledProviders.length} provider(s)`);
+    this.logger.info(`Multi-provider scheduler started successfully with ${scheduledCount} scheduled provider(s) and ${pushCount} push provider(s)`);
   }
 
   /**
@@ -148,8 +170,10 @@ export class MultiProviderScheduler {
     this.logger.info('Stopping multi-provider scheduler...');
 
     for (const scheduledProvider of this.scheduledProviders) {
-      scheduledProvider.task.stop();
-      this.logger.debug(`Stopped provider: ${scheduledProvider.name}`);
+      if (scheduledProvider.task) {
+        scheduledProvider.task.stop();
+        this.logger.debug(`Stopped provider: ${scheduledProvider.name}`);
+      }
     }
 
     this.isRunning = false;
@@ -242,7 +266,7 @@ export class MultiProviderScheduler {
     return this.scheduledProviders.map(sp => ({
       name: sp.name,
       type: sp.provider.getProviderName(),
-      schedule: sp.config.cronSchedule,
+      schedule: sp.config.cronSchedule || 'push (external trigger)',
       enabled: sp.config.enabled !== false
     }));
   }
@@ -252,5 +276,53 @@ export class MultiProviderScheduler {
    */
   public getProviderNames(): string[] {
     return this.scheduledProviders.map(sp => sp.name);
+  }
+
+  /**
+   * Triggers a push provider with an optional custom message
+   * @param providerName Name of the push provider to trigger
+   * @param message Optional custom message to post
+   */
+  public async triggerPushProvider(providerName: string, message?: string): Promise<void> {
+    const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
+    
+    if (!scheduledProvider) {
+      throw new Error(`Provider "${providerName}" not found`);
+    }
+
+    if (scheduledProvider.provider.getProviderName() !== 'push') {
+      throw new Error(`Provider "${providerName}" is not a push provider`);
+    }
+
+    // Cast to PushProvider to access push-specific methods
+    const pushProvider = scheduledProvider.provider as any;
+    
+    if (message && typeof pushProvider.setMessage === 'function') {
+      pushProvider.setMessage(message);
+      this.logger.debug(`Set custom message for push provider "${providerName}": "${message}"`);
+    }
+
+    this.logger.info(`Triggering push provider "${providerName}"${message ? ' with custom message' : ''}`);
+    await this.executeProviderTask(scheduledProvider.name, scheduledProvider.provider);
+  }
+
+  /**
+   * Gets all push providers
+   */
+  public getPushProviders(): Array<{name: string, config: any}> {
+    return this.scheduledProviders
+      .filter(sp => sp.provider.getProviderName() === 'push')
+      .map(sp => ({
+        name: sp.name,
+        config: (sp.provider as any).getConfig ? (sp.provider as any).getConfig() : {}
+      }));
+  }
+
+  /**
+   * Checks if a provider is a push provider
+   */
+  public isPushProvider(providerName: string): boolean {
+    const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
+    return scheduledProvider?.provider.getProviderName() === 'push' || false;
   }
 }

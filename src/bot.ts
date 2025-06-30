@@ -140,4 +140,26 @@ export class MastodonPingBot {
   public isMultiProviderMode(): boolean {
     return true;
   }
+
+  /**
+   * Triggers a push provider with an optional custom message
+   */
+  public async triggerPushProvider(providerName: string, message?: string): Promise<void> {
+    this.logger.info(`Triggering push provider: ${providerName}${message ? ' with custom message' : ''}`);
+    await this.scheduler.triggerPushProvider(providerName, message);
+  }
+
+  /**
+   * Gets all configured push providers
+   */
+  public getPushProviders(): Array<{name: string, config: any}> {
+    return this.scheduler.getPushProviders();
+  }
+
+  /**
+   * Checks if a provider is a push provider
+   */
+  public isPushProvider(providerName: string): boolean {
+    return this.scheduler.isPushProvider(providerName);
+  }
 }

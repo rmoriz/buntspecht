@@ -135,3 +135,11 @@ enabled = false
 #    maxBuffer = 1048576  # Optional: maximum buffer size
 #    [config.env]  # Optional: environment variables
 #    API_KEY = "your-key"
+#
+# 4. push Provider:
+#    type = "push"
+#    # No cronSchedule needed - triggered externally
+#    [config]
+#    defaultMessage = "Push notification from Buntspecht"
+#    allowExternalMessages = true  # Optional: allow custom messages (default: true)
+#    maxMessageLength = 500  # Optional: max message length (default: 500)

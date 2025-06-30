@@ -32,6 +32,21 @@ async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.listPushProviders) {
+      const pushProviders = bot.getPushProviders();
+      console.log('\nConfigured Push Providers:');
+      console.log('==========================');
+      if (pushProviders.length === 0) {
+        console.log('No push providers configured.');
+      } else {
+        pushProviders.forEach(provider => {
+          console.log(`${provider.name}: ${JSON.stringify(provider.config, null, 2)}`);
+        });
+      }
+      console.log(`\nTotal: ${pushProviders.length} push provider(s)`);
+      return;
+    }
+
     if (cliOptions.testPost) {
       await bot.testPost();
       return;
@@ -39,6 +54,30 @@ async function main(): Promise<void> {
 
     if (cliOptions.testProvider) {
       await bot.testPostFromProvider(cliOptions.testProvider);
+      return;
+    }
+
+    if (cliOptions.triggerPush) {
+      const providerName = cliOptions.triggerPush;
+      const customMessage = cliOptions.triggerPushMessage;
+      
+      if (!bot.isPushProvider(providerName)) {
+        console.error(`Error: "${providerName}" is not a push provider or does not exist.`);
+        console.log('\nAvailable push providers:');
+        const pushProviders = bot.getPushProviders();
+        if (pushProviders.length === 0) {
+          console.log('  No push providers configured.');
+        } else {
+          pushProviders.forEach(provider => {
+            console.log(`  - ${provider.name}`);
+          });
+        }
+        process.exit(1);
+      }
+
+      console.log(`Triggering push provider "${providerName}"${customMessage ? ' with custom message' : ''}...`);
+      await bot.triggerPushProvider(providerName, customMessage);
+      console.log('Push provider triggered successfully!');
       return;
     }
 

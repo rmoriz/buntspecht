@@ -1,0 +1,118 @@
+# Buntspecht Push Provider Configuration Example
+# Copy this file to config.toml and adjust the values
+
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-main-account-token-here"
+
+[[accounts]]
+name = "alerts-account"
+instance = "https://fosstodon.org"
+accessToken = "your-alerts-account-token-here"
+
+[bot]
+# Multi-Provider Configuration with Push Providers
+
+# Provider 1: Regular scheduled ping (every hour)
+[[bot.providers]]
+name = "hourly-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Every hour
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+message = "Hourly ping from Buntspecht!"
+
+# Provider 2: Push provider for alerts (no schedule, triggered externally)
+[[bot.providers]]
+name = "alert-notifications"
+type = "push"
+# No cronSchedule needed for push providers
+enabled = true
+accounts = ["alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "Alert: Something happened!"
+allowExternalMessages = true
+maxMessageLength = 500
+
+# Provider 3: Push provider for announcements (to both accounts)
+[[bot.providers]]
+name = "announcements"
+type = "push"
+enabled = true
+accounts = ["main-account", "alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "📢 Announcement from Buntspecht"
+allowExternalMessages = true
+maxMessageLength = 280  # Twitter-like limit
+
+# Provider 4: Push provider with fixed message only (no external messages)
+[[bot.providers]]
+name = "system-status"
+type = "push"
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+defaultMessage = "🟢 System is operational"
+allowExternalMessages = false  # Only uses default message
+
+[logging]
+level = "info"
+
+[telemetry]
+# OpenTelemetry configuration for monitoring and observability
+# IMPORTANT: Telemetry only works with 'bun run' or 'npm start', NOT with single binaries!
+# Single binaries (buntspecht-linux-x64, etc.) have OpenTelemetry dependencies excluded.
+# For telemetry use Docker or run the bot directly with Bun/Node.js.
+enabled = false
+serviceName = "buntspecht"
+serviceVersion = "0.4.6"
+
+[telemetry.jaeger]
+enabled = false
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+enabled = false
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+enabled = false
+
+[telemetry.metrics]
+enabled = false
+
+# Notes about Push Providers:
+#
+# Push providers are triggered externally instead of using cron schedules.
+# They can be triggered programmatically using the bot's API methods:
+#
+# 1. triggerPushProvider(providerName) - Uses default message
+# 2. triggerPushProvider(providerName, customMessage) - Uses custom message
+#
+# Configuration options for push providers:
+#
+# - defaultMessage: Message to use when no custom message is provided
+# - allowExternalMessages: Whether to allow custom messages (default: true)
+# - maxMessageLength: Maximum length for messages (default: 500)
+#
+# Use cases for push providers:
+# - Webhook notifications
+# - Alert systems
+# - Manual announcements
+# - Event-driven notifications
+# - Integration with external systems
+#
+# Push providers are ideal for:
+# - Responding to external events
+# - Manual triggering
+# - Webhook integrations
+# - Alert systems
+# - On-demand notifications

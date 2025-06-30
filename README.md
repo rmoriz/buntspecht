@@ -10,8 +10,9 @@ A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on s
 ## Features
 
 - 🤖 Automatic scheduled message posting
-- 📨 **Multiple message sources**: Static texts, external commands, or JSON-based templates
+- 📨 **Multiple message sources**: Static texts, external commands, JSON-based templates, or push notifications
 - 🔄 **Multi-provider support**: Multiple providers running in parallel with individual schedules
+- 🔔 **Push providers**: Event-driven messaging for webhooks, alerts, and external integrations
 - 🌐 **Multi-account support**: Multiple Fediverse/Mastodon accounts with their own access tokens
 - 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts
 - ⚙️ Flexible configuration via TOML files
@@ -276,6 +277,73 @@ template = "👤 User {{user.name}} ({{user.email}}) has {{stats.posts}} posts"
 - Missing variables are left as `{{variable}}` in the text
 - JSON values are automatically converted to strings
 
+### Push Provider
+
+Reacts to external events instead of cron schedules. Push providers are triggered programmatically and can accept custom messages:
+
+```toml
+[[bot.providers]]
+name = "alert-system"
+type = "push"
+# No cronSchedule needed for push providers
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Default message when no custom message is provided
+defaultMessage = "Alert from monitoring system"
+
+# Whether to allow custom messages (default: true)
+allowExternalMessages = true
+
+# Maximum message length (default: 500)
+maxMessageLength = 280
+```
+
+#### Push Provider Configuration Options
+
+- `defaultMessage` - Message to use when no custom message is provided
+- `allowExternalMessages` - Whether to accept custom messages (default: true)
+- `maxMessageLength` - Maximum length for messages (default: 500)
+
+#### Triggering Push Providers
+
+Push providers can be triggered via CLI or programmatically:
+
+```bash
+# List all push providers
+bun start --list-push-providers
+
+# Trigger with default message
+bun start --trigger-push alert-system
+
+# Trigger with custom message
+bun start --trigger-push alert-system --trigger-push-message "Critical alert: Server down!"
+```
+
+#### Use Cases for Push Providers
+
+- **Webhook notifications**: Respond to external webhook calls
+- **Alert systems**: Trigger alerts based on monitoring conditions
+- **Manual announcements**: Send ad-hoc messages when needed
+- **Event-driven notifications**: React to external events
+- **Integration with external systems**: Connect with monitoring, CI/CD, etc.
+
+#### Example Integration
+
+```javascript
+// Example webhook handler
+async function handleWebhook(req, res) {
+  const { message, severity } = req.body;
+  
+  // Choose provider based on severity
+  const providerName = severity === 'critical' ? 'alert-system' : 'announcements';
+  
+  await bot.triggerPushProvider(providerName, message);
+  res.json({ success: true });
+}
+```
+
 ## Multi-Account and Multi-Provider Configuration
 
 Buntspecht supports multiple Fediverse/Mastodon accounts with their own access tokens as well as simultaneous execution of multiple providers with individual schedules. This allows posting different types of messages at different times to different accounts.
@@ -414,6 +482,15 @@ bun start --test-provider provider-name
 
 # List all configured providers
 bun start --list-providers
+
+# List all push providers
+bun start --list-push-providers
+
+# Trigger a push provider with default message
+bun start --trigger-push provider-name
+
+# Trigger a push provider with custom message
+bun start --trigger-push provider-name --trigger-push-message "Custom message"
 
 # Use specific configuration file
 bun start --config /path/to/config.toml

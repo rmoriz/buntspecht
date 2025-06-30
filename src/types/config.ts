@@ -7,7 +7,7 @@ export interface AccountConfig {
 export interface ProviderConfig {
   name: string;
   type: string;
-  cronSchedule: string;
+  cronSchedule?: string; // Optional for push providers
   enabled?: boolean;
   accounts: string[]; // Array of account names to post to
   config: { [key: string]: unknown };
@@ -52,4 +52,7 @@ export interface CliOptions {
   listProviders?: boolean;
   verify?: boolean;
   about?: boolean;
+  triggerPush?: string;
+  triggerPushMessage?: string;
+  listPushProviders?: boolean;
 }

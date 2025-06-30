@@ -85,6 +85,19 @@ timeout = 10000
 [bot.providers.config.env]
 API_KEY = "your-openweathermap-api-key"
 
+# Provider 6: Push provider for alerts (triggered externally)
+[[bot.providers]]
+name = "alert-system"
+type = "push"
+# No cronSchedule needed for push providers
+enabled = true
+accounts = ["personal", "work"]  # Alert both personal and work accounts
+
+[bot.providers.config]
+defaultMessage = "Alert from monitoring system"
+allowExternalMessages = true
+maxMessageLength = 280
+
 [logging]
 # Log level: debug, info, warn, error
 level = "info"
