@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as toml from 'toml';
 import { BotConfig, CliOptions, TelemetryConfig } from '../types/config';
+import * as packageJson from '../../package.json';
 
 export class ConfigLoader {
   private static getDefaultConfigPaths(): string[] {
@@ -189,7 +190,7 @@ export class ConfigLoader {
     return {
       enabled: false,
       serviceName: 'buntspecht',
-      serviceVersion: '0.4.0',
+      serviceVersion: packageJson.version,
       jaeger: {
         enabled: false,
         endpoint: 'http://localhost:14268/api/traces',

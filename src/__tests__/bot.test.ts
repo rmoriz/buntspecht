@@ -5,6 +5,7 @@ import { MultiProviderScheduler } from '../services/multiProviderScheduler';
 import type { TelemetryService } from '../services/telemetryInterface';
 import { Logger } from '../utils/logger';
 import { CliOptions, BotConfig } from '../types/config';
+import * as packageJson from '../../package.json';
 
 // Mock all dependencies
 jest.mock('../config/configLoader');
@@ -60,7 +61,7 @@ describe('MastodonPingBot', () => {
       telemetry: {
         enabled: false,
         serviceName: 'buntspecht',
-        serviceVersion: '0.4.0',
+        serviceVersion: packageJson.version,
         jaeger: {
           enabled: false,
           endpoint: 'http://localhost:14268/api/traces',

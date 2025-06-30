@@ -1,4 +1,5 @@
 import { parseCliArguments } from '../cli';
+import * as packageJson from '../../package.json';
 
 // Mock commander
 jest.mock('commander', () => {
@@ -115,7 +116,9 @@ describe('CLI', () => {
       expect(mockProgram.description).toHaveBeenCalledWith(
         'Buntspecht - A reliable Fediverse bot for automated messages with flexible sources'
       );
-      expect(mockProgram.version).toHaveBeenCalledWith('0.4.3');
+      expect(mockProgram.version).toHaveBeenCalledWith(packageJson.version);
+      // Verify that the version is a valid semantic version string
+      expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+/);
       expect(mockProgram.option).toHaveBeenCalledWith(
         '-c, --config <path>',
         'path to configuration file'
