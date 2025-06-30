@@ -115,7 +115,7 @@ describe('CLI', () => {
       expect(mockProgram.description).toHaveBeenCalledWith(
         'Buntspecht - A reliable Fediverse bot for automated messages with flexible sources'
       );
-      expect(mockProgram.version).toHaveBeenCalledWith('0.2.1');
+      expect(mockProgram.version).toHaveBeenCalledWith('0.4.0');
       expect(mockProgram.option).toHaveBeenCalledWith(
         '-c, --config <path>',
         'path to configuration file'

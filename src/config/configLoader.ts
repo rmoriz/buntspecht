@@ -189,7 +189,7 @@ export class ConfigLoader {
     return {
       enabled: false,
       serviceName: 'buntspecht',
-      serviceVersion: '0.2.0',
+      serviceVersion: '0.4.0',
       jaeger: {
         enabled: false,
         endpoint: 'http://localhost:14268/api/traces',
