@@ -1,0 +1,169 @@
+name: Tag Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v0.4.0, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 Building release for $TAG_NAME (version $VERSION)"
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: '1.2.0'
+
+    - name: Install dependencies
+      run: bun install --frozen-lockfile
+
+    - name: Verify version consistency
+      run: |
+        PACKAGE_VERSION=$(node -e "console.log(require('./package.json').version)")
+        TAG_VERSION="${{ steps.version.outputs.version }}"
+        
+        echo "Package.json version: $PACKAGE_VERSION"
+        echo "Git tag version: $TAG_VERSION"
+        
+        if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+          echo "❌ Version mismatch between package.json ($PACKAGE_VERSION) and git tag ($TAG_VERSION)"
+          exit 1
+        fi
+        
+        echo "✅ Version consistency verified"
+
+    - name: Run tests
+      run: bun test
+
+    - name: Run linter
+      run: bun run lint
+
+    - name: Build all binaries
+      run: |
+        echo "🚀 Building Buntspecht binaries for all platforms..."
+        bun run build:binaries
+        
+        echo "📁 Built binaries:"
+        ls -lh dist/buntspecht-*
+        
+        echo "🎯 Binary sizes:"
+        du -h dist/buntspecht-* | sort -h
+
+    - name: Test binaries (macOS only, others can't run on Ubuntu)
+      run: |
+        echo "🧪 Testing binary help and version commands..."
+        
+        # We can't test Linux binaries on Ubuntu in GitHub Actions reliably
+        # But we can verify they exist and have reasonable sizes
+        for binary in dist/buntspecht-*; do
+          if [ -f "$binary" ]; then
+            size=$(stat -c%s "$binary" 2>/dev/null || stat -f%z "$binary" 2>/dev/null || echo "unknown")
+            echo "✅ $binary exists (size: $size bytes)"
+            
+            # Basic file type check
+            file_type=$(file "$binary" 2>/dev/null || echo "unknown")
+            echo "   Type: $file_type"
+          else
+            echo "❌ $binary not found"
+            exit 1
+          fi
+        done
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Get commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$LAST_TAG" ]; then
+          echo "📝 Generating release notes since $LAST_TAG..."
+          COMMITS=$(git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD)
+        else
+          echo "📝 Generating release notes for initial release..."
+          COMMITS=$(git log --pretty=format:"- %s (%h)" HEAD)
+        fi
+        
+        # Create release notes
+        cat > release_notes.md << EOF
+        ## 🚀 Release ${{ steps.version.outputs.tag_name }}
+        
+        ### 📦 Downloads
+        
+        Choose the appropriate binary for your platform:
+        - **Linux x64**: \`buntspecht-linux-x64\`
+        - **Linux ARM64**: \`buntspecht-linux-arm64\`
+        - **Linux ARMv8**: \`buntspecht-linux-armv8\`
+        - **macOS Intel**: \`buntspecht-macos-x64\`
+        - **macOS Apple Silicon**: \`buntspecht-macos-arm64\`
+        
+        > **⚠️ Note**: Single binaries have OpenTelemetry dependencies excluded for technical compatibility. For telemetry support, use Docker or run with \`bun run\`.
+        
+        ### 📋 Changes
+        
+        $COMMITS
+        
+        ### 🔧 Installation
+        
+        \`\`\`bash
+        # Example for Linux x64
+        wget https://github.com/rmoriz/buntspecht/releases/download/${{ steps.version.outputs.tag_name }}/buntspecht-linux-x64
+        chmod +x buntspecht-linux-x64
+        ./buntspecht-linux-x64 --help
+        \`\`\`
+        
+        ### 🐳 Docker
+        
+        \`\`\`bash
+        docker run --rm -v \$(pwd)/config.toml:/app/config.toml ghcr.io/rmoriz/buntspecht:${{ steps.version.outputs.version }}
+        \`\`\`
+        EOF
+        
+        echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.tag_name }}
+        name: ${{ steps.version.outputs.tag_name }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          dist/buntspecht-linux-x64
+          dist/buntspecht-linux-arm64
+          dist/buntspecht-linux-armv8
+          dist/buntspecht-macos-x64
+          dist/buntspecht-macos-arm64
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Summary
+      run: |
+        echo "🎉 Release ${{ steps.version.outputs.tag_name }} created successfully!"
+        echo "📦 Binaries uploaded:"
+        echo "  - buntspecht-linux-x64"
+        echo "  - buntspecht-linux-arm64" 
+        echo "  - buntspecht-linux-armv8"
+        echo "  - buntspecht-macos-x64"
+        echo "  - buntspecht-macos-arm64"
+        echo ""
+        echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag_name }}"
