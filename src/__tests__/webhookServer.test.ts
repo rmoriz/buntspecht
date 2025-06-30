@@ -126,6 +126,12 @@ describe('WebhookServer', () => {
       // Setup bot mocks
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should handle valid webhook request', async () => {
@@ -283,6 +289,12 @@ describe('WebhookServer', () => {
 
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should allow requests from whitelisted IPs', async () => {

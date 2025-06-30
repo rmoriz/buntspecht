@@ -77,6 +77,11 @@ export class WebhookServer {
     return new Promise((resolve, reject) => {
       this.server.listen(this.config.port, this.config.host, () => {
         this.isRunning = true;
+        // Update config with actual assigned port (important for port: 0)
+        const address = this.server.address();
+        if (address && typeof address === 'object') {
+          this.config.port = address.port;
+        }
         this.logger.info(`Webhook server started on ${this.config.host}:${this.config.port}${this.config.path}`);
         resolve();
       });
@@ -111,8 +116,8 @@ export class WebhookServer {
   private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const startTime = Date.now();
     const span = this.telemetry.startSpan('webhook.handle_request', {
-      'http.method': req.method,
-      'http.url': req.url,
+      'http.method': req.method || 'unknown',
+      'http.url': req.url || 'unknown',
       'http.user_agent': req.headers['user-agent'] || '',
     });
 
