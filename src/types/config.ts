@@ -51,4 +51,5 @@ export interface CliOptions {
   testProvider?: string;
   listProviders?: boolean;
   verify?: boolean;
+  about?: boolean;
 }

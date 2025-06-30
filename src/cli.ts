@@ -13,6 +13,7 @@ export function parseCliArguments(): CliOptions {
     .option('--test-provider <name>', 'post a test message from specific provider and exit')
     .option('--list-providers', 'list all configured providers and exit')
     .option('--verify', 'verify connection to Mastodon and exit')
+    .option('--about', 'show information about Buntspecht and its automated release system')
     .parse();
 
   const options = program.opts();
@@ -23,5 +24,6 @@ export function parseCliArguments(): CliOptions {
     testProvider: options.testProvider,
     listProviders: options.listProviders,
     verify: options.verify,
+    about: options.about,
   } as CliOptions;
 }
