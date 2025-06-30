@@ -1,5 +1,5 @@
 import { Logger } from '../utils/logger';
-import { TelemetryConfig } from './telemetryStub';
+import { TelemetryConfig } from './telemetryInterface';
 
 /**
  * Factory function to create the appropriate TelemetryService implementation
