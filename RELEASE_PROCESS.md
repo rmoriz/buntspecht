@@ -6,17 +6,36 @@ This document describes the automated release process for Buntspecht, including 
 
 Buntspecht uses a comprehensive CI/CD pipeline with multiple release strategies:
 
-1. **Manual Releases** - Triggered via GitHub Actions workflow dispatch
-2. **Automatic Releases** - Triggered by conventional commits on main branch
+1. **Tag-based Releases** - Triggered by pushing version tags (primary method)
+2. **Manual Releases** - Triggered via GitHub Actions workflow dispatch
 3. **Local Development** - Build and test releases locally
 
 ## Release Workflows
 
-### 1. Manual Release (Recommended)
+### 1. Tag-based Release (Recommended)
+
+Create releases by pushing version tags:
+
+1. **Update version** in `package.json` and commit changes
+2. **Create and push a version tag**:
+   ```bash
+   git tag v1.0.0
+   git push --tags
+   ```
+
+The workflow will automatically:
+- Run tests and linting
+- Verify version consistency between tag and package.json
+- Build all platform binaries
+- Test the binaries
+- Generate release notes from commits
+- Create a GitHub release with assets
+
+### 2. Manual Release
 
 Use the GitHub Actions workflow dispatch to create releases manually:
 
-1. Go to **Actions** → **Release** in your GitHub repository
+1. Go to **Actions** → **Manual Release** in your GitHub repository
 2. Click **Run workflow**
 3. Select:
    - **Version bump type**: `patch`, `minor`, or `major`
@@ -33,22 +52,6 @@ The workflow will:
 - Test the binaries
 - Generate checksums
 - Create a GitHub release with assets
-
-### 2. Automatic Release
-
-Automatic releases are triggered by conventional commits on the main branch:
-
-- `feat:` → Minor version bump
-- `fix:` or `perf:` → Patch version bump
-- `feat!:` or `BREAKING CHANGE:` → Major version bump
-- Other commit types (`docs:`, `chore:`, etc.) → No release
-
-**Example commits that trigger releases:**
-```bash
-git commit -m "feat: add new message provider for RSS feeds"     # Minor release
-git commit -m "fix: resolve memory leak in scheduler"            # Patch release
-git commit -m "feat!: change configuration file format"          # Major release
-```
 
 ### 3. Local Release Script
 
@@ -175,7 +178,7 @@ If a release fails partway through:
 ## Best Practices
 
 1. **Test thoroughly** before releasing
-2. **Use conventional commits** for automatic releases
+2. **Update version numbers** consistently across files
 3. **Create prereleases** for major changes
 4. **Review release notes** before publishing
 5. **Monitor release workflows** for failures

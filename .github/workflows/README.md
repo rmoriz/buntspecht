@@ -42,16 +42,6 @@ git push && git push --tags
 2. Click "Run workflow"
 3. Select version bump type and options
 
-### 🤖 Auto Release (Legacy) - `auto-release.yml`
-
-**Trigger**: Conventional commits on main branch
-
-**What it does**:
-- Automatically detects conventional commits (`feat:`, `fix:`, etc.)
-- Triggers manual release workflow
-- Less reliable, kept for backward compatibility
-
-**Note**: This is being phased out in favor of tag-based releases.
 
 ## Other Workflows
 

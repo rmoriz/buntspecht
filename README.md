@@ -663,10 +663,7 @@ bun run release:major    # Breaking changes (1.0.0 → 2.0.0)
 ./scripts/release.sh --type minor --draft
 ```
 
-**Automated Releases**: Releases are automatically triggered by conventional commits:
-- `feat:` → Minor version bump
-- `fix:` or `perf:` → Patch version bump  
-- `feat!:` or `BREAKING CHANGE:` → Major version bump
+**Tag-based Releases**: Releases are triggered by pushing version tags (e.g., `v1.0.0`)
 
 See [RELEASE_PROCESS.md](RELEASE_PROCESS.md) for detailed release documentation.
 
