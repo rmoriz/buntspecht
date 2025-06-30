@@ -1,6 +1,6 @@
 import * as cron from 'node-cron';
 import { MastodonClient } from './mastodonClient';
-import { TelemetryService } from './telemetry';
+import type { TelemetryService } from './telemetryInterface';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import { MessageProvider } from '../messages/messageProvider';

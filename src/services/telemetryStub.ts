@@ -2,33 +2,13 @@
 /* eslint-disable no-unused-vars */
 
 import { Logger } from '../utils/logger';
-
-export interface TelemetryConfig {
-  enabled: boolean;
-  serviceName: string;
-  serviceVersion: string;
-  jaeger?: {
-    enabled: boolean;
-    endpoint?: string;
-  };
-  prometheus?: {
-    enabled: boolean;
-    port?: number;
-    endpoint?: string;
-  };
-  tracing?: {
-    enabled: boolean;
-  };
-  metrics?: {
-    enabled: boolean;
-  };
-}
+import { TelemetryConfig, TelemetryService as ITelemetryService, Span } from './telemetryInterface';
 
 /**
  * Stub implementation of TelemetryService for binary builds
  * This provides the same interface but with no-op implementations
  */
-export class TelemetryService {
+export class TelemetryService implements ITelemetryService {
   private logger: Logger;
   private config: TelemetryConfig;
 
@@ -54,11 +34,11 @@ export class TelemetryService {
   }
 
   // Tracing methods - all no-ops
-  startSpan(_name: string, _attributes?: Record<string, string | number | boolean>): unknown {
+  startSpan(_name: string, _attributes?: Record<string, string | number | boolean>): Span | undefined {
     return {
-      setAttributes: (): void => {},
-      setStatus: (): void => {},
-      recordException: (): void => {},
+      setAttributes: (_attributes: Record<string, string | number | boolean>): void => {},
+      setStatus: (_status: { code: number; message?: string }): void => {},
+      recordException: (_exception: Error): void => {},
       end: (): void => {}
     };
   }
@@ -89,19 +69,27 @@ export class TelemetryService {
   }
 
   // Convenience methods
-  recordPost(_success: boolean, _provider?: string, _account?: string): void {
+  recordPost(_account: string, _provider: string): void {
     // No-op
   }
 
-  recordProviderExecution(_provider: string, _duration: number, _success: boolean): void {
+  recordProviderExecution(_provider: string, _duration: number): void {
     // No-op
   }
 
-  recordError(_error: Error, _context?: string): void {
+  recordError(_type: string, _provider?: string, _account?: string): void {
     // No-op
   }
 
   updateActiveConnections(_count: number): void {
     // No-op
+  }
+
+  getTracer(): unknown {
+    return undefined;
+  }
+
+  getMeter(): unknown {
+    return undefined;
   }
 }

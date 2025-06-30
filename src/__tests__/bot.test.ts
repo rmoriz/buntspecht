@@ -2,7 +2,7 @@ import { MastodonPingBot } from '../bot';
 import { ConfigLoader } from '../config/configLoader';
 import { MastodonClient } from '../services/mastodonClient';
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
-import { TelemetryService } from '../services/telemetry';
+import type { TelemetryService } from '../services/telemetryInterface';
 import { Logger } from '../utils/logger';
 import { CliOptions, BotConfig } from '../types/config';
 
@@ -17,7 +17,6 @@ jest.mock('../utils/logger');
 const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
 const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonClient>;
 const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
-const MockTelemetryService = TelemetryService as jest.MockedClass<typeof TelemetryService>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
 
 // Mock the telemetry factory
@@ -113,7 +112,6 @@ describe('MastodonPingBot', () => {
       getTracer: jest.fn(),
       getMeter: jest.fn(),
     } as unknown as jest.Mocked<TelemetryService>;
-    MockTelemetryService.mockImplementation(() => mockTelemetry);
 
     // Mock MastodonClient
     mockMastodonClient = {

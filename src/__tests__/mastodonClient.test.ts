@@ -1,5 +1,5 @@
 import { MastodonClient } from '../services/mastodonClient';
-import { TelemetryService } from '../services/telemetry';
+import type { TelemetryService } from '../services/telemetryInterface';
 import { Logger } from '../utils/logger';
 import { BotConfig } from '../types/config';
 

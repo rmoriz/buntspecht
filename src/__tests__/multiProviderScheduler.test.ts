@@ -1,6 +1,6 @@
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
 import { MastodonClient } from '../services/mastodonClient';
-import { TelemetryService } from '../services/telemetry';
+import type { TelemetryService } from '../services/telemetryInterface';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 

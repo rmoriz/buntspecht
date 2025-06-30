@@ -1,7 +1,7 @@
 import { createRestAPIClient, type mastodon } from 'masto';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
-import { TelemetryService } from './telemetry';
+import type { TelemetryService } from './telemetryInterface';
 
 interface AccountClient {
   name: string;
