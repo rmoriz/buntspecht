@@ -34,7 +34,7 @@
     "fediverse",
     "typescript"
   ],
-  "author": "",
+  "author": "Moriz GmbH, Muenchen/Germany <info@moriz.com>",
   "license": "MIT",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
