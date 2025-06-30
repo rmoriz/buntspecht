@@ -191,6 +191,10 @@ jobs:
     runs-on: ubuntu-latest
     # Security scanning using GitHub's built-in tools and free alternatives
     # Note: Bun doesn't have a built-in audit command like npm
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     
     steps:
     - name: Checkout code
@@ -208,12 +212,16 @@ jobs:
         npm audit --audit-level=high
       continue-on-error: true
       
-    - name: Run GitHub Security Advisory scan
+    - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: javascript
+        # Specify queries for better security coverage
+        queries: security-and-quality
       continue-on-error: true
         
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:javascript"
       continue-on-error: true
