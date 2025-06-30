@@ -138,7 +138,7 @@ Release notes are automatically generated and include:
 - Check that `GITHUB_TOKEN` has sufficient permissions
 
 **Binary build fails:**
-- Verify Bun version compatibility (requires >= 1.2.0)
+- Verify Bun version compatibility (requires >= 1.2.17)
 - Check for external dependency issues
 - Review OpenTelemetry external exclusions
 

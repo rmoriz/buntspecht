@@ -30,13 +30,13 @@ A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on s
 
 ### Prerequisites
 
-- **Bun**: Version 1.2.0 or higher
+- **Bun**: Version 1.2.17 or higher
 - **Git**: For cloning the repository
 
 ```bash
 # Check Bun version
 bun --version
-# Should show 1.2.0 or higher
+# Should show 1.2.17 or higher
 ```
 
 ### Installation

@@ -30,13 +30,13 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 
 ### Voraussetzungen
 
-- **Bun**: Version 1.2.0 oder höher
+- **Bun**: Version 1.2.17 oder höher
 - **Git**: Für das Klonen des Repositories
 
 ```bash
 # Bun-Version prüfen
 bun --version
-# Sollte 1.2.0 oder höher anzeigen
+# Sollte 1.2.17 oder höher anzeigen
 ```
 
 ### Installation

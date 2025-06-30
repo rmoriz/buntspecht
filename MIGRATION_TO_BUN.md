@@ -24,7 +24,7 @@ Dieses Dokument beschreibt die Migration des Buntspecht-Projekts von Node.js zu 
   - `start`: Nutzt `bun run` statt `node`
   - `dev`: Nutzt `bun run` für direkte TypeScript-Ausführung
   - `test`: Behält Jest für Kompatibilität bei
-- **Engines**: Geändert von `node: >=20.10.0` zu `bun: >=1.2.0`
+- **Engines**: Geändert von `node: >=20.10.0` zu `bun: >=1.2.17`
 
 ### 3. CI/CD Pipeline (.github/workflows/ci.yml)
 - **Setup**: Ersetzt `actions/setup-node` durch `oven-sh/setup-bun`
@@ -51,14 +51,14 @@ Dieses Dokument beschreibt die Migration des Buntspecht-Projekts von Node.js zu 
 
 ## Systemanforderungen
 
-- **Bun**: Version 1.2.0 oder höher
+- **Bun**: Version 1.2.17 oder höher
 - **Docker**: Für Container-Builds (optional)
 - **Git**: Für Versionskontrolle
 
 ### Bun-Version prüfen
 ```bash
 bun --version
-# Sollte 1.2.0 oder höher anzeigen
+# Sollte 1.2.17 oder höher anzeigen
 ```
 
 ## Verwendung
