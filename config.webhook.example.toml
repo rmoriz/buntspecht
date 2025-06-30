@@ -15,7 +15,7 @@ accessToken = "your-alerts-account-token-here"
 [bot]
 # Push providers for webhook integration
 
-# Provider 1: General alerts
+# Provider 1: General alerts (uses global webhook secret)
 [[bot.providers]]
 name = "webhook-alerts"
 type = "push"
@@ -23,11 +23,11 @@ enabled = true
 accounts = ["alerts-account"]
 
 [bot.providers.config]
-defaultMessage = "🚨 Alert from external system"
+defaultMessage = "Alert from external system"
 allowExternalMessages = true
 maxMessageLength = 500
 
-# Provider 2: System notifications
+# Provider 2: System notifications (uses provider-specific secret)
 [[bot.providers]]
 name = "system-notifications"
 type = "push"
@@ -35,11 +35,12 @@ enabled = true
 accounts = ["main-account"]
 
 [bot.providers.config]
-defaultMessage = "📢 System notification"
+defaultMessage = "System notification"
 allowExternalMessages = true
 maxMessageLength = 280
+webhookSecret = "system-specific-secret-123"
 
-# Provider 3: CI/CD notifications
+# Provider 3: CI/CD notifications (uses provider-specific secret)
 [[bot.providers]]
 name = "cicd-notifications"
 type = "push"
@@ -47,11 +48,12 @@ enabled = true
 accounts = ["main-account", "alerts-account"]
 
 [bot.providers.config]
-defaultMessage = "🔧 CI/CD Pipeline Update"
+defaultMessage = "CI/CD Pipeline Update"
 allowExternalMessages = true
 maxMessageLength = 400
+webhookSecret = "cicd-webhook-secret-456"
 
-# Provider 4: Monitoring alerts (high priority)
+# Provider 4: Monitoring alerts (high priority, uses provider-specific secret)
 [[bot.providers]]
 name = "monitoring-critical"
 type = "push"
@@ -59,9 +61,10 @@ enabled = true
 accounts = ["alerts-account"]
 
 [bot.providers.config]
-defaultMessage = "🔴 CRITICAL: Monitoring Alert"
+defaultMessage = "CRITICAL: Monitoring Alert"
 allowExternalMessages = true
 maxMessageLength = 500
+webhookSecret = "monitoring-secret-789"
 
 [webhook]
 # Webhook server configuration
@@ -71,7 +74,7 @@ host = "0.0.0.0"  # Listen on all interfaces
 path = "/webhook"  # Webhook endpoint path
 
 # Security settings
-secret = "your-webhook-secret-here"  # Optional: Webhook secret for authentication
+secret = "global-webhook-secret-here"  # Global webhook secret (fallback for providers without specific secrets)
 allowedIPs = [  # Optional: IP whitelist (remove for no restrictions)
   "127.0.0.1",
   "::1",
@@ -112,22 +115,22 @@ enabled = false
 
 # Webhook Usage Examples:
 #
-# 1. Basic webhook call with default message:
+# 1. Basic webhook call using global secret (for webhook-alerts provider):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
-#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -H "X-Webhook-Secret: global-webhook-secret-here" \
 #   -d '{"provider": "webhook-alerts"}'
 #
-# 2. Webhook call with custom message:
+# 2. Webhook call using provider-specific secret (for system-notifications):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
-#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -H "X-Webhook-Secret: system-specific-secret-123" \
 #   -d '{"provider": "system-notifications", "message": "Deployment completed successfully!"}'
 #
-# 3. Webhook call with metadata:
+# 3. Webhook call using provider-specific secret (for cicd-notifications):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
-#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -H "X-Webhook-Secret: cicd-webhook-secret-456" \
 #   -d '{
 #     "provider": "cicd-notifications",
 #     "message": "Build #123 completed",
@@ -138,23 +141,31 @@ enabled = false
 #     }
 #   }'
 #
-# 4. GitHub webhook integration example:
-# - Set webhook URL: http://your-server:3000/webhook
-# - Set secret: your-webhook-secret-here
-# - Select events: push, pull_request, release
-#
-# 5. Monitoring system integration:
+# 4. Webhook call using provider-specific secret (for monitoring-critical):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
-#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -H "X-Webhook-Secret: monitoring-secret-789" \
 #   -d '{
 #     "provider": "monitoring-critical",
-#     "message": "🔴 CRITICAL: CPU usage > 90% on server-01"
+#     "message": "CRITICAL: CPU usage > 90% on server-01"
 #   }'
+#
+# Provider-Specific Webhook Secrets:
+# - Each push provider can have its own webhookSecret in the config
+# - If a provider has a webhookSecret, it overrides the global webhook secret
+# - If no provider-specific secret is set, the global webhook.secret is used
+# - This allows different systems to use different secrets for security isolation
+#
+# Security Benefits:
+# - Different external systems can use different secrets
+# - Compromised secret only affects one provider, not all
+# - Easier to rotate secrets for specific integrations
+# - Better audit trail for webhook sources
 #
 # Security Notes:
 # - Always use HTTPS in production
-# - Set a strong webhook secret
+# - Set strong webhook secrets (both global and provider-specific)
 # - Use IP whitelisting when possible
 # - Consider rate limiting at the reverse proxy level
 # - Monitor webhook logs for suspicious activity
+# - Rotate secrets regularly

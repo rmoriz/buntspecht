@@ -305,6 +305,7 @@ maxMessageLength = 280
 - `defaultMessage` - Message to use when no custom message is provided
 - `allowExternalMessages` - Whether to accept custom messages (default: true)
 - `maxMessageLength` - Maximum length for messages (default: 500)
+- `webhookSecret` - Optional provider-specific webhook secret (overrides global webhook secret)
 
 #### Triggering Push Providers
 
@@ -451,10 +452,38 @@ curl -X POST http://localhost:3000/webhook \
 ### Webhook Security
 
 - **Authentication**: Use webhook secrets for request validation
+  - **Global Secret**: Configure a global webhook secret in `[webhook]` section
+  - **Provider-Specific Secrets**: Each push provider can have its own `webhookSecret` that overrides the global secret
+  - **Secret Priority**: Provider-specific secret > Global secret > No authentication
 - **IP Whitelisting**: Restrict access to trusted IP ranges
 - **HTTPS**: Always use HTTPS in production environments
 - **Rate Limiting**: Consider implementing rate limiting at the reverse proxy level
 - **Payload Validation**: All requests are validated for proper JSON format and required fields
+
+#### Provider-Specific Webhook Secrets
+
+Each push provider can have its own webhook secret for enhanced security isolation:
+
+```toml
+# Provider with specific webhook secret
+[[bot.providers]]
+name = "monitoring-alerts"
+type = "push"
+enabled = true
+accounts = ["alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "Monitoring alert"
+allowExternalMessages = true
+maxMessageLength = 500
+webhookSecret = "monitoring-specific-secret-123"  # Provider-specific secret
+```
+
+**Benefits of Provider-Specific Secrets:**
+- **Security Isolation**: Different external systems can use different secrets
+- **Granular Access Control**: Compromised secret only affects one provider
+- **Easier Secret Rotation**: Rotate secrets for specific integrations without affecting others
+- **Better Audit Trail**: Track webhook sources more precisely
 
 ### Integration Examples
 

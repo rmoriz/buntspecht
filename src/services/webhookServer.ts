@@ -161,14 +161,12 @@ export class WebhookServer {
       const body = await this.parseRequestBody(req);
       const webhookRequest = this.validateWebhookRequest(body);
 
-      // Verify secret if configured
-      if (this.config.secret) {
-        const providedSecret = req.headers['x-webhook-secret'] as string;
-        if (providedSecret !== this.config.secret) {
-          this.logger.warn('Webhook request with invalid secret');
-          this.sendErrorResponse(res, 401, 'Unauthorized');
-          return;
-        }
+      // Verify secret (provider-specific or global)
+      const providedSecret = req.headers['x-webhook-secret'] as string;
+      if (!this.validateWebhookSecret(webhookRequest.provider, providedSecret)) {
+        this.logger.warn(`Webhook request with invalid secret for provider: ${webhookRequest.provider}`);
+        this.sendErrorResponse(res, 401, 'Unauthorized');
+        return;
       }
 
       span?.setAttributes({
@@ -323,6 +321,29 @@ export class WebhookServer {
 
     res.writeHead(statusCode, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(errorResponse, null, 2));
+  }
+
+  /**
+   * Validates webhook secret for a specific provider
+   */
+  private validateWebhookSecret(providerName: string, providedSecret: string | undefined): boolean {
+    // Get provider-specific secret first
+    const pushProvider = this.bot.getPushProvider(providerName);
+    if (pushProvider && typeof pushProvider.getWebhookSecret === 'function') {
+      const providerSecret = pushProvider.getWebhookSecret();
+      if (providerSecret) {
+        // Provider has its own secret, use it
+        return providedSecret === providerSecret;
+      }
+    }
+
+    // Fall back to global webhook secret
+    if (this.config.secret) {
+      return providedSecret === this.config.secret;
+    }
+
+    // No secret configured (neither provider-specific nor global)
+    return true;
   }
 
   /**

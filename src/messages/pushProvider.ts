@@ -11,6 +11,8 @@ export interface PushProviderConfig extends MessageProviderConfig {
   allowExternalMessages?: boolean;
   // Optional validation for external messages (max length, etc.)
   maxMessageLength?: number;
+  // Optional webhook secret for this specific provider (overrides global webhook secret)
+  webhookSecret?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export class PushProvider implements MessageProvider {
   private defaultMessage: string;
   private allowExternalMessages: boolean;
   private maxMessageLength: number;
+  private webhookSecret?: string;
   private logger?: Logger;
   private currentMessage?: string;
 
@@ -29,6 +32,7 @@ export class PushProvider implements MessageProvider {
     this.defaultMessage = config.defaultMessage || 'Push notification from Buntspecht';
     this.allowExternalMessages = config.allowExternalMessages !== false; // Default to true
     this.maxMessageLength = config.maxMessageLength || 500; // Default 500 chars
+    this.webhookSecret = config.webhookSecret;
   }
 
   /**
@@ -107,7 +111,15 @@ export class PushProvider implements MessageProvider {
     return {
       defaultMessage: this.defaultMessage,
       allowExternalMessages: this.allowExternalMessages,
-      maxMessageLength: this.maxMessageLength
+      maxMessageLength: this.maxMessageLength,
+      webhookSecret: this.webhookSecret
     };
+  }
+
+  /**
+   * Gets the webhook secret for this provider
+   */
+  public getWebhookSecret(): string | undefined {
+    return this.webhookSecret;
   }
 }

@@ -8,7 +8,8 @@ const mockBot = {
   isPushProvider: jest.fn(),
   triggerPushProvider: jest.fn(),
   getPushProviders: jest.fn(),
-  getProviderInfo: jest.fn()
+  getProviderInfo: jest.fn(),
+  getPushProvider: jest.fn()
 } as unknown as MastodonPingBot;
 
 describe('WebhookServer', () => {
@@ -151,7 +152,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(200);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(true);
       expect(result.provider).toBe('test-provider');
       
@@ -175,7 +176,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(401);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Unauthorized');
     });
@@ -196,7 +197,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(false);
       expect(result.error).toContain('Provider name is required');
     });
@@ -219,7 +220,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(false);
       expect(result.error).toContain('is not a push provider');
     });
@@ -231,7 +232,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(405);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Method not allowed');
     });
@@ -270,7 +271,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json();
+      const result = await response.json() as any;
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid JSON');
     });
@@ -311,6 +312,134 @@ describe('WebhookServer', () => {
       });
 
       // Request from localhost should be allowed
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('provider-specific secrets', () => {
+    beforeEach(async () => {
+      const config = {
+        enabled: true,
+        port: 0,
+        secret: 'global-secret'
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+
+      // Setup bot mocks
+      (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
+      (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+    });
+
+    it('should use provider-specific secret when available', async () => {
+      // Mock provider with specific secret
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue('provider-specific-secret')
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+
+      const payload = {
+        provider: 'test-provider',
+        message: 'Test message'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'provider-specific-secret'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockBot.getPushProvider).toHaveBeenCalledWith('test-provider');
+      expect(mockPushProvider.getWebhookSecret).toHaveBeenCalled();
+    });
+
+    it('should reject request with wrong provider-specific secret', async () => {
+      // Mock provider with specific secret
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue('provider-specific-secret')
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+
+      const payload = {
+        provider: 'test-provider'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'wrong-secret'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(401);
+      
+      const result = await response.json() as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unauthorized');
+    });
+
+    it('should fall back to global secret when provider has no specific secret', async () => {
+      // Mock provider without specific secret
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined)
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+
+      const payload = {
+        provider: 'test-provider'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'global-secret'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockPushProvider.getWebhookSecret).toHaveBeenCalled();
+    });
+
+    it('should allow request when no secrets are configured', async () => {
+      // Create webhook server without global secret
+      await webhookServer.stop();
+      const config = {
+        enabled: true,
+        port: 0
+        // No secret configured
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+
+      // Mock provider without specific secret
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined)
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+
+      const payload = {
+        provider: 'test-provider'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+          // No secret header
+        },
+        body: JSON.stringify(payload)
+      });
+
       expect(response.status).toBe(200);
     });
   });

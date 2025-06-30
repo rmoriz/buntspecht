@@ -325,4 +325,15 @@ export class MultiProviderScheduler {
     const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
     return scheduledProvider?.provider.getProviderName() === 'push' || false;
   }
+
+  /**
+   * Gets a push provider instance by name
+   */
+  public getPushProvider(providerName: string): any | null {
+    const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
+    if (scheduledProvider?.provider.getProviderName() === 'push') {
+      return scheduledProvider.provider;
+    }
+    return null;
+  }
 }

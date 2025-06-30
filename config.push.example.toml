@@ -38,6 +38,7 @@ accounts = ["alerts-account"]
 defaultMessage = "Alert: Something happened!"
 allowExternalMessages = true
 maxMessageLength = 500
+webhookSecret = "alerts-webhook-secret-123"  # Optional: Provider-specific webhook secret
 
 # Provider 3: Push provider for announcements (to both accounts)
 [[bot.providers]]
@@ -102,6 +103,7 @@ enabled = false
 # - defaultMessage: Message to use when no custom message is provided
 # - allowExternalMessages: Whether to allow custom messages (default: true)
 # - maxMessageLength: Maximum length for messages (default: 500)
+# - webhookSecret: Optional provider-specific webhook secret (overrides global webhook secret)
 #
 # Use cases for push providers:
 # - Webhook notifications

@@ -35,6 +35,16 @@ describe('PushProvider', () => {
       expect(provider.getProviderName()).toBe('push');
       expect(provider.getConfig()).toEqual(config);
     });
+
+    it('should create provider with webhook secret', () => {
+      const config: PushProviderConfig = {
+        defaultMessage: 'Test message',
+        webhookSecret: 'test-secret-123'
+      };
+      const provider = new PushProvider(config);
+      expect(provider.getWebhookSecret()).toBe('test-secret-123');
+      expect(provider.getConfig().webhookSecret).toBe('test-secret-123');
+    });
   });
 
   describe('generateMessage', () => {
@@ -123,6 +133,18 @@ describe('PushProvider', () => {
       provider.clearMessage();
       const message = await provider.generateMessage();
       expect(message).toBe('Default');
+    });
+  });
+
+  describe('getWebhookSecret', () => {
+    it('should return undefined when no webhook secret is configured', () => {
+      const provider = new PushProvider();
+      expect(provider.getWebhookSecret()).toBeUndefined();
+    });
+
+    it('should return webhook secret when configured', () => {
+      const provider = new PushProvider({ webhookSecret: 'my-secret' });
+      expect(provider.getWebhookSecret()).toBe('my-secret');
     });
   });
 

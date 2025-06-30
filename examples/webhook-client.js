@@ -157,19 +157,23 @@ async function interactiveMode(config) {
 const examples = {
   alert: {
     provider: 'webhook-alerts',
-    message: '🚨 Test alert from webhook client'
+    message: 'Test alert from webhook client',
+    secret: 'global-webhook-secret-here'  // Uses global secret
   },
   notification: {
     provider: 'system-notifications', 
-    message: '📢 Test notification from webhook client'
+    message: 'Test notification from webhook client',
+    secret: 'system-specific-secret-123'  // Uses provider-specific secret
   },
   cicd: {
     provider: 'cicd-notifications',
-    message: '🚀 Test CI/CD notification - Build #123 completed'
+    message: 'Test CI/CD notification - Build #123 completed',
+    secret: 'cicd-webhook-secret-456'  // Uses provider-specific secret
   },
   monitoring: {
     provider: 'monitoring-critical',
-    message: '🔴 CRITICAL: Test monitoring alert - CPU usage > 90%'
+    message: 'CRITICAL: Test monitoring alert - CPU usage > 90%',
+    secret: 'monitoring-secret-789'  // Uses provider-specific secret
   }
 };
 
@@ -185,7 +189,8 @@ async function sendExamples(config) {
     const exampleConfig = {
       ...config,
       provider: example.provider,
-      message: example.message
+      message: example.message,
+      secret: example.secret || config.secret  // Use example-specific secret if available
     };
 
     await sendWebhook(exampleConfig);

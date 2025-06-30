@@ -205,4 +205,11 @@ export class MastodonPingBot {
   public isWebhookRunning(): boolean {
     return this.webhookServer?.isServerRunning() || false;
   }
+
+  /**
+   * Gets a push provider instance by name
+   */
+  public getPushProvider(providerName: string): any | null {
+    return this.scheduler.getPushProvider(providerName);
+  }
 }
