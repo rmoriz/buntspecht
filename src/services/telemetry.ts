@@ -1,17 +1,12 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { resourceFromAttributes } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { trace, metrics, Span, Tracer, Meter } from '@opentelemetry/api';
+// Dynamic imports for OpenTelemetry modules to avoid binary compatibility issues
+// All OpenTelemetry imports are now done dynamically within methods
 import { Logger } from '../utils/logger';
-import { TelemetryConfig, TelemetryService as ITelemetryService } from './telemetryInterface';
+import { TelemetryConfig, TelemetryService as ITelemetryService, Span } from './telemetryInterface';
 
 export class TelemetryService implements ITelemetryService {
-  private sdk?: NodeSDK;
-  private tracer?: Tracer;
-  private meter?: Meter;
+  private sdk?: any;
+  private tracer?: any;
+  private meter?: any;
   private logger: Logger;
   private config: TelemetryConfig;
   private isInitialized = false;
@@ -39,10 +34,18 @@ export class TelemetryService implements ITelemetryService {
     this.logger.info('Initializing OpenTelemetry...');
 
     try {
+      // Dynamic imports to avoid binary compatibility issues
+      const { NodeSDK } = await import('@opentelemetry/sdk-node');
+      const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
+      const { resourceFromAttributes } = await import('@opentelemetry/resources');
+      const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
+      const { trace, metrics } = await import('@opentelemetry/api');
+
       const exporters: unknown[] = [];
 
       // Configure Jaeger exporter for traces
       if (this.config.jaeger?.enabled) {
+        const { JaegerExporter } = await import('@opentelemetry/exporter-jaeger');
         const jaegerExporter = new JaegerExporter({
           endpoint: this.config.jaeger.endpoint || 'http://localhost:14268/api/traces',
         });
@@ -52,6 +55,7 @@ export class TelemetryService implements ITelemetryService {
 
       // Configure Prometheus exporter for metrics
       if (this.config.prometheus?.enabled) {
+        const { PrometheusExporter } = await import('@opentelemetry/exporter-prometheus');
         new PrometheusExporter({
           port: this.config.prometheus.port || 9090,
           endpoint: this.config.prometheus.endpoint || '/metrics',
@@ -211,14 +215,14 @@ export class TelemetryService implements ITelemetryService {
   /**
    * Gets the tracer instance
    */
-  public getTracer(): Tracer | undefined {
+  public getTracer(): unknown {
     return this.tracer;
   }
 
   /**
    * Gets the meter instance
    */
-  public getMeter(): Meter | undefined {
+  public getMeter(): unknown {
     return this.meter;
   }
 
