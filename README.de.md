@@ -10,8 +10,9 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 ## Features
 
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
-- 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos oder JSON-basierte Templates
+- 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos, JSON-basierte Templates oder Push-Benachrichtigungen
 - 🔄 **Multi-Provider-Unterstützung**: Mehrere Provider parallel mit individuellen Zeitplänen
+- 🔔 **Push-Provider**: Event-gesteuerte Nachrichten für Webhooks, Alerts und externe Integrationen
 - 🌐 **Multi-Account-Unterstützung**: Mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens
 - 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts posten
 - ⚙️ Flexible Konfiguration über TOML-Dateien
@@ -276,6 +277,193 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 - Fehlende Variablen werden als `{{variable}}` im Text belassen
 - JSON-Werte werden automatisch zu Strings konvertiert
 
+### Push Provider
+
+Reagiert auf externe Events anstatt auf Cron-Zeitpläne. Push-Provider werden programmatisch ausgelöst und können benutzerdefinierte Nachrichten akzeptieren:
+
+```toml
+[[bot.providers]]
+name = "alert-system"
+type = "push"
+# Kein cronSchedule für Push-Provider erforderlich
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Standard-Nachricht, wenn keine benutzerdefinierte Nachricht bereitgestellt wird
+defaultMessage = "Alert vom Monitoring-System"
+
+# Ob benutzerdefinierte Nachrichten erlaubt sind (Standard: true)
+allowExternalMessages = true
+
+# Maximale Nachrichtenlänge (Standard: 500)
+maxMessageLength = 280
+```
+
+#### Push Provider Konfigurationsoptionen
+
+- `defaultMessage` - Nachricht, die verwendet wird, wenn keine benutzerdefinierte Nachricht bereitgestellt wird
+- `allowExternalMessages` - Ob benutzerdefinierte Nachrichten akzeptiert werden (Standard: true)
+- `maxMessageLength` - Maximale Länge für Nachrichten (Standard: 500)
+
+#### Push Provider auslösen
+
+Push-Provider können über CLI oder programmatisch ausgelöst werden:
+
+```bash
+# Alle Push-Provider auflisten
+bun start --list-push-providers
+
+# Mit Standard-Nachricht auslösen
+bun start --trigger-push alert-system
+
+# Mit benutzerdefinierter Nachricht auslösen
+bun start --trigger-push alert-system --trigger-push-message "Kritischer Alert: Server ausgefallen!"
+```
+
+#### Anwendungsfälle für Push Provider
+
+- **Webhook-Benachrichtigungen**: Auf externe Webhook-Aufrufe reagieren
+- **Alert-Systeme**: Alerts basierend auf Monitoring-Bedingungen auslösen
+- **Manuelle Ankündigungen**: Ad-hoc-Nachrichten bei Bedarf senden
+- **Event-gesteuerte Benachrichtigungen**: Auf externe Events reagieren
+- **Integration mit externen Systemen**: Verbindung mit Monitoring, CI/CD, etc.
+
+#### Beispiel-Integration
+
+```javascript
+// Beispiel Webhook-Handler
+async function handleWebhook(req, res) {
+  const { message, severity } = req.body;
+  
+  // Provider basierend auf Schweregrad auswählen
+  const providerName = severity === 'critical' ? 'alert-system' : 'announcements';
+  
+  await bot.triggerPushProvider(providerName, message);
+  res.json({ success: true });
+}
+```
+
+## Webhook-Integration
+
+Buntspecht enthält einen integrierten Webhook-Server, der es externen Systemen ermöglicht, Push-Provider über HTTP-Requests auszulösen. Dies ermöglicht Echtzeit-Benachrichtigungen von Monitoring-Systemen, CI/CD-Pipelines, GitHub und anderen Services.
+
+### Webhook-Konfiguration
+
+```toml
+[webhook]
+# Webhook-Server aktivieren
+enabled = true
+port = 3000
+host = "0.0.0.0"  # Auf allen Interfaces lauschen
+path = "/webhook"  # Webhook-Endpunkt-Pfad
+
+# Sicherheitseinstellungen
+secret = "ihr-webhook-secret-hier"  # Optional: Authentifizierungs-Secret
+allowedIPs = [  # Optional: IP-Whitelist
+  "127.0.0.1",
+  "192.168.1.0/24",
+  "10.0.0.0/8"
+]
+
+# Performance-Einstellungen
+maxPayloadSize = 1048576  # 1MB max Payload-Größe
+timeout = 30000  # 30 Sekunden Timeout
+```
+
+### Webhook-API
+
+**Endpunkt:** `POST /webhook`
+
+**Header:**
+- `Content-Type: application/json`
+- `X-Webhook-Secret: ihr-secret` (wenn Secret konfiguriert ist)
+
+**Request Body:**
+```json
+{
+  "provider": "push-provider-name",
+  "message": "Benutzerdefinierte Nachricht zum Posten",
+  "metadata": {
+    "key": "value"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Push-Provider \"provider-name\" erfolgreich ausgelöst",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "provider": "provider-name"
+}
+```
+
+### Webhook-Beispiele
+
+#### Einfacher Webhook-Aufruf
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ihr-webhook-secret-hier" \
+  -d '{"provider": "webhook-alerts", "message": "Test Alert-Nachricht"}'
+```
+
+#### GitHub Webhook-Integration
+GitHub Webhook-URL konfigurieren: `http://ihr-server:3000/webhook`
+
+```json
+{
+  "provider": "cicd-notifications",
+  "message": "🚀 Neues Release v1.2.3 veröffentlicht",
+  "metadata": {
+    "repository": "user/repo",
+    "tag": "v1.2.3"
+  }
+}
+```
+
+#### Monitoring-System-Integration
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ihr-secret" \
+  -d '{
+    "provider": "monitoring-critical",
+    "message": "🔴 KRITISCH: CPU-Auslastung > 90% auf server-01"
+  }'
+```
+
+#### CI/CD-Pipeline-Integration
+```json
+{
+  "provider": "cicd-notifications", 
+  "message": "✅ Deployment in Produktion erfolgreich abgeschlossen",
+  "metadata": {
+    "environment": "production",
+    "version": "1.2.3",
+    "duration": "2m 30s"
+  }
+}
+```
+
+### Webhook-Sicherheit
+
+- **Authentifizierung**: Verwenden Sie Webhook-Secrets für Request-Validierung
+- **IP-Whitelisting**: Beschränken Sie den Zugriff auf vertrauenswürdige IP-Bereiche
+- **HTTPS**: Verwenden Sie immer HTTPS in Produktionsumgebungen
+- **Rate Limiting**: Erwägen Sie Rate Limiting auf Reverse-Proxy-Ebene
+- **Payload-Validierung**: Alle Requests werden auf korrektes JSON-Format und erforderliche Felder validiert
+
+### Integrations-Beispiele
+
+Das `examples/`-Verzeichnis enthält umfassende Webhook-Integrations-Beispiele:
+
+- `webhook-integration-example.js` - Vollständige Integrationsmuster
+- `webhook-client.js` - Test-Client für Webhook-Endpunkte
+- `config.webhook.example.toml` - Vollständiges Webhook-Konfigurationsbeispiel
+
 ## Multi-Account und Multi-Provider-Konfiguration
 
 Buntspecht unterstützt mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens sowie die gleichzeitige Ausführung mehrerer Provider mit individuellen Zeitplänen. Dies ermöglicht es, verschiedene Arten von Nachrichten zu unterschiedlichen Zeiten an verschiedene Accounts zu posten.
@@ -414,6 +602,18 @@ bun start --test-provider provider-name
 
 # Alle konfigurierten Provider auflisten
 bun start --list-providers
+
+# Alle Push-Provider auflisten
+bun start --list-push-providers
+
+# Webhook-Server-Status und -Konfiguration anzeigen
+bun start --webhook-status
+
+# Push-Provider mit Standard-Nachricht auslösen
+bun start --trigger-push provider-name
+
+# Push-Provider mit benutzerdefinierter Nachricht auslösen
+bun start --trigger-push provider-name --trigger-push-message "Benutzerdefinierte Nachricht"
 
 # Spezifische Konfigurationsdatei verwenden
 bun start --config /pfad/zur/config.toml
