@@ -47,6 +47,26 @@ async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.webhookStatus) {
+      const webhookInfo = bot.getWebhookInfo();
+      console.log('\nWebhook Server Status:');
+      console.log('======================');
+      console.log(`Enabled: ${webhookInfo.enabled ? 'Yes' : 'No'}`);
+      console.log(`Running: ${webhookInfo.running ? 'Yes' : 'No'}`);
+      
+      if (webhookInfo.config) {
+        console.log('\nWebhook Configuration:');
+        console.log(`  Host: ${webhookInfo.config.host || '0.0.0.0'}`);
+        console.log(`  Port: ${webhookInfo.config.port}`);
+        console.log(`  Path: ${webhookInfo.config.path || '/webhook'}`);
+        console.log(`  Secret: ${webhookInfo.config.secret ? 'Configured' : 'Not configured'}`);
+        console.log(`  IP Whitelist: ${webhookInfo.config.allowedIPs ? webhookInfo.config.allowedIPs.join(', ') : 'None (all IPs allowed)'}`);
+        console.log(`  Max Payload Size: ${webhookInfo.config.maxPayloadSize || 1048576} bytes`);
+        console.log(`  Timeout: ${webhookInfo.config.timeout || 30000}ms`);
+      }
+      return;
+    }
+
     if (cliOptions.testPost) {
       await bot.testPost();
       return;

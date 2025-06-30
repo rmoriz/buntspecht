@@ -85,6 +85,10 @@ export class TelemetryService implements ITelemetryService {
     // No-op
   }
 
+  recordWebhookRequest(_provider: string, _duration: number): void {
+    // No-op
+  }
+
   getTracer(): unknown {
     return undefined;
   }

@@ -188,6 +188,29 @@ export class TelemetryService implements ITelemetryService {
   }
 
   /**
+   * Records webhook request metrics
+   */
+  public recordWebhookRequest(provider: string, durationSeconds: number): void {
+    if (!this.config.metrics?.enabled) return;
+
+    // Record as a histogram for webhook execution time
+    if (this.providerExecutionHistogram) {
+      (this.providerExecutionHistogram as { record: (value: number, attributes: Record<string, string>) => void }).record(durationSeconds, {
+        provider,
+        type: 'webhook',
+      });
+    }
+
+    // Also increment a counter for webhook requests
+    if (this.postCounter) {
+      (this.postCounter as { add: (value: number, attributes: Record<string, string>) => void }).add(1, {
+        provider,
+        type: 'webhook',
+      });
+    }
+  }
+
+  /**
    * Shuts down the telemetry service
    */
   public async shutdown(): Promise<void> {

@@ -47,6 +47,7 @@ export interface TelemetryService {
   recordProviderExecution(provider: string, duration: number): void;
   recordError(type: string, provider?: string, account?: string): void;
   updateActiveConnections(count: number): void;
+  recordWebhookRequest(provider: string, duration: number): void;
   
   // Getter methods
   getTracer(): unknown;

@@ -1,6 +1,7 @@
 import { ConfigLoader } from './config/configLoader';
 import { MastodonClient } from './services/mastodonClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
+import { WebhookServer } from './services/webhookServer';
 import { createTelemetryService } from './services/telemetryFactory';
 import { Logger } from './utils/logger';
 import { BotConfig, CliOptions } from './types/config';
@@ -11,6 +12,7 @@ export class MastodonPingBot {
   private telemetry: any; // Will be set in initialize()
   private mastodonClient!: MastodonClient; // Initialized in initialize()
   private scheduler!: MultiProviderScheduler; // Initialized in initialize()
+  private webhookServer?: WebhookServer; // Optional webhook server
 
   constructor(cliOptions: CliOptions) {
     this.config = ConfigLoader.loadConfig(cliOptions);
@@ -32,6 +34,11 @@ export class MastodonPingBot {
     this.mastodonClient = new MastodonClient(this.config, this.logger, this.telemetry);
     this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger, this.telemetry);
     
+    // Initialize webhook server if configured
+    if (this.config.webhook?.enabled) {
+      this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
+    }
+    
     const isConnected = await this.mastodonClient.verifyConnection();
     if (!isConnected) {
       throw new Error('Failed to connect to Mastodon. Please check your configuration.');
@@ -44,19 +51,30 @@ export class MastodonPingBot {
   }
 
   /**
-   * Starts the bot scheduler
+   * Starts the bot scheduler and webhook server
    */
   public async start(): Promise<void> {
     this.logger.info('Starting Buntspecht...');
     await this.scheduler.start();
+    
+    // Start webhook server if configured
+    if (this.webhookServer) {
+      await this.webhookServer.start();
+    }
   }
 
   /**
-   * Stops the bot scheduler
+   * Stops the bot scheduler and webhook server
    */
   public async stop(): Promise<void> {
     this.logger.info('Stopping Buntspecht...');
     this.scheduler.stop();
+    
+    // Stop webhook server if running
+    if (this.webhookServer) {
+      await this.webhookServer.stop();
+    }
+    
     await this.telemetry.shutdown();
   }
 
@@ -161,5 +179,30 @@ export class MastodonPingBot {
    */
   public isPushProvider(providerName: string): boolean {
     return this.scheduler.isPushProvider(providerName);
+  }
+
+  /**
+   * Gets webhook server status and configuration
+   */
+  public getWebhookInfo(): { enabled: boolean; running: boolean; config?: any } {
+    return {
+      enabled: !!this.config.webhook?.enabled,
+      running: this.webhookServer?.isServerRunning() || false,
+      config: this.webhookServer?.getConfig()
+    };
+  }
+
+  /**
+   * Checks if webhook server is enabled
+   */
+  public isWebhookEnabled(): boolean {
+    return !!this.config.webhook?.enabled;
+  }
+
+  /**
+   * Checks if webhook server is running
+   */
+  public isWebhookRunning(): boolean {
+    return this.webhookServer?.isServerRunning() || false;
   }
 }

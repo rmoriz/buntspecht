@@ -34,6 +34,17 @@ export interface TelemetryConfig {
   };
 }
 
+export interface WebhookConfig {
+  enabled: boolean;
+  port: number;
+  host?: string;
+  path?: string;
+  secret?: string;
+  allowedIPs?: string[];
+  maxPayloadSize?: number;
+  timeout?: number;
+}
+
 export interface BotConfig {
   accounts: AccountConfig[];
   bot: {
@@ -43,6 +54,7 @@ export interface BotConfig {
     level: 'debug' | 'info' | 'warn' | 'error';
   };
   telemetry?: TelemetryConfig;
+  webhook?: WebhookConfig;
 }
 
 export interface CliOptions {
@@ -55,4 +67,5 @@ export interface CliOptions {
   triggerPush?: string;
   triggerPushMessage?: string;
   listPushProviders?: boolean;
+  webhookStatus?: boolean;
 }

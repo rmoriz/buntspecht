@@ -344,6 +344,126 @@ async function handleWebhook(req, res) {
 }
 ```
 
+## Webhook Integration
+
+Buntspecht includes a built-in webhook server that allows external systems to trigger push providers via HTTP requests. This enables real-time notifications from monitoring systems, CI/CD pipelines, GitHub, and other services.
+
+### Webhook Configuration
+
+```toml
+[webhook]
+# Enable webhook server
+enabled = true
+port = 3000
+host = "0.0.0.0"  # Listen on all interfaces
+path = "/webhook"  # Webhook endpoint path
+
+# Security settings
+secret = "your-webhook-secret-here"  # Optional: Authentication secret
+allowedIPs = [  # Optional: IP whitelist
+  "127.0.0.1",
+  "192.168.1.0/24",
+  "10.0.0.0/8"
+]
+
+# Performance settings
+maxPayloadSize = 1048576  # 1MB max payload size
+timeout = 30000  # 30 seconds timeout
+```
+
+### Webhook API
+
+**Endpoint:** `POST /webhook`
+
+**Headers:**
+- `Content-Type: application/json`
+- `X-Webhook-Secret: your-secret` (if secret is configured)
+
+**Request Body:**
+```json
+{
+  "provider": "push-provider-name",
+  "message": "Custom message to post",
+  "metadata": {
+    "key": "value"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Successfully triggered push provider \"provider-name\"",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "provider": "provider-name"
+}
+```
+
+### Webhook Examples
+
+#### Basic Webhook Call
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: your-webhook-secret-here" \
+  -d '{"provider": "webhook-alerts", "message": "Test alert message"}'
+```
+
+#### GitHub Webhook Integration
+Configure GitHub webhook URL: `http://your-server:3000/webhook`
+
+```json
+{
+  "provider": "cicd-notifications",
+  "message": "🚀 New release v1.2.3 published",
+  "metadata": {
+    "repository": "user/repo",
+    "tag": "v1.2.3"
+  }
+}
+```
+
+#### Monitoring System Integration
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: your-secret" \
+  -d '{
+    "provider": "monitoring-critical",
+    "message": "🔴 CRITICAL: CPU usage > 90% on server-01"
+  }'
+```
+
+#### CI/CD Pipeline Integration
+```json
+{
+  "provider": "cicd-notifications", 
+  "message": "✅ Deployment to production completed successfully",
+  "metadata": {
+    "environment": "production",
+    "version": "1.2.3",
+    "duration": "2m 30s"
+  }
+}
+```
+
+### Webhook Security
+
+- **Authentication**: Use webhook secrets for request validation
+- **IP Whitelisting**: Restrict access to trusted IP ranges
+- **HTTPS**: Always use HTTPS in production environments
+- **Rate Limiting**: Consider implementing rate limiting at the reverse proxy level
+- **Payload Validation**: All requests are validated for proper JSON format and required fields
+
+### Integration Examples
+
+The `examples/` directory contains comprehensive webhook integration examples:
+
+- `webhook-integration-example.js` - Complete integration patterns
+- `webhook-client.js` - Testing client for webhook endpoints
+- `config.webhook.example.toml` - Full webhook configuration example
+
 ## Multi-Account and Multi-Provider Configuration
 
 Buntspecht supports multiple Fediverse/Mastodon accounts with their own access tokens as well as simultaneous execution of multiple providers with individual schedules. This allows posting different types of messages at different times to different accounts.
@@ -485,6 +605,9 @@ bun start --list-providers
 
 # List all push providers
 bun start --list-push-providers
+
+# Show webhook server status and configuration
+bun start --webhook-status
 
 # Trigger a push provider with default message
 bun start --trigger-push provider-name

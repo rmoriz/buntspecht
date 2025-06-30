@@ -1,0 +1,160 @@
+# Buntspecht Webhook Integration Configuration Example
+# Copy this file to config.toml and adjust the values
+
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-main-account-token-here"
+
+[[accounts]]
+name = "alerts-account"
+instance = "https://fosstodon.org"
+accessToken = "your-alerts-account-token-here"
+
+[bot]
+# Push providers for webhook integration
+
+# Provider 1: General alerts
+[[bot.providers]]
+name = "webhook-alerts"
+type = "push"
+enabled = true
+accounts = ["alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "🚨 Alert from external system"
+allowExternalMessages = true
+maxMessageLength = 500
+
+# Provider 2: System notifications
+[[bot.providers]]
+name = "system-notifications"
+type = "push"
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+defaultMessage = "📢 System notification"
+allowExternalMessages = true
+maxMessageLength = 280
+
+# Provider 3: CI/CD notifications
+[[bot.providers]]
+name = "cicd-notifications"
+type = "push"
+enabled = true
+accounts = ["main-account", "alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "🔧 CI/CD Pipeline Update"
+allowExternalMessages = true
+maxMessageLength = 400
+
+# Provider 4: Monitoring alerts (high priority)
+[[bot.providers]]
+name = "monitoring-critical"
+type = "push"
+enabled = true
+accounts = ["alerts-account"]
+
+[bot.providers.config]
+defaultMessage = "🔴 CRITICAL: Monitoring Alert"
+allowExternalMessages = true
+maxMessageLength = 500
+
+[webhook]
+# Webhook server configuration
+enabled = true
+port = 3000
+host = "0.0.0.0"  # Listen on all interfaces
+path = "/webhook"  # Webhook endpoint path
+
+# Security settings
+secret = "your-webhook-secret-here"  # Optional: Webhook secret for authentication
+allowedIPs = [  # Optional: IP whitelist (remove for no restrictions)
+  "127.0.0.1",
+  "::1",
+  "192.168.1.0/24",
+  "10.0.0.0/8"
+]
+
+# Performance settings
+maxPayloadSize = 1048576  # 1MB max payload size
+timeout = 30000  # 30 seconds timeout
+
+[logging]
+level = "info"
+
+[telemetry]
+# OpenTelemetry configuration for monitoring and observability
+# IMPORTANT: Telemetry only works with 'bun run' or 'npm start', NOT with single binaries!
+# Single binaries (buntspecht-linux-x64, etc.) have OpenTelemetry dependencies excluded.
+# For telemetry use Docker or run the bot directly with Bun/Node.js.
+enabled = false
+serviceName = "buntspecht"
+serviceVersion = "0.4.6"
+
+[telemetry.jaeger]
+enabled = false
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+enabled = false
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+enabled = false
+
+[telemetry.metrics]
+enabled = false
+
+# Webhook Usage Examples:
+#
+# 1. Basic webhook call with default message:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -d '{"provider": "webhook-alerts"}'
+#
+# 2. Webhook call with custom message:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -d '{"provider": "system-notifications", "message": "Deployment completed successfully!"}'
+#
+# 3. Webhook call with metadata:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -d '{
+#     "provider": "cicd-notifications",
+#     "message": "Build #123 completed",
+#     "metadata": {
+#       "build_id": "123",
+#       "status": "success",
+#       "branch": "main"
+#     }
+#   }'
+#
+# 4. GitHub webhook integration example:
+# - Set webhook URL: http://your-server:3000/webhook
+# - Set secret: your-webhook-secret-here
+# - Select events: push, pull_request, release
+#
+# 5. Monitoring system integration:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: your-webhook-secret-here" \
+#   -d '{
+#     "provider": "monitoring-critical",
+#     "message": "🔴 CRITICAL: CPU usage > 90% on server-01"
+#   }'
+#
+# Security Notes:
+# - Always use HTTPS in production
+# - Set a strong webhook secret
+# - Use IP whitelisting when possible
+# - Consider rate limiting at the reverse proxy level
+# - Monitor webhook logs for suspicious activity
