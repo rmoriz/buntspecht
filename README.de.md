@@ -65,7 +65,7 @@ chmod +x buntspecht-linux-x64
 
 ```bash
 # Repository klonen
-git clone <repository-url>
+git clone https://github.com/rmoriz/buntspecht
 cd buntspecht
 
 # Dependencies installieren
