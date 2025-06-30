@@ -129,7 +129,7 @@ describe('PushProvider', () => {
   describe('initialize', () => {
     it('should initialize successfully', async () => {
       const provider = new PushProvider();
-      await expect(provider.initialize(logger)).resolves.not.toThrow();
+      await expect(provider.initialize(logger)).resolves.toBeUndefined();
     });
   });
 });
