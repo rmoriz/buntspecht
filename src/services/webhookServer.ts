@@ -337,13 +337,14 @@ export class WebhookServer {
       }
     }
 
-    // Fall back to global webhook secret
+    // Fall back to global webhook secret (required when webhook is enabled)
     if (this.config.secret) {
       return providedSecret === this.config.secret;
     }
 
-    // No secret configured (neither provider-specific nor global)
-    return true;
+    // This should never happen due to config validation, but fail securely
+    this.logger.error('No webhook secret configured (neither provider-specific nor global). This is a configuration error.');
+    return false;
   }
 
   /**

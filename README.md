@@ -360,7 +360,7 @@ host = "0.0.0.0"  # Listen on all interfaces
 path = "/webhook"  # Webhook endpoint path
 
 # Security settings
-secret = "your-webhook-secret-here"  # Optional: Authentication secret
+secret = "your-webhook-secret-here"  # Required: Global webhook secret for authentication
 allowedIPs = [  # Optional: IP whitelist
   "127.0.0.1",
   "192.168.1.0/24",
@@ -451,10 +451,10 @@ curl -X POST http://localhost:3000/webhook \
 
 ### Webhook Security
 
-- **Authentication**: Use webhook secrets for request validation
-  - **Global Secret**: Configure a global webhook secret in `[webhook]` section
+- **Authentication**: Webhook secrets are required for security
+  - **Global Secret**: A global webhook secret in `[webhook]` section is mandatory when webhooks are enabled
   - **Provider-Specific Secrets**: Each push provider can have its own `webhookSecret` that overrides the global secret
-  - **Secret Priority**: Provider-specific secret > Global secret > No authentication
+  - **Secret Priority**: Provider-specific secret > Global secret (no fallback to unauthenticated requests)
 - **IP Whitelisting**: Restrict access to trusted IP ranges
 - **HTTPS**: Always use HTTPS in production environments
 - **Rate Limiting**: Consider implementing rate limiting at the reverse proxy level

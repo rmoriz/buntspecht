@@ -282,6 +282,7 @@ describe('WebhookServer', () => {
       const config = {
         enabled: true,
         port: 0,
+        secret: 'test-secret',
         allowedIPs: ['127.0.0.1', '::1']
       };
 
@@ -306,7 +307,8 @@ describe('WebhookServer', () => {
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'test-secret'
         },
         body: JSON.stringify(payload)
       });
@@ -409,7 +411,7 @@ describe('WebhookServer', () => {
       expect(mockPushProvider.getWebhookSecret).toHaveBeenCalled();
     });
 
-    it('should allow request when no secrets are configured', async () => {
+    it('should reject request when no secrets are configured', async () => {
       // Create webhook server without global secret
       await webhookServer.stop();
       const config = {
@@ -440,7 +442,11 @@ describe('WebhookServer', () => {
         body: JSON.stringify(payload)
       });
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(401);
+      
+      const result = await response.json() as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unauthorized');
     });
   });
 

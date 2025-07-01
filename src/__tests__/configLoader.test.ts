@@ -276,6 +276,182 @@ instance = "https://test.mastodon"
     });
   });
 
+  describe('webhook validation', () => {
+    it('should accept valid webhook configuration with secret', () => {
+      const configWithWebhook = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[webhook]
+enabled = true
+port = 3000
+secret = "webhook-secret-123"
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configWithWebhook);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).not.toThrow();
+    });
+
+    it('should reject webhook configuration without secret when enabled', () => {
+      const configWithoutSecret = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[webhook]
+enabled = true
+port = 3000
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configWithoutSecret);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.'
+      );
+    });
+
+    it('should reject webhook configuration with empty secret when enabled', () => {
+      const configWithEmptySecret = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[webhook]
+enabled = true
+port = 3000
+secret = ""
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configWithEmptySecret);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.'
+      );
+    });
+
+    it('should accept webhook configuration when disabled without secret', () => {
+      const configWebhookDisabled = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[webhook]
+enabled = false
+port = 3000
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configWebhookDisabled);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).not.toThrow();
+    });
+
+    it('should reject invalid webhook port', () => {
+      const configInvalidPort = `
+[[accounts]]
+name = "test-account"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[webhook]
+enabled = true
+port = 99999
+secret = "webhook-secret"
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configInvalidPort);
+
+      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
+        'Invalid webhook port. Must be a number between 1 and 65535.'
+      );
+    });
+  });
+
   describe('ensureConfigDirectory', () => {
     it('should create config directory if it does not exist', () => {
       mockFs.existsSync.mockReturnValue(false);

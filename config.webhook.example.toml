@@ -74,7 +74,7 @@ host = "0.0.0.0"  # Listen on all interfaces
 path = "/webhook"  # Webhook endpoint path
 
 # Security settings
-secret = "global-webhook-secret-here"  # Global webhook secret (fallback for providers without specific secrets)
+secret = "global-webhook-secret-here"  # Required: Global webhook secret (mandatory when webhook is enabled)
 allowedIPs = [  # Optional: IP whitelist (remove for no restrictions)
   "127.0.0.1",
   "::1",
