@@ -733,6 +733,9 @@ enabled = true
 - **`buntspecht_errors_total`**: Number of errors (with labels: error_type, provider, account)
 - **`buntspecht_provider_execution_duration_seconds`**: Provider execution time (with label: provider)
 - **`buntspecht_active_connections`**: Number of active Mastodon connections
+- **`buntspecht_rate_limit_hits_total`**: Number of rate limit hits (with labels: provider, current_count, limit)
+- **`buntspecht_rate_limit_resets_total`**: Number of rate limit resets (with label: provider)
+- **`buntspecht_rate_limit_current_count`**: Current rate limit usage count (with labels: provider, limit, usage_percentage)
 
 ### Available Traces
 
@@ -801,6 +804,15 @@ histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds)
 
 # Active connections
 buntspecht_active_connections
+
+# Rate limit hits per minute
+rate(buntspecht_rate_limit_hits_total[1m])
+
+# Rate limit usage percentage by provider
+buntspecht_rate_limit_current_count{usage_percentage}
+
+# Rate limit resets per hour
+rate(buntspecht_rate_limit_resets_total[1h])
 ```
 
 ### Telemetry Example Configuration
