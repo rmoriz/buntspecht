@@ -18,7 +18,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung (108+ Tests)
+- 🧪 Vollständige Testabdeckung (161+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne Mastodon-API-Integration mit masto.js
@@ -660,6 +660,9 @@ enabled = true
 - **`buntspecht_errors_total`**: Anzahl der Fehler (mit Labels: error_type, provider, account)
 - **`buntspecht_provider_execution_duration_seconds`**: Ausführungszeit der Provider (mit Label: provider)
 - **`buntspecht_active_connections`**: Anzahl aktiver Mastodon-Verbindungen
+- **`buntspecht_rate_limit_hits_total`**: Anzahl der Rate-Limit-Treffer (mit Labels: provider, current_count, limit)
+- **`buntspecht_rate_limit_resets_total`**: Anzahl der Rate-Limit-Resets (mit Label: provider)
+- **`buntspecht_rate_limit_current_count`**: Aktuelle Rate-Limit-Nutzung (mit Labels: provider, limit, usage_percentage)
 
 ### Verfügbare Traces
 
@@ -728,6 +731,15 @@ histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds)
 
 # Aktive Verbindungen
 buntspecht_active_connections
+
+# Rate-Limit-Treffer pro Minute
+rate(buntspecht_rate_limit_hits_total[1m])
+
+# Rate-Limit-Nutzung in Prozent nach Provider
+buntspecht_rate_limit_current_count{usage_percentage}
+
+# Rate-Limit-Resets pro Stunde
+rate(buntspecht_rate_limit_resets_total[1h])
 ```
 
 ### Telemetrie-Beispielkonfiguration
@@ -772,7 +784,7 @@ cronSchedule = "*/15 9-17 * * 1-5"
 ### Development Tools
 
 - **TypeScript** (v5.3.2): Statische Typisierung
-- **Jest** (v29.7.0): Test-Framework mit 77+ Tests
+- **Jest** (v29.7.0): Test-Framework mit 161+ Tests
 - **ESLint** (v8.54.0): Code-Qualität und Linting
 - **Docker**: Containerisierung und CI/CD
 
@@ -851,7 +863,7 @@ bun run build:binary:macos-arm64
 
 ```
 src/
-├── __tests__/          # Test-Dateien (77+ Tests)
+├── __tests__/          # Test-Dateien (161+ Tests)
 ├── config/             # Konfiguration
 │   └── configLoader.ts
 ├── messages/           # Message Provider System
@@ -1013,7 +1025,7 @@ Dieses Projekt wurde vollständig mit Hilfe von **Claude 3.5 Sonnet (Anthropic)*
 ### 🛠️ **AI-unterstützte Entwicklungsbereiche:**
 
 - **Code-Architektur**: Vollständige TypeScript-Projektstruktur mit Provider-System
-- **Test-Entwicklung**: 77+ umfassende Unit-Tests mit Jest
+- **Test-Entwicklung**: 161+ umfassende Unit-Tests mit Jest
 - **Provider-System**: Erweiterbare Message-Provider-Architektur
 - **Command-Integration**: Externe Kommando-Ausführung mit Fehlerbehandlung
 - **Docker-Konfiguration**: Multi-stage Builds und CI/CD-Pipeline
