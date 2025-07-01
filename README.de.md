@@ -632,7 +632,7 @@ Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und M
 # OpenTelemetry aktivieren/deaktivieren
 enabled = true
 serviceName = "buntspecht"
-serviceVersion = "0.4.6"
+serviceVersion = "0.4.7"
 
 [telemetry.jaeger]
 # Jaeger für Distributed Tracing
