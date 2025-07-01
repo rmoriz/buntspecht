@@ -89,7 +89,8 @@ export class MultiProviderScheduler {
     const messageProvider = await MessageProviderFactory.createProvider(
       providerConfig.type,
       providerConfig.config,
-      this.logger
+      this.logger,
+      this.telemetry
     );
 
     let task: cron.ScheduledTask | undefined;
@@ -307,6 +308,9 @@ export class MultiProviderScheduler {
         ? pushProvider.getRateLimitInfo() 
         : { messages: 1, windowSeconds: 60, currentCount: 1, timeUntilReset: timeUntilNext };
       
+      // Record rate limit hit in telemetry
+      this.telemetry.recordRateLimitHit(providerName, rateLimitInfo.currentCount, rateLimitInfo.messages);
+      
       this.logger.warn(`Push provider "${providerName}" is rate limited. ` +
         `Current: ${rateLimitInfo.currentCount}/${rateLimitInfo.messages} messages in ${rateLimitInfo.windowSeconds}s window. ` +
         `Next message allowed in ${timeUntilNext} seconds.`);
@@ -327,6 +331,13 @@ export class MultiProviderScheduler {
     // Record the message send for rate limiting
     if (typeof pushProvider.recordMessageSent === 'function') {
       pushProvider.recordMessageSent();
+      
+      // Update rate limit usage telemetry
+      const rateLimitInfo = typeof pushProvider.getRateLimitInfo === 'function' 
+        ? pushProvider.getRateLimitInfo() 
+        : { messages: 1, windowSeconds: 60, currentCount: 1, timeUntilReset: 0 };
+      
+      this.telemetry.updateRateLimitUsage(providerName, rateLimitInfo.currentCount, rateLimitInfo.messages);
     }
   }
 

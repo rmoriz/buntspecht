@@ -1,5 +1,6 @@
 import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { Logger } from '../utils/logger';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 /**
  * Configuration for the Push message provider
@@ -32,6 +33,7 @@ export class PushProvider implements MessageProvider {
   private rateLimitWindowSeconds: number;
   private messageTimestamps: number[] = []; // Track message timestamps for rate limiting
   private logger?: Logger;
+  private telemetry?: TelemetryService;
   private currentMessage?: string;
 
   constructor(config: PushProviderConfig = {}) {
@@ -105,8 +107,9 @@ export class PushProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
+    this.telemetry = telemetry;
     this.logger.info(`Initialized PushProvider with default message: "${this.defaultMessage}"`);
     this.logger.info(`External messages allowed: ${this.allowExternalMessages}`);
     this.logger.info(`Max message length: ${this.maxMessageLength}`);
@@ -142,8 +145,18 @@ export class PushProvider implements MessageProvider {
     const now = Date.now();
     const windowStart = now - (this.rateLimitWindowSeconds * 1000);
     
+    // Track if we had messages before cleanup (for rate limit reset detection)
+    const hadMessages = this.messageTimestamps.length > 0;
+    
     // Remove timestamps outside the current window
+    const oldLength = this.messageTimestamps.length;
     this.messageTimestamps = this.messageTimestamps.filter(timestamp => timestamp > windowStart);
+    
+    // If we had messages and now we don't (or significantly fewer), record a rate limit reset
+    if (hadMessages && oldLength > this.messageTimestamps.length && this.telemetry) {
+      this.telemetry.recordRateLimitReset('push');
+      this.logger?.debug(`Rate limit window reset. Removed ${oldLength - this.messageTimestamps.length} expired timestamps`);
+    }
     
     // Check if we've exceeded the rate limit
     return this.messageTimestamps.length >= this.rateLimitMessages;

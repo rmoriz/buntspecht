@@ -2,6 +2,7 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 const execAsync = promisify(exec);
 
@@ -140,8 +141,9 @@ export class JsonCommandProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
+    // JsonCommandProvider doesn't use telemetry currently
     this.logger.info(`Initialized JsonCommandProvider with command: "${this.command}"`);
     this.logger.info(`Template: "${this.template}"`);
     

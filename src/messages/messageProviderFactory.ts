@@ -4,6 +4,7 @@ import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
 import { PushProvider, PushProviderConfig } from './pushProvider';
 import { Logger } from '../utils/logger';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 /**
  * Factory for creating message providers
@@ -14,12 +15,14 @@ export class MessageProviderFactory {
    * @param providerType The type of provider to create
    * @param config Configuration for the provider
    * @param logger Logger instance
+   * @param telemetry Optional telemetry service for metrics
    * @returns MessageProvider instance
    */
   public static async createProvider(
     providerType: string,
     config: MessageProviderConfig,
-    logger: Logger
+    logger: Logger,
+    telemetry?: TelemetryService
   ): Promise<MessageProvider> {
     let provider: MessageProvider;
 
@@ -48,7 +51,7 @@ export class MessageProviderFactory {
 
     // Initialize the provider if it has an initialize method
     if (provider.initialize) {
-      await provider.initialize(logger);
+      await provider.initialize(logger, telemetry);
     }
 
     logger.info(`Created message provider: ${provider.getProviderName()}`);

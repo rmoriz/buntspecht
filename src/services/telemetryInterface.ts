@@ -49,6 +49,11 @@ export interface TelemetryService {
   updateActiveConnections(count: number): void;
   recordWebhookRequest(provider: string, duration: number): void;
   
+  // Rate limiting metrics
+  recordRateLimitHit(provider: string, currentCount: number, limit: number): void;
+  recordRateLimitReset(provider: string): void;
+  updateRateLimitUsage(provider: string, currentCount: number, limit: number): void;
+  
   // Getter methods
   getTracer(): unknown;
   getMeter(): unknown;

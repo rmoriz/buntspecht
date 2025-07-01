@@ -1,4 +1,5 @@
 import { Logger } from '../utils/logger';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 /**
  * Interface for message providers
@@ -20,8 +21,9 @@ export interface MessageProvider {
   /**
    * Optional initialization method for providers that need setup
    * @param logger Logger instance for logging
+   * @param telemetry Optional telemetry service for metrics
    */
-  initialize?(logger: Logger): Promise<void>;
+  initialize?(logger: Logger, telemetry?: TelemetryService): Promise<void>;
 }
 
 /**

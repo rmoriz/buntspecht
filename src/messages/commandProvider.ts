@@ -2,6 +2,7 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 const execAsync = promisify(exec);
 
@@ -86,8 +87,9 @@ export class CommandProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
+    // CommandProvider doesn't use telemetry currently
     this.logger.info(`Initialized CommandProvider with command: "${this.command}"`);
     
     // Validate that the command can be executed by doing a dry run

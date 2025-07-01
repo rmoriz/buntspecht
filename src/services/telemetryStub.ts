@@ -89,6 +89,19 @@ export class TelemetryService implements ITelemetryService {
     // No-op
   }
 
+  // Rate limiting metrics - all no-ops
+  recordRateLimitHit(_provider: string, _currentCount: number, _limit: number): void {
+    // No-op
+  }
+
+  recordRateLimitReset(_provider: string): void {
+    // No-op
+  }
+
+  updateRateLimitUsage(_provider: string, _currentCount: number, _limit: number): void {
+    // No-op
+  }
+
   getTracer(): unknown {
     return undefined;
   }

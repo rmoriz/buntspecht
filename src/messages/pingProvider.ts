@@ -1,5 +1,6 @@
 import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { Logger } from '../utils/logger';
+import type { TelemetryService } from '../services/telemetryInterface';
 
 /**
  * Configuration for the Ping message provider
@@ -38,8 +39,9 @@ export class PingProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
+    // PingProvider doesn't use telemetry currently
     this.logger.info(`Initialized PingProvider with message: "${this.message}"`);
   }
 }

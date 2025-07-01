@@ -16,6 +16,9 @@ export class TelemetryService implements ITelemetryService {
   private errorCounter?: unknown;
   private providerExecutionHistogram?: unknown;
   private activeConnectionsGauge?: unknown;
+  private rateLimitHitsCounter?: unknown;
+  private rateLimitResetsCounter?: unknown;
+  private rateLimitUsageGauge?: unknown;
 
   constructor(config: TelemetryConfig, logger: Logger) {
     this.config = config;
@@ -127,6 +130,19 @@ export class TelemetryService implements ITelemetryService {
     this.activeConnectionsGauge = this.meter.createUpDownCounter('buntspecht_active_connections', {
       description: 'Number of active Mastodon connections',
     });
+
+    // Rate limiting metrics
+    this.rateLimitHitsCounter = this.meter.createCounter('buntspecht_rate_limit_hits_total', {
+      description: 'Total number of rate limit hits by provider',
+    });
+
+    this.rateLimitResetsCounter = this.meter.createCounter('buntspecht_rate_limit_resets_total', {
+      description: 'Total number of rate limit resets by provider',
+    });
+
+    this.rateLimitUsageGauge = this.meter.createUpDownCounter('buntspecht_rate_limit_current_count', {
+      description: 'Current rate limit usage count by provider',
+    });
   }
 
   /**
@@ -208,6 +224,47 @@ export class TelemetryService implements ITelemetryService {
         type: 'webhook',
       });
     }
+  }
+
+  /**
+   * Records a rate limit hit
+   */
+  public recordRateLimitHit(provider: string, currentCount: number, limit: number): void {
+    if (!this.config.metrics?.enabled || !this.rateLimitHitsCounter) return;
+
+    (this.rateLimitHitsCounter as { add: (value: number, attributes: Record<string, string | number>) => void }).add(1, {
+      provider,
+      current_count: currentCount,
+      limit,
+    });
+  }
+
+  /**
+   * Records a rate limit reset
+   */
+  public recordRateLimitReset(provider: string): void {
+    if (!this.config.metrics?.enabled || !this.rateLimitResetsCounter) return;
+
+    (this.rateLimitResetsCounter as { add: (value: number, attributes: Record<string, string>) => void }).add(1, {
+      provider,
+    });
+  }
+
+  /**
+   * Updates current rate limit usage
+   */
+  public updateRateLimitUsage(provider: string, currentCount: number, limit: number): void {
+    if (!this.config.metrics?.enabled || !this.rateLimitUsageGauge) return;
+
+    // Calculate usage percentage
+    const usagePercentage = limit > 0 ? (currentCount / limit) * 100 : 0;
+
+    // Record the current count with metadata about limits and usage
+    (this.rateLimitUsageGauge as { add: (value: number, attributes: Record<string, string | number>) => void }).add(currentCount, {
+      provider,
+      limit,
+      usage_percentage: Math.round(usagePercentage * 100) / 100, // Round to 2 decimal places
+    });
   }
 
   /**
