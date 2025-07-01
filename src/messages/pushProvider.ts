@@ -3,6 +3,18 @@ import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';
 
 /**
+ * Interface for push provider specific methods
+ */
+export interface PushProviderInterface {
+  isRateLimited(): boolean;
+  getTimeUntilNextMessage(): number;
+  getRateLimitInfo(): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number };
+  setMessage(message: string): void;
+  recordMessageSent(): void;
+  getConfig(): PushProviderConfig;
+}
+
+/**
  * Configuration for the Push message provider
  */
 export interface PushProviderConfig extends MessageProviderConfig {
@@ -24,7 +36,7 @@ export interface PushProviderConfig extends MessageProviderConfig {
  * Reacts to external events/triggers instead of cron schedules
  * Messages can be provided dynamically when the provider is triggered
  */
-export class PushProvider implements MessageProvider {
+export class PushProvider implements MessageProvider, PushProviderInterface {
   private defaultMessage: string;
   private allowExternalMessages: boolean;
   private maxMessageLength: number;

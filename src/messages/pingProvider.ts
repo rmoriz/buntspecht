@@ -39,7 +39,7 @@ export class PingProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
+  public async initialize(logger: Logger, _telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
     // PingProvider doesn't use telemetry currently
     this.logger.info(`Initialized PingProvider with message: "${this.message}"`);

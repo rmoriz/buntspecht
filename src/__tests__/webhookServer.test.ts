@@ -1,4 +1,11 @@
 import { WebhookServer } from '../services/webhookServer';
+
+interface WebhookTestResponse {
+  success: boolean;
+  provider?: string;
+  error?: string;
+  [key: string]: unknown;
+}
 import { MastodonPingBot } from '../bot';
 import { Logger } from '../utils/logger';
 import { TelemetryService } from '../services/telemetryStub';
@@ -152,7 +159,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(200);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
       expect(result.provider).toBe('test-provider');
       
@@ -176,7 +183,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(401);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Unauthorized');
     });
@@ -197,7 +204,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toContain('Provider name is required');
     });
@@ -220,7 +227,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toContain('is not a push provider');
     });
@@ -232,7 +239,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(405);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Method not allowed');
     });
@@ -271,7 +278,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(400);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid JSON');
     });
@@ -382,7 +389,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(401);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Unauthorized');
     });
@@ -444,7 +451,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(401);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Unauthorized');
     });
@@ -494,7 +501,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(429);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toContain('rate limited');
       expect(result.error).toContain('45 seconds');
@@ -526,7 +533,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(200);
       
-      const result = await response.json() as any;
+      const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
       expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
     });

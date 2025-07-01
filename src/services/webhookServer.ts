@@ -31,7 +31,7 @@ export interface WebhookResponse {
 }
 
 export class WebhookServer {
-  private server: any;
+  private server: ReturnType<typeof createServer> | null = null;
   private config: WebhookConfig;
   private logger: Logger;
   private bot: MastodonPingBot;
@@ -72,13 +72,15 @@ export class WebhookServer {
       });
     });
 
-    this.server.timeout = this.config.timeout;
+    if (this.config.timeout) {
+      this.server.timeout = this.config.timeout;
+    }
 
     return new Promise((resolve, reject) => {
-      this.server.listen(this.config.port, this.config.host, () => {
+      this.server!.listen(this.config.port, this.config.host, () => {
         this.isRunning = true;
         // Update config with actual assigned port (important for port: 0)
-        const address = this.server.address();
+        const address = this.server!.address();
         if (address && typeof address === 'object') {
           this.config.port = address.port;
         }
@@ -86,7 +88,7 @@ export class WebhookServer {
         resolve();
       });
 
-      this.server.on('error', (error: Error) => {
+      this.server!.on('error', (error: Error) => {
         this.logger.error('Webhook server error:', error);
         reject(error);
       });
@@ -102,7 +104,7 @@ export class WebhookServer {
     }
 
     return new Promise((resolve) => {
-      this.server.close(() => {
+      this.server!.close(() => {
         this.isRunning = false;
         this.logger.info('Webhook server stopped');
         resolve();
@@ -208,7 +210,7 @@ export class WebhookServer {
   /**
    * Parses the request body
    */
-  private async parseRequestBody(req: IncomingMessage): Promise<any> {
+  private async parseRequestBody(req: IncomingMessage): Promise<unknown> {
     return new Promise((resolve, reject) => {
       let body = '';
       let size = 0;
@@ -238,32 +240,35 @@ export class WebhookServer {
   /**
    * Validates the webhook request
    */
-  private validateWebhookRequest(body: any): WebhookRequest {
+  private validateWebhookRequest(body: unknown): WebhookRequest {
     if (!body || typeof body !== 'object') {
       throw new ValidationError('Request body must be a JSON object');
     }
 
-    if (!body.provider || typeof body.provider !== 'string') {
+    // Type assertion after validation
+    const bodyObj = body as Record<string, unknown>;
+
+    if (!bodyObj.provider || typeof bodyObj.provider !== 'string') {
       throw new ValidationError('Provider name is required and must be a string');
     }
 
-    if (body.message && typeof body.message !== 'string') {
+    if (bodyObj.message && typeof bodyObj.message !== 'string') {
       throw new ValidationError('Message must be a string');
     }
 
-    if (body.accounts && !Array.isArray(body.accounts)) {
+    if (bodyObj.accounts && !Array.isArray(bodyObj.accounts)) {
       throw new ValidationError('Accounts must be an array');
     }
 
-    if (body.accounts && body.accounts.some((acc: any) => typeof acc !== 'string')) {
+    if (bodyObj.accounts && Array.isArray(bodyObj.accounts) && bodyObj.accounts.some((acc: unknown) => typeof acc !== 'string')) {
       throw new ValidationError('All account names must be strings');
     }
 
     return {
-      provider: body.provider,
-      message: body.message,
-      accounts: body.accounts,
-      metadata: body.metadata || {}
+      provider: bodyObj.provider as string,
+      message: bodyObj.message as string | undefined,
+      accounts: bodyObj.accounts as string[] | undefined,
+      metadata: (bodyObj.metadata as Record<string, unknown>) || {}
     };
   }
 

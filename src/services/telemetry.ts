@@ -4,8 +4,11 @@ import { Logger } from '../utils/logger';
 import { TelemetryConfig, TelemetryService as ITelemetryService, Span } from './telemetryInterface';
 
 export class TelemetryService implements ITelemetryService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private sdk?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private tracer?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private meter?: any;
   private logger: Logger;
   private config: TelemetryConfig;

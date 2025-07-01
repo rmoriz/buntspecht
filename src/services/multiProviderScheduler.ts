@@ -5,6 +5,7 @@ import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import { MessageProvider } from '../messages/messageProvider';
 import { MessageProviderFactory } from '../messages/messageProviderFactory';
+import { PushProviderInterface } from '../messages/pushProvider';
 
 interface ScheduledProvider {
   name: string;
@@ -296,7 +297,7 @@ export class MultiProviderScheduler {
     }
 
     // Cast to PushProvider to access push-specific methods
-    const pushProvider = scheduledProvider.provider as any;
+    const pushProvider = scheduledProvider.provider as MessageProvider & PushProviderInterface;
     
     // Check rate limiting
     if (typeof pushProvider.isRateLimited === 'function' && pushProvider.isRateLimited()) {
@@ -344,12 +345,12 @@ export class MultiProviderScheduler {
   /**
    * Gets all push providers
    */
-  public getPushProviders(): Array<{name: string, config: any}> {
+  public getPushProviders(): Array<{name: string, config: unknown}> {
     return this.scheduledProviders
       .filter(sp => sp.provider.getProviderName() === 'push')
       .map(sp => ({
         name: sp.name,
-        config: (sp.provider as any).getConfig ? (sp.provider as any).getConfig() : {}
+        config: (sp.provider as MessageProvider & PushProviderInterface).getConfig ? (sp.provider as MessageProvider & PushProviderInterface).getConfig() : {}
       }));
   }
 
@@ -364,10 +365,10 @@ export class MultiProviderScheduler {
   /**
    * Gets a push provider instance by name
    */
-  public getPushProvider(providerName: string): any | null {
+  public getPushProvider(providerName: string): (MessageProvider & PushProviderInterface) | null {
     const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
     if (scheduledProvider?.provider.getProviderName() === 'push') {
-      return scheduledProvider.provider;
+      return scheduledProvider.provider as MessageProvider & PushProviderInterface;
     }
     return null;
   }
