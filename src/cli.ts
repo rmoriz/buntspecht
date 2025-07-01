@@ -14,6 +14,7 @@ export function parseCliArguments(): CliOptions {
     .option('--test-provider <name>', 'post a test message from specific provider and exit')
     .option('--list-providers', 'list all configured providers and exit')
     .option('--list-push-providers', 'list all configured push providers and exit')
+    .option('--push-provider-status <name>', 'show rate limit status for a specific push provider')
     .option('--trigger-push <name>', 'trigger a push provider by name and exit')
     .option('--trigger-push-message <message>', 'custom message for push provider (use with --trigger-push)')
     .option('--webhook-status', 'show webhook server status and configuration')
@@ -29,6 +30,7 @@ export function parseCliArguments(): CliOptions {
     testProvider: options.testProvider,
     listProviders: options.listProviders,
     listPushProviders: options.listPushProviders,
+    pushProviderStatus: options.pushProviderStatus,
     triggerPush: options.triggerPush,
     triggerPushMessage: options.triggerPushMessage,
     webhookStatus: options.webhookStatus,

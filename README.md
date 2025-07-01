@@ -298,6 +298,10 @@ allowExternalMessages = true
 
 # Maximum message length (default: 500)
 maxMessageLength = 280
+
+# Rate limiting (default: 1 message per 60 seconds)
+rateLimitMessages = 3  # Allow 3 messages per time window
+rateLimitWindowSeconds = 300  # 5-minute time window
 ```
 
 #### Push Provider Configuration Options
@@ -306,6 +310,8 @@ maxMessageLength = 280
 - `allowExternalMessages` - Whether to accept custom messages (default: true)
 - `maxMessageLength` - Maximum length for messages (default: 500)
 - `webhookSecret` - Optional provider-specific webhook secret (overrides global webhook secret)
+- `rateLimitMessages` - Number of messages allowed per time window (default: 1)
+- `rateLimitWindowSeconds` - Time window for rate limiting in seconds (default: 60)
 
 #### Triggering Push Providers
 
@@ -320,6 +326,41 @@ bun start --trigger-push alert-system
 
 # Trigger with custom message
 bun start --trigger-push alert-system --trigger-push-message "Critical alert: Server down!"
+```
+
+#### Rate Limiting
+
+Push providers include built-in rate limiting to prevent spam and abuse:
+
+- **Default Limit**: 1 message per 60 seconds
+- **Configurable**: Customize both message count and time window per provider
+- **Automatic Enforcement**: Rate limits are checked before sending messages
+- **Graceful Handling**: Rate-limited requests return HTTP 429 with retry information
+
+**Rate Limiting Examples:**
+```toml
+# Conservative: 1 message per 5 minutes
+rateLimitMessages = 1
+rateLimitWindowSeconds = 300
+
+# Moderate: 5 messages per hour
+rateLimitMessages = 5
+rateLimitWindowSeconds = 3600
+
+# Permissive: 10 messages per 10 minutes
+rateLimitMessages = 10
+rateLimitWindowSeconds = 600
+```
+
+**CLI Rate Limit Monitoring:**
+```bash
+# Check rate limit status for a provider
+bun start --push-provider-status alert-system
+
+# Output shows current usage and time until reset
+# Rate Limit: 3 message(s) per 300 seconds
+# Current Usage: 1/3 messages
+# Status: Available (2 message(s) remaining)
 ```
 
 #### Use Cases for Push Providers
@@ -634,6 +675,9 @@ bun start --list-providers
 
 # List all push providers
 bun start --list-push-providers
+
+# Show rate limit status for a specific push provider
+bun start --push-provider-status provider-name
 
 # Show webhook server status and configuration
 bun start --webhook-status

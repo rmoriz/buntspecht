@@ -33,7 +33,13 @@ describe('PushProvider', () => {
       };
       const provider = new PushProvider(config);
       expect(provider.getProviderName()).toBe('push');
-      expect(provider.getConfig()).toEqual(config);
+      
+      const returnedConfig = provider.getConfig();
+      expect(returnedConfig.defaultMessage).toBe(config.defaultMessage);
+      expect(returnedConfig.allowExternalMessages).toBe(config.allowExternalMessages);
+      expect(returnedConfig.maxMessageLength).toBe(config.maxMessageLength);
+      expect(returnedConfig.rateLimitMessages).toBe(1); // Default value
+      expect(returnedConfig.rateLimitWindowSeconds).toBe(60); // Default value
     });
 
     it('should create provider with webhook secret', () => {
@@ -145,6 +151,118 @@ describe('PushProvider', () => {
     it('should return webhook secret when configured', () => {
       const provider = new PushProvider({ webhookSecret: 'my-secret' });
       expect(provider.getWebhookSecret()).toBe('my-secret');
+    });
+  });
+
+  describe('rate limiting', () => {
+    beforeEach(() => {
+      // Mock Date.now to control time
+      jest.spyOn(Date, 'now');
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should use default rate limiting configuration', () => {
+      const provider = new PushProvider();
+      const config = provider.getConfig();
+      expect(config.rateLimitMessages).toBe(1);
+      expect(config.rateLimitWindowSeconds).toBe(60);
+    });
+
+    it('should use custom rate limiting configuration', () => {
+      const provider = new PushProvider({
+        rateLimitMessages: 5,
+        rateLimitWindowSeconds: 300
+      });
+      const config = provider.getConfig();
+      expect(config.rateLimitMessages).toBe(5);
+      expect(config.rateLimitWindowSeconds).toBe(300);
+    });
+
+    it('should not be rate limited initially', () => {
+      const provider = new PushProvider();
+      expect(provider.isRateLimited()).toBe(false);
+      expect(provider.getTimeUntilNextMessage()).toBe(0);
+    });
+
+    it('should become rate limited after reaching limit', () => {
+      const mockNow = 1000000;
+      (Date.now as jest.Mock).mockReturnValue(mockNow);
+
+      const provider = new PushProvider({ rateLimitMessages: 2, rateLimitWindowSeconds: 60 });
+      
+      // Send first message
+      provider.recordMessageSent();
+      expect(provider.isRateLimited()).toBe(false);
+      
+      // Send second message
+      provider.recordMessageSent();
+      expect(provider.isRateLimited()).toBe(true);
+      expect(provider.getTimeUntilNextMessage()).toBeGreaterThan(0);
+    });
+
+    it('should reset rate limit after time window', () => {
+      const mockNow = 1000000;
+      (Date.now as jest.Mock).mockReturnValue(mockNow);
+
+      const provider = new PushProvider({ rateLimitMessages: 1, rateLimitWindowSeconds: 60 });
+      
+      // Send message to hit rate limit
+      provider.recordMessageSent();
+      expect(provider.isRateLimited()).toBe(true);
+      
+      // Move time forward beyond window
+      (Date.now as jest.Mock).mockReturnValue(mockNow + 61000);
+      expect(provider.isRateLimited()).toBe(false);
+      expect(provider.getTimeUntilNextMessage()).toBe(0);
+    });
+
+    it('should provide accurate rate limit information', () => {
+      const mockNow = 1000000;
+      (Date.now as jest.Mock).mockReturnValue(mockNow);
+
+      const provider = new PushProvider({ rateLimitMessages: 3, rateLimitWindowSeconds: 120 });
+      
+      // Initial state
+      let info = provider.getRateLimitInfo();
+      expect(info.messages).toBe(3);
+      expect(info.windowSeconds).toBe(120);
+      expect(info.currentCount).toBe(0);
+      expect(info.timeUntilReset).toBe(0);
+      
+      // After sending one message
+      provider.recordMessageSent();
+      info = provider.getRateLimitInfo();
+      expect(info.currentCount).toBe(1);
+      expect(info.timeUntilReset).toBe(0);
+      
+      // After hitting rate limit
+      provider.recordMessageSent();
+      provider.recordMessageSent();
+      info = provider.getRateLimitInfo();
+      expect(info.currentCount).toBe(3);
+      expect(info.timeUntilReset).toBeGreaterThan(0);
+    });
+
+    it('should calculate time until next message correctly', () => {
+      const mockNow = 1000000;
+      (Date.now as jest.Mock).mockReturnValue(mockNow);
+
+      const provider = new PushProvider({ rateLimitMessages: 1, rateLimitWindowSeconds: 60 });
+      
+      // Send message to hit rate limit
+      provider.recordMessageSent();
+      expect(provider.isRateLimited()).toBe(true);
+      
+      // Move time forward 30 seconds
+      (Date.now as jest.Mock).mockReturnValue(mockNow + 30000);
+      expect(provider.getTimeUntilNextMessage()).toBe(30);
+      
+      // Move time forward 50 seconds
+      (Date.now as jest.Mock).mockReturnValue(mockNow + 50000);
+      expect(provider.getTimeUntilNextMessage()).toBe(10);
     });
   });
 

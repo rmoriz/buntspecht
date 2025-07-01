@@ -39,6 +39,8 @@ defaultMessage = "System notification"
 allowExternalMessages = true
 maxMessageLength = 280
 webhookSecret = "system-specific-secret-123"
+rateLimitMessages = 3  # Allow 3 messages per 5 minutes
+rateLimitWindowSeconds = 300
 
 # Provider 3: CI/CD notifications (uses provider-specific secret)
 [[bot.providers]]

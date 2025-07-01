@@ -212,4 +212,11 @@ export class MastodonPingBot {
   public getPushProvider(providerName: string): any | null {
     return this.scheduler.getPushProvider(providerName);
   }
+
+  /**
+   * Gets rate limit information for a push provider
+   */
+  public getPushProviderRateLimit(providerName: string): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number } | null {
+    return this.scheduler.getPushProviderRateLimit(providerName);
+  }
 }

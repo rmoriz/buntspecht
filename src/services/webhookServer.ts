@@ -194,6 +194,9 @@ export class WebhookServer {
       
       if (error instanceof ValidationError) {
         this.sendErrorResponse(res, 400, error.message);
+      } else if (error instanceof Error && error.message.includes('rate limited')) {
+        // Rate limiting error - return 429 Too Many Requests
+        this.sendErrorResponse(res, 429, error.message);
       } else {
         this.sendErrorResponse(res, 500, 'Internal server error');
       }

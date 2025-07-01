@@ -67,6 +67,44 @@ async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.pushProviderStatus) {
+      const providerName = cliOptions.pushProviderStatus;
+      
+      if (!bot.isPushProvider(providerName)) {
+        console.error(`Error: "${providerName}" is not a push provider or does not exist.`);
+        console.log('\nAvailable push providers:');
+        const pushProviders = bot.getPushProviders();
+        if (pushProviders.length === 0) {
+          console.log('  No push providers configured.');
+        } else {
+          pushProviders.forEach(provider => {
+            console.log(`  - ${provider.name}`);
+          });
+        }
+        process.exit(1);
+      }
+
+      const rateLimitInfo = bot.getPushProviderRateLimit(providerName);
+      console.log(`\nPush Provider Status: ${providerName}`);
+      console.log('====================================');
+      
+      if (rateLimitInfo) {
+        console.log(`Rate Limit: ${rateLimitInfo.messages} message(s) per ${rateLimitInfo.windowSeconds} seconds`);
+        console.log(`Current Usage: ${rateLimitInfo.currentCount}/${rateLimitInfo.messages} messages`);
+        
+        if (rateLimitInfo.currentCount >= rateLimitInfo.messages) {
+          console.log(`Status: RATE LIMITED`);
+          console.log(`Next message allowed in: ${rateLimitInfo.timeUntilReset} seconds`);
+        } else {
+          const remaining = rateLimitInfo.messages - rateLimitInfo.currentCount;
+          console.log(`Status: Available (${remaining} message(s) remaining)`);
+        }
+      } else {
+        console.log('Rate limit information not available.');
+      }
+      return;
+    }
+
     if (cliOptions.testPost) {
       await bot.testPost();
       return;

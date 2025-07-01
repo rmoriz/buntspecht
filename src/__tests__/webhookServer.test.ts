@@ -450,6 +450,88 @@ describe('WebhookServer', () => {
     });
   });
 
+  describe('rate limiting', () => {
+    beforeEach(async () => {
+      const config = {
+        enabled: true,
+        port: 0,
+        secret: 'test-secret'
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+
+      // Setup bot mocks
+      (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
+      (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+    });
+
+    it('should return 429 when push provider is rate limited', async () => {
+      // Mock provider that is rate limited
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined)
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+      
+      // Mock triggerPushProvider to throw rate limit error
+      (mockBot.triggerPushProvider as jest.Mock).mockRejectedValue(
+        new Error('Push provider "test-provider" is rate limited. Next message allowed in 45 seconds.')
+      );
+
+      const payload = {
+        provider: 'test-provider',
+        message: 'Test message'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'test-secret'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(429);
+      
+      const result = await response.json() as any;
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('rate limited');
+      expect(result.error).toContain('45 seconds');
+    });
+
+    it('should succeed when push provider is not rate limited', async () => {
+      // Mock provider without rate limiting
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined)
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+      
+      // Mock successful trigger
+      (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+
+      const payload = {
+        provider: 'test-provider',
+        message: 'Test message'
+      };
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'test-secret'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(200);
+      
+      const result = await response.json() as any;
+      expect(result.success).toBe(true);
+      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+    });
+  });
+
   describe('configuration', () => {
     it('should return current configuration', () => {
       const config = {

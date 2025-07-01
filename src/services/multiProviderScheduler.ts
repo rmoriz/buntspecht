@@ -297,13 +297,37 @@ export class MultiProviderScheduler {
     // Cast to PushProvider to access push-specific methods
     const pushProvider = scheduledProvider.provider as any;
     
+    // Check rate limiting
+    if (typeof pushProvider.isRateLimited === 'function' && pushProvider.isRateLimited()) {
+      const timeUntilNext = typeof pushProvider.getTimeUntilNextMessage === 'function' 
+        ? pushProvider.getTimeUntilNextMessage() 
+        : 0;
+      
+      const rateLimitInfo = typeof pushProvider.getRateLimitInfo === 'function' 
+        ? pushProvider.getRateLimitInfo() 
+        : { messages: 1, windowSeconds: 60, currentCount: 1, timeUntilReset: timeUntilNext };
+      
+      this.logger.warn(`Push provider "${providerName}" is rate limited. ` +
+        `Current: ${rateLimitInfo.currentCount}/${rateLimitInfo.messages} messages in ${rateLimitInfo.windowSeconds}s window. ` +
+        `Next message allowed in ${timeUntilNext} seconds.`);
+      
+      throw new Error(`Push provider "${providerName}" is rate limited. Next message allowed in ${timeUntilNext} seconds.`);
+    }
+    
     if (message && typeof pushProvider.setMessage === 'function') {
       pushProvider.setMessage(message);
       this.logger.debug(`Set custom message for push provider "${providerName}": "${message}"`);
     }
 
     this.logger.info(`Triggering push provider "${providerName}"${message ? ' with custom message' : ''}`);
+    
+    // Execute the task
     await this.executeProviderTask(scheduledProvider.name, scheduledProvider.provider);
+    
+    // Record the message send for rate limiting
+    if (typeof pushProvider.recordMessageSent === 'function') {
+      pushProvider.recordMessageSent();
+    }
   }
 
   /**
@@ -333,6 +357,17 @@ export class MultiProviderScheduler {
     const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
     if (scheduledProvider?.provider.getProviderName() === 'push') {
       return scheduledProvider.provider;
+    }
+    return null;
+  }
+
+  /**
+   * Gets rate limit information for a push provider
+   */
+  public getPushProviderRateLimit(providerName: string): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number } | null {
+    const pushProvider = this.getPushProvider(providerName);
+    if (pushProvider && typeof pushProvider.getRateLimitInfo === 'function') {
+      return pushProvider.getRateLimitInfo();
     }
     return null;
   }

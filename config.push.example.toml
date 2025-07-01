@@ -39,6 +39,8 @@ defaultMessage = "Alert: Something happened!"
 allowExternalMessages = true
 maxMessageLength = 500
 webhookSecret = "alerts-webhook-secret-123"  # Optional: Provider-specific webhook secret
+rateLimitMessages = 2  # Optional: Allow 2 messages per time window (default: 1)
+rateLimitWindowSeconds = 120  # Optional: Time window in seconds (default: 60)
 
 # Provider 3: Push provider for announcements (to both accounts)
 [[bot.providers]]
@@ -104,6 +106,8 @@ enabled = false
 # - allowExternalMessages: Whether to allow custom messages (default: true)
 # - maxMessageLength: Maximum length for messages (default: 500)
 # - webhookSecret: Optional provider-specific webhook secret (overrides global webhook secret)
+# - rateLimitMessages: Number of messages allowed per time window (default: 1)
+# - rateLimitWindowSeconds: Time window for rate limiting in seconds (default: 60)
 #
 # Use cases for push providers:
 # - Webhook notifications

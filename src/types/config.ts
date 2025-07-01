@@ -67,5 +67,6 @@ export interface CliOptions {
   triggerPush?: string;
   triggerPushMessage?: string;
   listPushProviders?: boolean;
+  pushProviderStatus?: string;
   webhookStatus?: boolean;
 }

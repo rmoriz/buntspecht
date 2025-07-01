@@ -13,6 +13,9 @@ export interface PushProviderConfig extends MessageProviderConfig {
   maxMessageLength?: number;
   // Optional webhook secret for this specific provider (overrides global webhook secret)
   webhookSecret?: string;
+  // Rate limiting configuration
+  rateLimitMessages?: number; // Number of messages allowed per time window (default: 1)
+  rateLimitWindowSeconds?: number; // Time window in seconds (default: 60)
 }
 
 /**
@@ -25,6 +28,9 @@ export class PushProvider implements MessageProvider {
   private allowExternalMessages: boolean;
   private maxMessageLength: number;
   private webhookSecret?: string;
+  private rateLimitMessages: number;
+  private rateLimitWindowSeconds: number;
+  private messageTimestamps: number[] = []; // Track message timestamps for rate limiting
   private logger?: Logger;
   private currentMessage?: string;
 
@@ -33,6 +39,8 @@ export class PushProvider implements MessageProvider {
     this.allowExternalMessages = config.allowExternalMessages !== false; // Default to true
     this.maxMessageLength = config.maxMessageLength || 500; // Default 500 chars
     this.webhookSecret = config.webhookSecret;
+    this.rateLimitMessages = config.rateLimitMessages || 1; // Default: 1 message
+    this.rateLimitWindowSeconds = config.rateLimitWindowSeconds || 60; // Default: 60 seconds
   }
 
   /**
@@ -102,6 +110,7 @@ export class PushProvider implements MessageProvider {
     this.logger.info(`Initialized PushProvider with default message: "${this.defaultMessage}"`);
     this.logger.info(`External messages allowed: ${this.allowExternalMessages}`);
     this.logger.info(`Max message length: ${this.maxMessageLength}`);
+    this.logger.info(`Rate limiting: ${this.rateLimitMessages} message(s) per ${this.rateLimitWindowSeconds} seconds`);
   }
 
   /**
@@ -112,7 +121,9 @@ export class PushProvider implements MessageProvider {
       defaultMessage: this.defaultMessage,
       allowExternalMessages: this.allowExternalMessages,
       maxMessageLength: this.maxMessageLength,
-      webhookSecret: this.webhookSecret
+      webhookSecret: this.webhookSecret,
+      rateLimitMessages: this.rateLimitMessages,
+      rateLimitWindowSeconds: this.rateLimitWindowSeconds
     };
   }
 
@@ -121,5 +132,62 @@ export class PushProvider implements MessageProvider {
    */
   public getWebhookSecret(): string | undefined {
     return this.webhookSecret;
+  }
+
+  /**
+   * Checks if the provider is currently rate limited
+   * @returns boolean True if rate limited, false if allowed to send
+   */
+  public isRateLimited(): boolean {
+    const now = Date.now();
+    const windowStart = now - (this.rateLimitWindowSeconds * 1000);
+    
+    // Remove timestamps outside the current window
+    this.messageTimestamps = this.messageTimestamps.filter(timestamp => timestamp > windowStart);
+    
+    // Check if we've exceeded the rate limit
+    return this.messageTimestamps.length >= this.rateLimitMessages;
+  }
+
+  /**
+   * Records a message send for rate limiting purposes
+   */
+  public recordMessageSent(): void {
+    this.messageTimestamps.push(Date.now());
+    this.logger?.debug(`Recorded message send. Current count in window: ${this.messageTimestamps.length}/${this.rateLimitMessages}`);
+  }
+
+  /**
+   * Gets the time until the next message can be sent (in seconds)
+   * @returns number Seconds until next message allowed, 0 if not rate limited
+   */
+  public getTimeUntilNextMessage(): number {
+    if (!this.isRateLimited()) {
+      return 0;
+    }
+    
+    const oldestTimestamp = Math.min(...this.messageTimestamps);
+    const windowEnd = oldestTimestamp + (this.rateLimitWindowSeconds * 1000);
+    const now = Date.now();
+    
+    return Math.max(0, Math.ceil((windowEnd - now) / 1000));
+  }
+
+  /**
+   * Gets rate limiting information
+   */
+  public getRateLimitInfo(): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number } {
+    const now = Date.now();
+    const windowStart = now - (this.rateLimitWindowSeconds * 1000);
+    
+    // Clean up old timestamps
+    this.messageTimestamps = this.messageTimestamps.filter(timestamp => timestamp > windowStart);
+    
+    return {
+      messages: this.rateLimitMessages,
+      windowSeconds: this.rateLimitWindowSeconds,
+      currentCount: this.messageTimestamps.length,
+      timeUntilReset: this.getTimeUntilNextMessage()
+    };
   }
 }
