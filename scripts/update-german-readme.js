@@ -34,8 +34,13 @@ function main() {
     const deStats = fs.statSync(README_DE);
     
     console.log('📊 File statistics:');
-    console.log(`   English README: ${enStats.size} bytes, modified: ${enStats.mtime}`);
-    console.log(`   German README:  ${deStats.size} bytes, modified: ${deStats.mtime}`);
+    console.log(`   English README: ${enStats.size} bytes, modified: ${enStats.mtime.toISOString()} (${enStats.mtime})`);
+    console.log(`   German README:  ${deStats.size} bytes, modified: ${deStats.mtime.toISOString()} (${deStats.mtime})`);
+    
+    const timeDiffMs = enStats.mtime.getTime() - deStats.mtime.getTime();
+    const timeDiffHours = Math.round(timeDiffMs / (1000 * 60 * 60) * 10) / 10;
+    
+    console.log(`⏰ Time difference: ${timeDiffHours} hours (English is ${timeDiffHours > 0 ? 'newer' : 'older'})`);
     
     if (enStats.mtime > deStats.mtime) {
         console.log('⚠️  English README is newer than German README!');
