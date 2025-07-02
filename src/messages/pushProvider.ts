@@ -9,9 +9,10 @@ export interface PushProviderInterface {
   isRateLimited(): boolean;
   getTimeUntilNextMessage(): number;
   getRateLimitInfo(): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number };
-  setMessage(message: string): void;
+  setMessage(message: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): void;
   recordMessageSent(): void;
   getConfig(): PushProviderConfig;
+  getVisibility(): 'public' | 'unlisted' | 'private' | 'direct' | undefined;
 }
 
 /**
@@ -29,6 +30,8 @@ export interface PushProviderConfig extends MessageProviderConfig {
   // Rate limiting configuration
   rateLimitMessages?: number; // Number of messages allowed per time window (default: 1)
   rateLimitWindowSeconds?: number; // Time window in seconds (default: 60)
+  // Default visibility for this provider (overrides provider config)
+  defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
 }
 
 /**
@@ -43,10 +46,12 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
   private webhookSecret?: string;
   private rateLimitMessages: number;
   private rateLimitWindowSeconds: number;
+  private defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
   private messageTimestamps: number[] = []; // Track message timestamps for rate limiting
   private logger?: Logger;
   private telemetry?: TelemetryService;
   private currentMessage?: string;
+  private currentVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
 
   constructor(config: PushProviderConfig = {}) {
     this.defaultMessage = config.defaultMessage || 'Push notification from Buntspecht';
@@ -55,6 +60,7 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
     this.webhookSecret = config.webhookSecret;
     this.rateLimitMessages = config.rateLimitMessages || 1; // Default: 1 message
     this.rateLimitWindowSeconds = config.rateLimitWindowSeconds || 60; // Default: 60 seconds
+    this.defaultVisibility = config.defaultVisibility;
   }
 
   /**
@@ -75,8 +81,9 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
    * Sets a message to be used for the next generateMessage() call
    * This is called when the provider is triggered externally
    * @param message The message content to post
+   * @param visibility Optional visibility setting for this message
    */
-  public setMessage(message: string): void {
+  public setMessage(message: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): void {
     if (!this.allowExternalMessages) {
       this.logger?.warn('External messages are not allowed for this push provider, using default message');
       return;
@@ -90,7 +97,9 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
       this.currentMessage = message;
     }
 
-    this.logger?.debug(`Set push message: "${this.currentMessage}"`);
+    this.currentVisibility = visibility;
+
+    this.logger?.debug(`Set push message: "${this.currentMessage}"${visibility ? ` with visibility: ${visibility}` : ''}`);
   }
 
   /**
@@ -102,11 +111,12 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
   }
 
   /**
-   * Clears any pending message
+   * Clears any pending message and visibility
    */
   public clearMessage(): void {
     this.currentMessage = undefined;
-    this.logger?.debug('Cleared pending push message');
+    this.currentVisibility = undefined;
+    this.logger?.debug('Cleared pending push message and visibility');
   }
 
   /**
@@ -147,6 +157,14 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
    */
   public getWebhookSecret(): string | undefined {
     return this.webhookSecret;
+  }
+
+  /**
+   * Gets the current visibility setting for the next message
+   * @returns The current visibility or default visibility
+   */
+  public getVisibility(): 'public' | 'unlisted' | 'private' | 'direct' | undefined {
+    return this.currentVisibility || this.defaultVisibility;
   }
 
   /**

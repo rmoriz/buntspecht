@@ -15,6 +15,7 @@ A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on s
 - 🔔 **Push providers**: Event-driven messaging for webhooks, alerts, and external integrations
 - 🌐 **Multi-account support**: Multiple Fediverse/Mastodon accounts with their own access tokens
 - 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts
+- 👁️ **Visibility control**: Configurable message visibility (public, unlisted, private, direct) per account, provider, or webhook request
 - ⚙️ Flexible configuration via TOML files
 - 🔍 Multiple configuration paths with priority order
 - 📝 Comprehensive logging
@@ -533,6 +534,69 @@ The `examples/` directory contains comprehensive webhook integration examples:
 - `webhook-integration-example.js` - Complete integration patterns
 - `webhook-client.js` - Testing client for webhook endpoints
 - `config.webhook.example.toml` - Full webhook configuration example
+
+## Visibility Configuration
+
+Buntspecht provides fine-grained control over message visibility with support for all Mastodon visibility levels:
+
+- **`public`**: Visible to everyone, appears in public timelines
+- **`unlisted`**: Visible to everyone but doesn't appear in public timelines (default)
+- **`private`**: Only visible to followers (followers-only)
+- **`direct`**: Only visible to mentioned users (direct message)
+
+### Visibility Priority
+
+Visibility is determined by the following priority order (highest to lowest):
+
+1. **Webhook request `visibility` parameter** (for push providers)
+2. **Push provider config `defaultVisibility`**
+3. **Provider `visibility` setting**
+4. **Account `defaultVisibility`**
+5. **Global default** (`unlisted`)
+
+### Configuration Examples
+
+```toml
+# Account-level default visibility
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-token"
+defaultVisibility = "unlisted"  # Default for this account
+
+# Provider-level visibility
+[[bot.providers]]
+name = "public-announcements"
+type = "ping"
+visibility = "public"  # Override account default
+accounts = ["main-account"]
+
+# Push provider with visibility options
+[[bot.providers]]
+name = "alerts"
+type = "push"
+visibility = "unlisted"  # Provider default
+accounts = ["main-account"]
+
+[bot.providers.config]
+defaultVisibility = "private"  # Provider-specific default
+```
+
+### Webhook Visibility Control
+
+Push providers can receive visibility settings via webhook requests:
+
+```bash
+# Webhook with custom visibility
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: your-secret" \
+  -d '{
+    "provider": "alerts",
+    "message": "Private maintenance notification",
+    "visibility": "private"
+  }'
+```
 
 ## Multi-Account and Multi-Provider Configuration
 

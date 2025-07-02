@@ -6,11 +6,13 @@
 name = "main-account"
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
+defaultVisibility = "unlisted"  # Default visibility for this account
 
 [[accounts]]
 name = "alerts-account"
 instance = "https://fosstodon.org"
 accessToken = "your-alerts-account-token-here"
+defaultVisibility = "public"  # Public alerts for better visibility
 
 [bot]
 # Push providers for webhook integration
@@ -61,12 +63,14 @@ name = "monitoring-critical"
 type = "push"
 enabled = true
 accounts = ["alerts-account"]
+visibility = "public"  # Critical alerts should be public for maximum visibility
 
 [bot.providers.config]
 defaultMessage = "CRITICAL: Monitoring Alert"
 allowExternalMessages = true
 maxMessageLength = 500
 webhookSecret = "monitoring-secret-789"
+defaultVisibility = "public"  # Provider-specific default visibility
 
 [webhook]
 # Webhook server configuration
@@ -152,6 +156,26 @@ enabled = false
 #     "message": "CRITICAL: CPU usage > 90% on server-01"
 #   }'
 #
+# 5. Webhook call with custom visibility:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: global-webhook-secret-here" \
+#   -d '{
+#     "provider": "webhook-alerts",
+#     "message": "Private maintenance notification",
+#     "visibility": "private"
+#   }'
+#
+# 6. Webhook call with direct message visibility:
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Webhook-Secret: system-specific-secret-123" \
+#   -d '{
+#     "provider": "system-notifications",
+#     "message": "Direct notification for admin",
+#     "visibility": "direct"
+#   }'
+#
 # Provider-Specific Webhook Secrets:
 # - Each push provider can have its own webhookSecret in the config
 # - If a provider has a webhookSecret, it overrides the global webhook secret
@@ -163,6 +187,20 @@ enabled = false
 # - Compromised secret only affects one provider, not all
 # - Easier to rotate secrets for specific integrations
 # - Better audit trail for webhook sources
+#
+# Visibility Configuration:
+# Visibility determines who can see the posted messages:
+# - "public": Visible to everyone, appears in public timelines
+# - "unlisted": Visible to everyone but doesn't appear in public timelines
+# - "private": Only visible to followers (followers-only)
+# - "direct": Only visible to mentioned users (direct message)
+#
+# Visibility Priority (highest to lowest):
+# 1. Webhook request "visibility" parameter
+# 2. Push provider config "defaultVisibility"
+# 3. Provider "visibility" setting
+# 4. Account "defaultVisibility"
+# 5. Global default (unlisted)
 #
 # Security Notes:
 # - Always use HTTPS in production

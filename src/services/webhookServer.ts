@@ -19,6 +19,7 @@ export interface WebhookRequest {
   provider: string;
   message?: string;
   accounts?: string[];
+  visibility?: 'public' | 'unlisted' | 'private' | 'direct';
   metadata?: Record<string, unknown>;
 }
 
@@ -264,10 +265,19 @@ export class WebhookServer {
       throw new ValidationError('All account names must be strings');
     }
 
+    if (bodyObj.visibility && typeof bodyObj.visibility !== 'string') {
+      throw new ValidationError('Visibility must be a string');
+    }
+
+    if (bodyObj.visibility && !['public', 'unlisted', 'private', 'direct'].includes(bodyObj.visibility as string)) {
+      throw new ValidationError('Visibility must be one of: public, unlisted, private, direct');
+    }
+
     return {
       provider: bodyObj.provider as string,
       message: bodyObj.message as string | undefined,
       accounts: bodyObj.accounts as string[] | undefined,
+      visibility: bodyObj.visibility as 'public' | 'unlisted' | 'private' | 'direct' | undefined,
       metadata: (bodyObj.metadata as Record<string, unknown>) || {}
     };
   }
@@ -283,8 +293,13 @@ export class WebhookServer {
       throw new ValidationError(`Provider "${request.provider}" is not a push provider or does not exist`);
     }
 
-    // Trigger the push provider
-    await this.bot.triggerPushProvider(request.provider, request.message);
+    // Trigger the push provider with visibility if provided
+    if (typeof this.bot.triggerPushProviderWithVisibility === 'function') {
+      await this.bot.triggerPushProviderWithVisibility(request.provider, request.message, request.visibility);
+    } else {
+      // Fallback for backward compatibility (tests)
+      await this.bot.triggerPushProvider(request.provider, request.message);
+    }
 
     const response: WebhookResponse = {
       success: true,

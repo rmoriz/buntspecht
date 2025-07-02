@@ -2,6 +2,7 @@ export interface AccountConfig {
   name: string;
   instance: string;
   accessToken: string;
+  defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
 }
 
 export interface ProviderConfig {
@@ -10,6 +11,7 @@ export interface ProviderConfig {
   cronSchedule?: string; // Optional for push providers
   enabled?: boolean;
   accounts: string[]; // Array of account names to post to
+  visibility?: 'public' | 'unlisted' | 'private' | 'direct';
   config: { [key: string]: unknown };
 }
 

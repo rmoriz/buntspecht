@@ -168,6 +168,27 @@ export class MastodonPingBot {
   }
 
   /**
+   * Triggers a push provider with optional message and visibility
+   */
+  public async triggerPushProviderWithVisibility(providerName: string, message?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
+    this.logger.info(`Triggering push provider: ${providerName}${message ? ' with custom message' : ''}${visibility ? ` with visibility: ${visibility}` : ''}`);
+    
+    // Get the push provider and set visibility if provided
+    if (visibility) {
+      const pushProvider = this.scheduler.getPushProvider(providerName);
+      if (pushProvider && typeof pushProvider.setMessage === 'function') {
+        pushProvider.setMessage(message || '', visibility);
+        // Don't pass message to triggerPushProvider since we already set it with visibility
+        await this.scheduler.triggerPushProvider(providerName);
+        return;
+      }
+    }
+    
+    // Fallback to regular trigger if no visibility or provider doesn't support it
+    await this.scheduler.triggerPushProvider(providerName, message);
+  }
+
+  /**
    * Gets all configured push providers
    */
   public getPushProviders(): Array<{name: string, config: any}> {

@@ -8,11 +8,13 @@
 name = "main-account"
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
+# defaultVisibility = "unlisted"  # Optional: public, unlisted, private, direct (default: unlisted)
 
 [[accounts]]
 name = "backup-account"
 instance = "https://fosstodon.org"
 accessToken = "your-backup-account-token-here"
+# defaultVisibility = "public"  # Optional: public, unlisted, private, direct (default: unlisted)
 
 # Optional: Additional accounts
 # [[accounts]]
@@ -32,6 +34,7 @@ type = "ping"
 cronSchedule = "0 * * * *"  # Every hour
 enabled = true
 accounts = ["main-account", "backup-account"]  # Posts to both accounts
+# visibility = "unlisted"  # Optional: public, unlisted, private, direct (default: unlisted)
 
 [bot.providers.config]
 message = "Hourly ping from Buntspecht!"
@@ -139,7 +142,16 @@ enabled = false
 # 4. push Provider:
 #    type = "push"
 #    # No cronSchedule needed - triggered externally
+#    visibility = "unlisted"  # Optional: public, unlisted, private, direct (default: unlisted)
 #    [config]
 #    defaultMessage = "Push notification from Buntspecht"
 #    allowExternalMessages = true  # Optional: allow custom messages (default: true)
 #    maxMessageLength = 500  # Optional: max message length (default: 500)
+#    defaultVisibility = "private"  # Optional: provider-specific default visibility
+#
+# Visibility Priority (highest to lowest):
+# 1. Webhook request visibility parameter
+# 2. Push provider config defaultVisibility
+# 3. Provider visibility setting
+# 4. Account defaultVisibility
+# 5. Global default (unlisted)

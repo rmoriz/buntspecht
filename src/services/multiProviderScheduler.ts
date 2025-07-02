@@ -211,7 +211,19 @@ export class MultiProviderScheduler {
         'provider.message_length': message.length,
       });
 
-      await this.mastodonClient.postStatus(message, providerConfig.accounts, providerName);
+      // Determine visibility: push provider specific > provider config > default (unlisted)
+      let finalVisibility = providerConfig.visibility;
+      if (provider.getProviderName() === 'push') {
+        const pushProvider = provider as MessageProvider & PushProviderInterface;
+        if (typeof pushProvider.getVisibility === 'function') {
+          const pushVisibility = pushProvider.getVisibility();
+          if (pushVisibility) {
+            finalVisibility = pushVisibility;
+          }
+        }
+      }
+
+      await this.mastodonClient.postStatus(message, providerConfig.accounts, providerName, finalVisibility);
       
       const durationSeconds = (Date.now() - startTime) / 1000;
       this.telemetry.recordProviderExecution(providerName, durationSeconds);

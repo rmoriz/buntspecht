@@ -42,7 +42,7 @@ export class MastodonClient {
   /**
    * Posts a status message to specified accounts
    */
-  public async postStatus(message: string, accountNames: string[], provider?: string): Promise<void> {
+  public async postStatus(message: string, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
     const span = this.telemetry.startSpan('mastodon.post_status', {
       'mastodon.accounts_count': accountNames.length,
       'mastodon.provider': provider || 'unknown',
@@ -67,10 +67,14 @@ export class MastodonClient {
         }
 
         try {
-          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}): "${message}"`);
+          // Determine visibility: parameter > account default > global default (unlisted)
+          const finalVisibility = visibility || accountClient.config.defaultVisibility || 'unlisted';
+          
+          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}) with visibility '${finalVisibility}': "${message}"`);
           
           const status = await accountClient.client.v1.statuses.create({
             status: message,
+            visibility: finalVisibility,
           });
 
           this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}`);
