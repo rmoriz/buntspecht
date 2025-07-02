@@ -15,6 +15,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - 🔔 **Push-Provider**: Event-gesteuerte Nachrichten für Webhooks, Alerts und externe Integrationen
 - 🌐 **Multi-Account-Unterstützung**: Mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens
 - 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts posten
+- 👁️ **Sichtbarkeits-Kontrolle**: Konfigurierbare Nachrichtensichtbarkeit (öffentlich, ungelistet, privat, direkt) pro Account, Provider oder Webhook-Anfrage
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 Umfassendes Logging
@@ -463,6 +464,69 @@ Das `examples/`-Verzeichnis enthält umfassende Webhook-Integrations-Beispiele:
 - `webhook-integration-example.js` - Vollständige Integrationsmuster
 - `webhook-client.js` - Test-Client für Webhook-Endpunkte
 - `config.webhook.example.toml` - Vollständiges Webhook-Konfigurationsbeispiel
+
+## Sichtbarkeits-Konfiguration
+
+Buntspecht bietet eine detaillierte Kontrolle über die Nachrichtensichtbarkeit mit Unterstützung für alle Mastodon-Sichtbarkeitsstufen:
+
+- **`public`**: Für alle sichtbar, erscheint in öffentlichen Timelines
+- **`unlisted`**: Für alle sichtbar, aber erscheint nicht in öffentlichen Timelines (Standard)
+- **`private`**: Nur für Follower sichtbar (nur Follower)
+- **`direct`**: Nur für erwähnte Benutzer sichtbar (Direktnachricht)
+
+### Sichtbarkeits-Priorität
+
+Die Sichtbarkeit wird durch die folgende Prioritätsreihenfolge bestimmt (höchste zu niedrigste):
+
+1. **Webhook-Anfrage `visibility` Parameter** (für Push-Provider)
+2. **Push-Provider-Konfiguration `defaultVisibility`**
+3. **Provider `visibility` Einstellung**
+4. **Account `defaultVisibility`**
+5. **Globaler Standard** (`unlisted`)
+
+### Konfigurationsbeispiele
+
+```toml
+# Account-Ebene Standard-Sichtbarkeit
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-token"
+defaultVisibility = "unlisted"  # Standard für diesen Account
+
+# Provider-Ebene Sichtbarkeit
+[[bot.providers]]
+name = "public-announcements"
+type = "ping"
+visibility = "public"  # Überschreibt Account-Standard
+accounts = ["main-account"]
+
+# Push-Provider mit Sichtbarkeitsoptionen
+[[bot.providers]]
+name = "alerts"
+type = "push"
+visibility = "unlisted"  # Provider-Standard
+accounts = ["main-account"]
+
+[bot.providers.config]
+defaultVisibility = "private"  # Provider-spezifischer Standard
+```
+
+### Webhook-Sichtbarkeitskontrolle
+
+Push-Provider können Sichtbarkeitseinstellungen über Webhook-Anfragen erhalten:
+
+```bash
+# Webhook mit benutzerdefinierter Sichtbarkeit
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: your-secret" \
+  -d '{
+    "provider": "alerts",
+    "message": "Private Wartungsbenachrichtigung",
+    "visibility": "private"
+  }'
+```
 
 ## Multi-Account und Multi-Provider-Konfiguration
 
