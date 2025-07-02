@@ -1,5 +1,7 @@
 # Buntspecht
 
+*Pronounced: "BOONT-shpekht" (German for "Great Spotted Woodpecker")*
+
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
 [![Deutsch](https://img.shields.io/badge/lang-Deutsch-green.svg)](README.de.md)
 
