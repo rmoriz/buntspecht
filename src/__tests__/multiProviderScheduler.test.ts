@@ -183,14 +183,14 @@ describe('MultiProviderScheduler', () => {
     it('should execute all tasks immediately', async () => {
       await scheduler.executeAllTasksNow();
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider');
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
     it('should execute specific provider task', async () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider');
+      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
