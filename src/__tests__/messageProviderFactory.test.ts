@@ -2,6 +2,7 @@ import { MessageProviderFactory } from '../messages/messageProviderFactory';
 import { PingProvider } from '../messages/pingProvider';
 import { CommandProvider } from '../messages/commandProvider';
 import { JsonCommandProvider } from '../messages/jsonCommandProvider';
+import { MultiJsonCommandProvider } from '../messages/multiJsonCommandProvider';
 import { PushProvider } from '../messages/pushProvider';
 import { Logger } from '../utils/logger';
 
@@ -54,6 +55,17 @@ describe('MessageProviderFactory', () => {
       expect(provider.getProviderName()).toBe('jsoncommand');
     });
 
+    it('should create multijsoncommand provider', async () => {
+      const provider = await MessageProviderFactory.createProvider(
+        'multijsoncommand',
+        { command: 'echo \'[{"id": 1, "test": "value"}]\'', template: 'Test: {{test}}' },
+        logger
+      );
+
+      expect(provider).toBeInstanceOf(MultiJsonCommandProvider);
+      expect(provider.getProviderName()).toBe('multijsoncommand');
+    });
+
     it('should create push provider', async () => {
       const provider = await MessageProviderFactory.createProvider(
         'push',
@@ -102,7 +114,7 @@ describe('MessageProviderFactory', () => {
   describe('getAvailableProviders', () => {
     it('should return list of available providers', () => {
       const providers = MessageProviderFactory.getAvailableProviders();
-      expect(providers).toEqual(['ping', 'command', 'jsoncommand', 'push']);
+      expect(providers).toEqual(['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push']);
     });
   });
 });

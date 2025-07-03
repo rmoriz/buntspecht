@@ -2,6 +2,7 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { PingProvider, PingProviderConfig } from './pingProvider';
 import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
+import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from './multiJsonCommandProvider';
 import { PushProvider, PushProviderConfig } from './pushProvider';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';
@@ -39,6 +40,10 @@ export class MessageProviderFactory {
         provider = new JsonCommandProvider(config as JsonCommandProviderConfig);
         break;
       
+      case 'multijsoncommand':
+        provider = new MultiJsonCommandProvider(config as MultiJsonCommandProviderConfig);
+        break;
+      
       case 'push':
         provider = new PushProvider(config as PushProviderConfig);
         break;
@@ -63,6 +68,6 @@ export class MessageProviderFactory {
    * @returns Array of available provider type names
    */
   public static getAvailableProviders(): string[] {
-    return ['ping', 'command', 'jsoncommand', 'push'];
+    return ['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push'];
   }
 }
