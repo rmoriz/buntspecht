@@ -61,6 +61,34 @@ describe('MultiJsonCommandProvider', () => {
         uniqueKey: 'uuid',
         throttleDelay: 500,
         timeout: 5000,
+        cache: {
+          enabled: true,
+          ttl: 1800000,
+          maxSize: 5000,
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      expect(provider).toBeDefined();
+    });
+
+    it('should use default cache values when cache config is not provided', () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1}]\'',
+        template: 'ID: {{id}}',
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      expect(provider).toBeDefined();
+    });
+
+    it('should allow disabling cache', () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1}]\'',
+        template: 'ID: {{id}}',
+        cache: {
+          enabled: false,
+        },
       };
 
       const provider = new MultiJsonCommandProvider(config);
@@ -226,6 +254,135 @@ describe('MultiJsonCommandProvider', () => {
       expect(logger.info).toHaveBeenCalledWith('Template: "Message: {{message}}"');
       expect(logger.info).toHaveBeenCalledWith('Unique key: "id"');
       expect(logger.info).toHaveBeenCalledWith('Throttle delay: 500ms');
+    });
+  });
+
+  describe('caching functionality', () => {
+    it('should skip cached items on subsequent runs', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          ttl: 60000, // 1 minute
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger);
+
+      // First run - should process all items
+      const result1 = await provider.generateMessage();
+      expect(result1).toBe('Message: Hello');
+      expect(logger.info).toHaveBeenCalledWith('Found 2 objects to process');
+
+      // Second run - should skip cached items
+      const result2 = await provider.generateMessage();
+      expect(result2).toBe('');
+      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, processing 0 new items');
+    });
+
+    it('should process items when cache is disabled', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "Hello"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: false,
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger);
+
+      // First run
+      const result1 = await provider.generateMessage();
+      expect(result1).toBe('Message: Hello');
+
+      // Second run - should process again since cache is disabled
+      const result2 = await provider.generateMessage();
+      expect(result2).toBe('Message: Hello');
+    });
+
+    it('should handle cache TTL expiration', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "Hello"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          ttl: 50, // Very short TTL for testing
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger);
+
+      // First run
+      const result1 = await provider.generateMessage();
+      expect(result1).toBe('Message: Hello');
+
+      // Wait for cache to expire
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Second run - should process again since cache expired
+      const result2 = await provider.generateMessage();
+      expect(result2).toBe('Message: Hello');
+    });
+
+    it('should log cache configuration during initialization', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "test"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          ttl: 1800000,
+          maxSize: 5000,
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger);
+
+      expect(logger.info).toHaveBeenCalledWith('Cache enabled: TTL=1800000ms, Max size=5000');
+    });
+
+    it('should log when cache is disabled', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "test"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: false,
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger);
+
+      expect(logger.info).toHaveBeenCalledWith('Cache disabled');
+    });
+
+    it('should handle mixed new and cached items', async () => {
+      const provider = new MultiJsonCommandProvider({
+        command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          ttl: 60000,
+        },
+      });
+      await provider.initialize(logger);
+
+      // First run with two items
+      const result1 = await provider.generateMessage();
+      expect(result1).toBe('Message: Hello');
+
+      // Manually update the command to include a third item
+      // This simulates getting new data from the external command
+      (provider as any).command = 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}, {"id": 3, "message": "New"}]\'';
+
+      // Second run with three items - should only process the new one
+      const result2 = await provider.generateMessage();
+      expect(result2).toBe('Message: New'); // Should return the new item's message
+      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, processing 1 new items');
     });
   });
 });
