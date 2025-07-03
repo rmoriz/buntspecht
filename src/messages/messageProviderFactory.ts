@@ -60,7 +60,7 @@ export class MessageProviderFactory {
     if (provider.initialize) {
       // Check if provider supports provider name parameter (MultiJsonCommandProvider)
       if (provider.getProviderName() === 'multijsoncommand') {
-        await (provider as any).initialize(logger, telemetry, providerName);
+        await (provider as unknown as { initialize: (logger: Logger, telemetry?: TelemetryService, providerName?: string) => Promise<void> }).initialize(logger, telemetry, providerName);
       } else {
         await provider.initialize(logger, telemetry);
       }

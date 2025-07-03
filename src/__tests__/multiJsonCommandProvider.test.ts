@@ -417,7 +417,7 @@ describe('MultiJsonCommandProvider', () => {
 
       // Manually update the command to include a third item
       // This simulates getting new data from the external command
-      (provider as any).command = 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}, {"id": 3, "message": "New"}]\'';
+      (provider as unknown as { command: string }).command = `echo '[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}, {"id": 3, "message": "New"}]'`;
 
       // Second run with three items - should only process the new one
       const result2 = await provider.generateMessage();
