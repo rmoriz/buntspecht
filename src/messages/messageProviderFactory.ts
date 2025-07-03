@@ -17,13 +17,15 @@ export class MessageProviderFactory {
    * @param config Configuration for the provider
    * @param logger Logger instance
    * @param telemetry Optional telemetry service for metrics
+   * @param providerName Optional provider name for caching
    * @returns MessageProvider instance
    */
   public static async createProvider(
     providerType: string,
     config: MessageProviderConfig,
     logger: Logger,
-    telemetry?: TelemetryService
+    telemetry?: TelemetryService,
+    providerName?: string
   ): Promise<MessageProvider> {
     let provider: MessageProvider;
 
@@ -56,7 +58,12 @@ export class MessageProviderFactory {
 
     // Initialize the provider if it has an initialize method
     if (provider.initialize) {
-      await provider.initialize(logger, telemetry);
+      // Check if provider supports provider name parameter (MultiJsonCommandProvider)
+      if (provider.getProviderName() === 'multijsoncommand') {
+        await (provider as any).initialize(logger, telemetry, providerName);
+      } else {
+        await provider.initialize(logger, telemetry);
+      }
     }
 
     logger.info(`Created message provider: ${provider.getProviderName()}`);

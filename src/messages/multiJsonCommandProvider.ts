@@ -2,6 +2,8 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { TelemetryService } from '../services/telemetryInterface';
 
 const execAsync = promisify(exec);
@@ -12,6 +14,7 @@ const execAsync = promisify(exec);
 interface CacheEntry {
   timestamp: number;
   uniqueKeyValue: string;
+  providerName: string;
 }
 
 /**
@@ -28,8 +31,9 @@ export interface MultiJsonCommandProviderConfig extends MessageProviderConfig {
   throttleDelay?: number; // Delay between messages in milliseconds (default: 1000)
   cache?: {
     enabled?: boolean; // Enable caching (default: true)
-    ttl?: number; // Time to live in milliseconds (default: 3600000 = 1 hour)
+    ttl?: number; // Time to live in milliseconds (default: 1209600000 = 14 days)
     maxSize?: number; // Maximum cache entries (default: 10000)
+    filePath?: string; // Path to cache file (default: ./cache/multijson-cache.json)
   };
 }
 
@@ -54,8 +58,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private cacheEnabled: boolean;
   private cacheTtl: number;
   private cacheMaxSize: number;
+  private cacheFilePath: string;
   private cache: Map<string, CacheEntry>;
   private skipCaching: boolean = false;
+  private providerName: string = '';
 
   constructor(config: MultiJsonCommandProviderConfig) {
     if (!config.command) {
@@ -77,8 +83,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
     
     // Initialize cache configuration
     this.cacheEnabled = config.cache?.enabled !== false; // Default to true
-    this.cacheTtl = config.cache?.ttl || 3600000; // 1 hour default
+    this.cacheTtl = config.cache?.ttl || 1209600000; // 14 days default
     this.cacheMaxSize = config.cache?.maxSize || 10000; // 10k entries default
+    this.cacheFilePath = config.cache?.filePath || './cache/multijson-cache.json';
     this.cache = new Map<string, CacheEntry>();
   }
 
@@ -202,7 +209,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
         this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}": "${message}"`);
         
         // Add to cache after successful message generation
-        this.addToCache(uniqueId);
+        await this.addToCache(uniqueId);
         
         // Record telemetry
         if (this.telemetry) {
@@ -293,6 +300,94 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
+   * Loads cache from persistent storage
+   */
+  private async loadCacheFromFile(): Promise<void> {
+    if (!this.cacheEnabled) {
+      return;
+    }
+
+    try {
+      // Ensure cache directory exists
+      const cacheDir = path.dirname(this.cacheFilePath);
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+        this.logger?.debug(`Created cache directory: ${cacheDir}`);
+      }
+
+      if (fs.existsSync(this.cacheFilePath)) {
+        const fileContent = fs.readFileSync(this.cacheFilePath, 'utf-8');
+        const cacheData = JSON.parse(fileContent) as Record<string, CacheEntry>;
+        
+        // Load entries into Map and clean up expired ones
+        const now = Date.now();
+        let loadedCount = 0;
+        let expiredCount = 0;
+
+        for (const [key, entry] of Object.entries(cacheData)) {
+          if (now - entry.timestamp <= this.cacheTtl) {
+            this.cache.set(key, entry);
+            loadedCount++;
+          } else {
+            expiredCount++;
+          }
+        }
+
+        this.logger?.info(`Loaded ${loadedCount} cache entries from ${this.cacheFilePath}`);
+        if (expiredCount > 0) {
+          this.logger?.info(`Skipped ${expiredCount} expired cache entries`);
+        }
+      } else {
+        this.logger?.debug(`Cache file does not exist: ${this.cacheFilePath}`);
+      }
+    } catch (error) {
+      this.logger?.error(`Failed to load cache from file: ${error instanceof Error ? error.message : String(error)}`);
+      // Continue without cache rather than failing
+      this.cache.clear();
+    }
+  }
+
+  /**
+   * Saves cache to persistent storage
+   */
+  private async saveCacheToFile(): Promise<void> {
+    if (!this.cacheEnabled) {
+      return;
+    }
+
+    try {
+      // Convert Map to plain object for JSON serialization
+      const cacheData: Record<string, CacheEntry> = {};
+      for (const [key, entry] of this.cache.entries()) {
+        cacheData[key] = entry;
+      }
+
+      // Ensure cache directory exists
+      const cacheDir = path.dirname(this.cacheFilePath);
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+
+      // Write to temporary file first, then rename for atomic operation
+      const tempFilePath = `${this.cacheFilePath}.tmp`;
+      fs.writeFileSync(tempFilePath, JSON.stringify(cacheData, null, 2), 'utf-8');
+      fs.renameSync(tempFilePath, this.cacheFilePath);
+
+      this.logger?.debug(`Saved ${this.cache.size} cache entries to ${this.cacheFilePath}`);
+    } catch (error) {
+      this.logger?.error(`Failed to save cache to file: ${error instanceof Error ? error.message : String(error)}`);
+      // Don't throw - cache save failure shouldn't break the provider
+    }
+  }
+
+  /**
+   * Creates a cache key combining provider name and unique key value
+   */
+  private createCacheKey(uniqueKeyValue: string): string {
+    return `${this.providerName}:${uniqueKeyValue}`;
+  }
+
+  /**
    * Checks if an item is already cached (and not expired)
    */
   private isItemCached(uniqueKeyValue: string): boolean {
@@ -300,7 +395,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
       return false;
     }
 
-    const entry = this.cache.get(uniqueKeyValue);
+    const cacheKey = this.createCacheKey(uniqueKeyValue);
+    const entry = this.cache.get(cacheKey);
     if (!entry) {
       return false;
     }
@@ -308,7 +404,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     // Check if entry has expired
     const now = Date.now();
     if (now - entry.timestamp > this.cacheTtl) {
-      this.cache.delete(uniqueKeyValue);
+      this.cache.delete(cacheKey);
       this.logger?.debug(`Cache entry expired for ${this.uniqueKey}="${uniqueKeyValue}"`);
       return false;
     }
@@ -319,7 +415,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   /**
    * Adds an item to the cache
    */
-  private addToCache(uniqueKeyValue: string): void {
+  private async addToCache(uniqueKeyValue: string): Promise<void> {
     if (!this.cacheEnabled || this.skipCaching) {
       return;
     }
@@ -327,13 +423,20 @@ export class MultiJsonCommandProvider implements MessageProvider {
     // Clean up expired entries and enforce max size
     this.cleanupCache();
 
+    const cacheKey = this.createCacheKey(uniqueKeyValue);
     const entry: CacheEntry = {
       timestamp: Date.now(),
-      uniqueKeyValue: uniqueKeyValue
+      uniqueKeyValue: uniqueKeyValue,
+      providerName: this.providerName
     };
 
-    this.cache.set(uniqueKeyValue, entry);
-    this.logger?.debug(`Added to cache: ${this.uniqueKey}="${uniqueKeyValue}"`);
+    this.cache.set(cacheKey, entry);
+    this.logger?.debug(`Added to cache: ${this.uniqueKey}="${uniqueKeyValue}" (key: ${cacheKey})`);
+
+    // Save to persistent storage (async, don't wait)
+    this.saveCacheToFile().catch(error => {
+      this.logger?.error(`Failed to persist cache: ${error instanceof Error ? error.message : String(error)}`);
+    });
   }
 
   /**
@@ -396,17 +499,22 @@ export class MultiJsonCommandProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService, providerName?: string): Promise<void> {
     this.logger = logger;
     this.telemetry = telemetry;
-    this.logger.info(`Initialized MultiJsonCommandProvider with command: "${this.command}"`);
+    this.providerName = providerName || 'unknown';
+    
+    this.logger.info(`Initialized MultiJsonCommandProvider "${this.providerName}" with command: "${this.command}"`);
     this.logger.info(`Template: "${this.template}"`);
     this.logger.info(`Unique key: "${this.uniqueKey}"`);
     this.logger.info(`Throttle delay: ${this.throttleDelay}ms`);
     
     // Log cache configuration
     if (this.cacheEnabled) {
-      this.logger.info(`Cache enabled: TTL=${this.cacheTtl}ms, Max size=${this.cacheMaxSize}`);
+      this.logger.info(`Cache enabled: TTL=${this.cacheTtl}ms, Max size=${this.cacheMaxSize}, File: ${this.cacheFilePath}`);
+      
+      // Load cache from persistent storage
+      await this.loadCacheFromFile();
     } else {
       this.logger.info('Cache disabled');
     }
@@ -420,7 +528,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       
       this.logger.info('Multi JSON command provider validation successful');
       
-      // Log cache stats after validation (should be 0 since we skipped caching)
+      // Log cache stats after validation
       if (this.cacheEnabled) {
         const stats = this.getCacheStats();
         this.logger.info(`Cache stats after validation: ${stats.size} entries`);

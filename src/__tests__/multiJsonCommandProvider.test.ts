@@ -1,5 +1,6 @@
 import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from '../messages/multiJsonCommandProvider';
 import { Logger } from '../utils/logger';
+import * as fs from 'fs';
 
 describe('MultiJsonCommandProvider', () => {
   let logger: Logger;
@@ -14,6 +15,36 @@ describe('MultiJsonCommandProvider', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    
+    // Clean up test cache files
+    const testCacheFiles = [
+      './tmp_rovodev_test_cache.json',
+      './tmp_rovodev_test_cache.json.tmp',
+      './tmp_rovodev_test_cache_1.json',
+      './tmp_rovodev_test_cache_1.json.tmp',
+      './tmp_rovodev_test_cache_2.json',
+      './tmp_rovodev_test_cache_2.json.tmp',
+      './tmp_rovodev_test_cache_3.json',
+      './tmp_rovodev_test_cache_3.json.tmp',
+      './tmp_rovodev_test_cache_mixed.json',
+      './tmp_rovodev_test_cache_mixed.json.tmp',
+      './tmp_rovodev_test_cache_basic.json',
+      './tmp_rovodev_test_cache_basic.json.tmp',
+      './tmp_rovodev_test_cache_nested.json',
+      './tmp_rovodev_test_cache_nested.json.tmp',
+      './cache/tmp_rovodev_test_cache.json',
+      './cache/tmp_rovodev_test_cache.json.tmp'
+    ];
+    
+    testCacheFiles.forEach(file => {
+      try {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    });
   });
 
   describe('constructor', () => {
@@ -65,6 +96,7 @@ describe('MultiJsonCommandProvider', () => {
           enabled: true,
           ttl: 1800000,
           maxSize: 5000,
+          filePath: './tmp_rovodev_test_cache.json',
         },
       };
 
@@ -101,10 +133,13 @@ describe('MultiJsonCommandProvider', () => {
       const config: MultiJsonCommandProviderConfig = {
         command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
         template: 'Message: {{message}} (ID: {{id}})',
+        cache: {
+          filePath: './tmp_rovodev_test_cache_basic.json',
+        },
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider-basic');
 
       const result = await provider.generateMessage();
       expect(result).toBe('Message: Hello (ID: 1)');
@@ -193,7 +228,7 @@ describe('MultiJsonCommandProvider', () => {
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider');
 
       const result = await provider.generateMessage();
       expect(result).toBe('Message: {{missing}} (ID: 1)');
@@ -204,10 +239,13 @@ describe('MultiJsonCommandProvider', () => {
       const config: MultiJsonCommandProviderConfig = {
         command: 'echo \'[{"id": 1, "user": {"name": "John Doe", "email": "john@example.com"}}]\'',
         template: 'User: {{user.name}} ({{user.email}})',
+        cache: {
+          filePath: './tmp_rovodev_test_cache_nested.json',
+        },
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider-nested');
 
       const result = await provider.generateMessage();
       expect(result).toBe('User: John Doe (john@example.com)');
@@ -248,9 +286,9 @@ describe('MultiJsonCommandProvider', () => {
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider');
 
-      expect(logger.info).toHaveBeenCalledWith('Initialized MultiJsonCommandProvider with command: "echo \'[{"id": 1, "message": "test"}]\'"');
+      expect(logger.info).toHaveBeenCalledWith('Initialized MultiJsonCommandProvider "test-provider" with command: "echo \'[{"id": 1, "message": "test"}]\'"');
       expect(logger.info).toHaveBeenCalledWith('Template: "Message: {{message}}"');
       expect(logger.info).toHaveBeenCalledWith('Unique key: "id"');
       expect(logger.info).toHaveBeenCalledWith('Throttle delay: 500ms');
@@ -265,11 +303,12 @@ describe('MultiJsonCommandProvider', () => {
         cache: {
           enabled: true,
           ttl: 60000, // 1 minute
+          filePath: './tmp_rovodev_test_cache_1.json',
         },
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider');
 
       // First run - should process all items
       const result1 = await provider.generateMessage();
@@ -340,9 +379,9 @@ describe('MultiJsonCommandProvider', () => {
       };
 
       const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider');
 
-      expect(logger.info).toHaveBeenCalledWith('Cache enabled: TTL=1800000ms, Max size=5000');
+      expect(logger.info).toHaveBeenCalledWith('Cache enabled: TTL=1800000ms, Max size=5000, File: ./cache/multijson-cache.json');
     });
 
     it('should log when cache is disabled', async () => {
@@ -367,9 +406,10 @@ describe('MultiJsonCommandProvider', () => {
         cache: {
           enabled: true,
           ttl: 60000,
+          filePath: './tmp_rovodev_test_cache_mixed.json',
         },
       });
-      await provider.initialize(logger);
+      await provider.initialize(logger, undefined, 'test-provider-mixed');
 
       // First run with two items
       const result1 = await provider.generateMessage();
