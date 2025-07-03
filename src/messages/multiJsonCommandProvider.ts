@@ -194,6 +194,11 @@ export class MultiJsonCommandProvider implements MessageProvider {
     if (cachedCount > 0) {
       this.logger?.info(`Skipped ${cachedCount} cached items, processing ${newItems.length} new items`);
     }
+
+    // Record cache performance metrics
+    if (this.telemetry && this.cacheEnabled) {
+      this.recordCacheMetrics();
+    }
     
     // Process new items
     for (let i = 0; i < newItems.length; i++) {
@@ -441,6 +446,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
   /**
    * Cleans up expired cache entries and enforces max size limit
+   * Optimized to only run cleanup when necessary
    */
   private cleanupCache(): void {
     if (!this.cacheEnabled) {
@@ -449,44 +455,119 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     const now = Date.now();
     let expiredCount = 0;
+    let sizeReductionNeeded = false;
 
-    // Remove expired entries
+    // Check if we need size reduction first (more efficient)
+    if (this.cache.size >= this.cacheMaxSize) {
+      sizeReductionNeeded = true;
+    }
+
+    // Remove expired entries (always check these)
+    const expiredKeys: string[] = [];
     for (const [key, entry] of this.cache.entries()) {
       if (now - entry.timestamp > this.cacheTtl) {
-        this.cache.delete(key);
+        expiredKeys.push(key);
         expiredCount++;
       }
     }
 
+    // Batch delete expired entries for better performance
+    expiredKeys.forEach(key => this.cache.delete(key));
+
     if (expiredCount > 0) {
       this.logger?.debug(`Cleaned up ${expiredCount} expired cache entries`);
+      
+      // Record telemetry for cache cleanup
+      if (this.telemetry) {
+        this.telemetry.incrementCounter('cache_entries_expired', expiredCount, { provider: this.getProviderName() });
+      }
     }
 
-    // Enforce max size by removing oldest entries
-    if (this.cache.size >= this.cacheMaxSize) {
+    // Enforce max size by removing oldest entries (only if still needed after expiry cleanup)
+    if (sizeReductionNeeded && this.cache.size >= this.cacheMaxSize) {
       const entriesToRemove = this.cache.size - this.cacheMaxSize + 1;
       const sortedEntries = Array.from(this.cache.entries())
         .sort(([, a], [, b]) => a.timestamp - b.timestamp);
 
-      for (let i = 0; i < entriesToRemove && i < sortedEntries.length; i++) {
-        const [key] = sortedEntries[i];
-        this.cache.delete(key);
-      }
+      const keysToRemove = sortedEntries.slice(0, entriesToRemove).map(([key]) => key);
+      keysToRemove.forEach(key => this.cache.delete(key));
 
-      this.logger?.debug(`Removed ${entriesToRemove} oldest cache entries to enforce max size`);
+      this.logger?.debug(`Removed ${keysToRemove.length} oldest cache entries to enforce max size`);
+      
+      // Record telemetry for size enforcement
+      if (this.telemetry) {
+        this.telemetry.incrementCounter('cache_entries_evicted', keysToRemove.length, { provider: this.getProviderName() });
+      }
     }
   }
 
   /**
-   * Gets cache statistics
+   * Gets comprehensive cache statistics
    */
-  private getCacheStats(): { size: number; enabled: boolean; ttl: number; maxSize: number } {
-    return {
+  private getCacheStats(): { 
+    size: number; 
+    enabled: boolean; 
+    ttl: number; 
+    maxSize: number;
+    filePath: string;
+    utilizationPercent: number;
+    oldestEntryAge?: number;
+    newestEntryAge?: number;
+  } {
+    const stats = {
       size: this.cache.size,
       enabled: this.cacheEnabled,
       ttl: this.cacheTtl,
-      maxSize: this.cacheMaxSize
+      maxSize: this.cacheMaxSize,
+      filePath: this.cacheFilePath,
+      utilizationPercent: Math.round((this.cache.size / this.cacheMaxSize) * 100),
+      oldestEntryAge: undefined as number | undefined,
+      newestEntryAge: undefined as number | undefined,
     };
+
+    if (this.cache.size > 0) {
+      const now = Date.now();
+      let oldestTimestamp = now;
+      let newestTimestamp = 0;
+
+      for (const entry of this.cache.values()) {
+        if (entry.timestamp < oldestTimestamp) {
+          oldestTimestamp = entry.timestamp;
+        }
+        if (entry.timestamp > newestTimestamp) {
+          newestTimestamp = entry.timestamp;
+        }
+      }
+
+      stats.oldestEntryAge = Math.round((now - oldestTimestamp) / 1000); // seconds
+      stats.newestEntryAge = Math.round((now - newestTimestamp) / 1000); // seconds
+    }
+
+    return stats;
+  }
+
+  /**
+   * Records cache performance metrics to telemetry
+   */
+  private recordCacheMetrics(): void {
+    if (!this.telemetry || !this.cacheEnabled) {
+      return;
+    }
+
+    const stats = this.getCacheStats();
+    const providerName = this.getProviderName();
+
+    // Record cache size and utilization
+    this.telemetry.setGauge('cache_size', stats.size, { provider: providerName });
+    this.telemetry.setGauge('cache_utilization_percent', stats.utilizationPercent, { provider: providerName });
+
+    // Record cache age metrics if available
+    if (stats.oldestEntryAge !== undefined) {
+      this.telemetry.setGauge('cache_oldest_entry_age_seconds', stats.oldestEntryAge, { provider: providerName });
+    }
+    if (stats.newestEntryAge !== undefined) {
+      this.telemetry.setGauge('cache_newest_entry_age_seconds', stats.newestEntryAge, { provider: providerName });
+    }
   }
 
   /**
@@ -531,7 +612,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Log cache stats after validation
       if (this.cacheEnabled) {
         const stats = this.getCacheStats();
-        this.logger.info(`Cache stats after validation: ${stats.size} entries`);
+        this.logger.info(`Cache stats after validation: ${stats.size} entries (${stats.utilizationPercent}% utilization)`);
+        
+        // Record initial cache metrics
+        this.recordCacheMetrics();
       }
     } catch (error) {
       this.skipCaching = false; // Reset flag even on error

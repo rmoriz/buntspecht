@@ -1,0 +1,290 @@
+# Buntspecht Multi JSON Command Provider Configuration Examples
+# This file demonstrates various real-world use cases for the multijsoncommand provider
+# Copy and adapt these examples to your needs
+
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+instance = "https://mastodon.social"
+accessToken = "your-access-token-here"
+
+[[accounts]]
+name = "tech-account"
+instance = "https://tech.lgbt"
+accessToken = "your-tech-account-token"
+
+# Bot Configuration
+[bot]
+
+# Example 1: RSS/News Feed Processing
+# Monitors a news API and posts new articles
+[[bot.providers]]
+name = "tech-news"
+type = "multijsoncommand"
+cronSchedule = "*/15 * * * *"  # Every 15 minutes
+enabled = true
+accounts = ["tech-account"]
+
+[bot.providers.config]
+# Fetch latest tech news from API (replace with your news source)
+command = """curl -s 'https://newsapi.org/v2/top-headlines?category=technology&apiKey=YOUR_API_KEY&pageSize=5' | jq '[.articles[] | {id: .url, title: .title, description: .description, url: .url, published: .publishedAt, source: .source.name}]'"""
+
+# Template for news posts
+template = """📰 {{title}}
+
+{{description}}
+
+🔗 {{url}}
+📅 {{published}}
+📰 Source: {{source}}
+
+#TechNews #{{source}}"""
+
+# Use URL as unique identifier
+uniqueKey = "id"
+
+# 5 seconds between posts to avoid flooding
+throttleDelay = 5000
+
+# Cache configuration
+[bot.providers.config.cache]
+enabled = true
+ttl = 1209600000  # 14 days
+maxSize = 1000
+filePath = "./cache/tech-news-cache.json"
+
+# Example 2: GitHub Repository Monitoring
+# Monitors multiple repositories for new releases
+[[bot.providers]]
+name = "github-releases"
+type = "multijsoncommand"
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["main-account", "tech-account"]
+
+[bot.providers.config]
+# Monitor releases from multiple repositories
+command = """
+repos=("microsoft/vscode" "nodejs/node" "facebook/react" "vercel/next.js")
+echo "["
+first=true
+for repo in "${repos[@]}"; do
+  if [ "$first" = true ]; then
+    first=false
+  else
+    echo ","
+  fi
+  curl -s "https://api.github.com/repos/$repo/releases/latest" | jq "{id: .id, repo: \"$repo\", name: .name, tag: .tag_name, url: .html_url, published: .published_at, body: .body}"
+done
+echo "]"
+"""
+
+template = """🚀 New Release: {{repo}}
+
+📦 {{name}} ({{tag}})
+📅 {{published}}
+
+{{body}}
+
+🔗 {{url}}
+
+#GitHub #Release #{{repo}}"""
+
+uniqueKey = "id"
+throttleDelay = 10000  # 10 seconds between release announcements
+
+[bot.providers.config.cache]
+enabled = true
+filePath = "./cache/github-releases-cache.json"
+
+# Example 3: System Monitoring Alerts
+# Monitors system services and posts alerts
+[[bot.providers]]
+name = "system-alerts"
+type = "multijsoncommand"
+cronSchedule = "*/5 * * * *"  # Every 5 minutes
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Check system services and create alerts for failed services
+command = """
+services=("nginx" "postgresql" "redis" "docker")
+echo "["
+first=true
+for service in "${services[@]}"; do
+  status=$(systemctl is-active "$service" 2>/dev/null || echo "unknown")
+  if [ "$status" != "active" ]; then
+    if [ "$first" = true ]; then
+      first=false
+    else
+      echo ","
+    fi
+    echo "{\"id\": \"$service-$(date +%s)\", \"service\": \"$service\", \"status\": \"$status\", \"timestamp\": \"$(date -Iseconds)\", \"hostname\": \"$(hostname)\"}"
+  fi
+done
+echo "]"
+"""
+
+template = """🚨 Service Alert
+
+🖥️ Host: {{hostname}}
+⚙️ Service: {{service}}
+❌ Status: {{status}}
+🕐 Time: {{timestamp}}
+
+#SystemAlert #{{service}} #{{hostname}}"""
+
+uniqueKey = "id"
+throttleDelay = 2000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 3600000  # 1 hour (shorter for alerts)
+filePath = "./cache/system-alerts-cache.json"
+
+# Example 4: E-commerce Product Updates
+# Monitors product catalog for new items
+[[bot.providers]]
+name = "new-products"
+type = "multijsoncommand"
+cronSchedule = "0 */4 * * *"  # Every 4 hours
+enabled = false  # Disabled by default
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Fetch new products from e-commerce API
+command = """curl -s 'https://api.yourstore.com/products/new?limit=10' -H 'Authorization: Bearer YOUR_API_TOKEN' | jq '[.products[] | {sku: .sku, name: .name, price: .price, category: .category, image: .image_url, url: .product_url}]'"""
+
+template = """🛍️ New Product Available!
+
+{{name}}
+💰 Price: ${{price}}
+📂 Category: {{category}}
+
+🔗 {{url}}
+
+#NewProduct #{{category}} #Shopping"""
+
+uniqueKey = "sku"
+throttleDelay = 8000  # 8 seconds between product announcements
+
+[bot.providers.config.cache]
+enabled = true
+filePath = "./cache/products-cache.json"
+
+# Example 5: Weather Alerts
+# Monitors weather API for severe weather warnings
+[[bot.providers]]
+name = "weather-alerts"
+type = "multijsoncommand"
+cronSchedule = "*/30 * * * *"  # Every 30 minutes
+enabled = false
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Check for weather alerts (replace with your weather API)
+command = """curl -s 'https://api.openweathermap.org/data/2.5/onecall?lat=52.52&lon=13.405&appid=YOUR_API_KEY&exclude=minutely,hourly,daily' | jq '[.alerts[]? | {id: (.start | tostring), title: .event, description: .description, start: .start, end: .end, severity: .tags[0]?}]'"""
+
+template = """⚠️ Weather Alert
+
+{{title}}
+🌡️ Severity: {{severity}}
+📅 From: {{start}} to {{end}}
+
+{{description}}
+
+#WeatherAlert #{{severity}}"""
+
+uniqueKey = "id"
+throttleDelay = 1000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 86400000  # 24 hours
+filePath = "./cache/weather-alerts-cache.json"
+
+# Example 6: Social Media Mentions Monitor
+# Monitors social media APIs for brand mentions
+[[bot.providers]]
+name = "brand-mentions"
+type = "multijsoncommand"
+cronSchedule = "*/20 * * * *"  # Every 20 minutes
+enabled = false
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Custom script that aggregates mentions from various sources
+command = "python3 /path/to/social_monitor.py --brand='YourBrand' --format=json"
+
+template = """💬 Brand Mention
+
+{{platform}}: {{text}}
+👤 By: {{author}}
+❤️ Engagement: {{likes}} likes, {{shares}} shares
+🔗 {{url}}
+
+#BrandMention #{{platform}}"""
+
+uniqueKey = "mention_id"
+throttleDelay = 3000
+
+[bot.providers.config.cache]
+enabled = true
+filePath = "./cache/mentions-cache.json"
+
+# Example 7: Cryptocurrency Price Alerts
+# Monitors crypto prices and posts significant changes
+[[bot.providers]]
+name = "crypto-alerts"
+type = "multijsoncommand"
+cronSchedule = "*/10 * * * *"  # Every 10 minutes
+enabled = false
+accounts = ["tech-account"]
+
+[bot.providers.config]
+# Monitor crypto prices with significant changes
+command = """
+# This example uses a hypothetical price monitoring script
+# that only outputs entries when price changes exceed thresholds
+python3 /path/to/crypto_monitor.py --threshold=5 --format=json
+"""
+
+template = """📈 Crypto Alert
+
+{{symbol}}: ${{current_price}}
+{{change_direction}} {{change_percent}}% ({{change_24h}})
+📊 24h Volume: ${{volume_24h}}
+
+#Crypto #{{symbol}} #PriceAlert"""
+
+uniqueKey = "alert_id"
+throttleDelay = 2000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 7200000  # 2 hours
+filePath = "./cache/crypto-alerts-cache.json"
+
+# Logging Configuration
+[logging]
+level = "info"
+
+# Optional: Webhook Configuration for External Triggers
+[webhook]
+enabled = false
+port = 3000
+host = "0.0.0.0"
+path = "/webhook"
+secret = "your-webhook-secret"
+
+# Optional: Telemetry Configuration
+[telemetry]
+enabled = false
+serviceName = "buntspecht-multijson"
+serviceVersion = "1.0.0"
+
+[telemetry.prometheus]
+enabled = false
+port = 9090
+endpoint = "/metrics"

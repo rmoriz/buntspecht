@@ -278,6 +278,113 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 - Fehlende Variablen werden als `{{variable}}` im Text belassen
 - JSON-Werte werden automatisch zu Strings konvertiert
 
+### Multi JSON Command Provider
+
+Führt externe Kommandos aus, die JSON-Arrays ausgeben und verarbeitet jedes Objekt als separate Nachricht. Perfekt für RSS-Feeds, API-Endpunkte mit mehreren Einträgen oder jede Datenquelle mit mehreren Elementen. Bietet intelligentes Caching zur Vermeidung doppelter Nachrichten und unterstützt Throttling zur Vermeidung von Flooding.
+
+```toml
+[[bot.providers]]
+name = "rss-feed"
+type = "multijsoncommand"
+cronSchedule = "*/15 * * * *"  # Alle 15 Minuten
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Kommando, das JSON-Array ausgibt (erforderlich)
+command = "curl -s 'https://feeds.example.com/news.json' | jq '[.items[] | {id: .id, title: .title, url: .url, published: .published}]'"
+
+# Template für jede Nachricht (erforderlich)
+template = "📰 {{title}}\n🔗 {{url}}\n📅 {{published}}"
+
+# Eindeutiges Identifikationsfeld (Standard: "id")
+uniqueKey = "id"
+
+# Throttling-Verzögerung zwischen Nachrichten in Millisekunden (Standard: 1000)
+throttleDelay = 2000
+
+# Cache-Konfiguration (optional)
+[bot.providers.config.cache]
+enabled = true                              # Caching aktivieren (Standard: true)
+ttl = 1209600000                            # 14 Tage in Millisekunden (Standard)
+maxSize = 10000                             # Maximale Cache-Einträge (Standard)
+filePath = "./cache/rss-feed-cache.json"    # Cache-Dateipfad (Standard: ./cache/multijson-cache.json)
+```
+
+#### Hauptfunktionen
+
+- **🔄 Array-Verarbeitung**: Verarbeitet JSON-Arrays mit mehreren Objekten
+- **🚫 Duplikat-Vermeidung**: Intelligentes Caching verhindert erneutes Posten desselben Inhalts
+- **⏱️ Throttling**: Konfigurierbare Verzögerungen zwischen Nachrichten zur Vermeidung von Flooding
+- **💾 Persistenter Cache**: 14-Tage-Cache übersteht Anwendungsneustarts
+- **🔑 Account-bewusst**: Cache-Schlüssel enthalten Provider-Namen für Multi-Account-Unterstützung
+- **⚙️ Flexible Konfiguration**: Anpassbare eindeutige Schlüssel, TTL und Cache-Pfade
+
+#### Multi JSON Command Beispiele
+
+```toml
+# RSS/News-Feed-Verarbeitung
+command = "curl -s 'https://api.example.com/news' | jq '[.articles[] | {id: .id, title: .title, summary: .summary, url: .link}]'"
+template = "📰 {{title}}\n\n{{summary}}\n\n🔗 Weiterlesen: {{url}}"
+uniqueKey = "id"
+throttleDelay = 3000  # 3 Sekunden zwischen Posts
+
+# GitHub Releases Monitor
+command = "curl -s 'https://api.github.com/repos/owner/repo/releases' | jq '[.[] | {id: .id, name: .name, tag: .tag_name, url: .html_url}] | .[0:3]'"
+template = "🚀 Neues Release: {{name}} ({{tag}})\n🔗 {{url}}"
+uniqueKey = "id"
+
+# Social Media Monitoring
+command = "python3 fetch_mentions.py --format=json"  # Benutzerdefiniertes Skript, das JSON-Array zurückgibt
+template = "💬 Neue Erwähnung: {{text}}\n👤 Von: {{author}}\n🔗 {{url}}"
+uniqueKey = "mention_id"
+
+# System-Alerts (Mehrere Services)
+command = "curl -s 'http://monitoring.local/api/alerts' | jq '[.alerts[] | select(.status == \"firing\") | {id: .id, service: .labels.service, message: .annotations.summary}]'"
+template = "🚨 Alert: {{service}}\n{{message}}"
+uniqueKey = "id"
+throttleDelay = 5000  # 5 Sekunden zwischen Alerts
+
+# E-Commerce Produkt-Updates
+command = "curl -s 'https://api.shop.com/products/new' | jq '[.products[] | {sku: .sku, name: .name, price: .price, category: .category}]'"
+template = "🛍️ Neues Produkt: {{name}}\n💰 Preis: {{price}}€\n📂 Kategorie: {{category}}"
+uniqueKey = "sku"
+```
+
+#### Cache-Konfiguration
+
+Das Cache-System verhindert doppelte Nachrichten und bleibt über Anwendungsneustarts bestehen:
+
+```toml
+[bot.providers.config.cache]
+# Caching aktivieren/deaktivieren
+enabled = true
+
+# Time-to-live in Millisekunden (Standard: 14 Tage)
+ttl = 1209600000
+
+# Maximale Anzahl gecachter Einträge
+maxSize = 10000
+
+# Benutzerdefinierter Cache-Dateipfad
+filePath = "./cache/my-provider-cache.json"
+```
+
+**Cache-Schlüssel-Format**: `{providerName}:{uniqueKeyValue}`
+
+Dies stellt sicher, dass:
+- Derselbe Inhalt an verschiedene Accounts gepostet werden kann ohne Konflikte
+- Jeder Provider seinen eigenen Cache-Namespace hat
+- Cache-Einträge ordnungsgemäß zwischen Providern isoliert sind
+
+#### Fehlerbehandlung
+
+- **Ungültiges JSON**: Protokolliert Fehler und überspringt Verarbeitung
+- **Fehlender eindeutiger Schlüssel**: Validiert, dass alle Objekte das erforderliche eindeutige Feld haben
+- **Doppelte Schlüssel**: Erkennt und meldet doppelte eindeutige Schlüssel im selben Array
+- **Kommando-Fehler**: Elegante Fehlerbehandlung mit detailliertem Logging
+- **Cache-Fehler**: Cache-Fehler unterbrechen die Nachrichtenverarbeitung nicht
+
 ### Push Provider
 
 Reagiert auf externe Events anstatt auf Cron-Zeitpläne. Push-Provider werden programmatisch ausgelöst und können benutzerdefinierte Nachrichten akzeptieren:

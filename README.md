@@ -280,6 +280,113 @@ template = "👤 User {{user.name}} ({{user.email}}) has {{stats.posts}} posts"
 - Missing variables are left as `{{variable}}` in the text
 - JSON values are automatically converted to strings
 
+### Multi JSON Command Provider
+
+Executes external commands that output JSON arrays and processes each object as a separate message. Perfect for RSS feeds, API endpoints returning multiple items, or any data source with multiple entries. Features intelligent caching to prevent duplicate messages and supports throttling to avoid flooding.
+
+```toml
+[[bot.providers]]
+name = "rss-feed"
+type = "multijsoncommand"
+cronSchedule = "*/15 * * * *"  # Every 15 minutes
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Command that outputs JSON array (required)
+command = "curl -s 'https://feeds.example.com/news.json' | jq '[.items[] | {id: .id, title: .title, url: .url, published: .published}]'"
+
+# Template for each message (required)
+template = "📰 {{title}}\n🔗 {{url}}\n📅 {{published}}"
+
+# Unique identifier field (default: "id")
+uniqueKey = "id"
+
+# Throttling delay between messages in milliseconds (default: 1000)
+throttleDelay = 2000
+
+# Cache configuration (optional)
+[bot.providers.config.cache]
+enabled = true                              # Enable caching (default: true)
+ttl = 1209600000                            # 14 days in milliseconds (default)
+maxSize = 10000                             # Maximum cache entries (default)
+filePath = "./cache/rss-feed-cache.json"    # Cache file path (default: ./cache/multijson-cache.json)
+```
+
+#### Key Features
+
+- **🔄 Array Processing**: Handles JSON arrays with multiple objects
+- **🚫 Duplicate Prevention**: Intelligent caching prevents reposting the same content
+- **⏱️ Throttling**: Configurable delays between messages to avoid flooding
+- **💾 Persistent Cache**: 14-day cache survives application restarts
+- **🔑 Account-Aware**: Cache keys include provider name for multi-account support
+- **⚙️ Flexible Configuration**: Customizable unique keys, TTL, and cache paths
+
+#### Multi JSON Command Examples
+
+```toml
+# RSS/News Feed Processing
+command = "curl -s 'https://api.example.com/news' | jq '[.articles[] | {id: .id, title: .title, summary: .summary, url: .link}]'"
+template = "📰 {{title}}\n\n{{summary}}\n\n🔗 Read more: {{url}}"
+uniqueKey = "id"
+throttleDelay = 3000  # 3 seconds between posts
+
+# GitHub Releases Monitor
+command = "curl -s 'https://api.github.com/repos/owner/repo/releases' | jq '[.[] | {id: .id, name: .name, tag: .tag_name, url: .html_url}] | .[0:3]'"
+template = "🚀 New release: {{name}} ({{tag}})\n🔗 {{url}}"
+uniqueKey = "id"
+
+# Social Media Monitoring
+command = "python3 fetch_mentions.py --format=json"  # Custom script returning JSON array
+template = "💬 New mention: {{text}}\n👤 By: {{author}}\n🔗 {{url}}"
+uniqueKey = "mention_id"
+
+# System Alerts (Multiple Services)
+command = "curl -s 'http://monitoring.local/api/alerts' | jq '[.alerts[] | select(.status == \"firing\") | {id: .id, service: .labels.service, message: .annotations.summary}]'"
+template = "🚨 Alert: {{service}}\n{{message}}"
+uniqueKey = "id"
+throttleDelay = 5000  # 5 seconds between alerts
+
+# E-commerce Product Updates
+command = "curl -s 'https://api.shop.com/products/new' | jq '[.products[] | {sku: .sku, name: .name, price: .price, category: .category}]'"
+template = "🛍️ New Product: {{name}}\n💰 Price: ${{price}}\n📂 Category: {{category}}"
+uniqueKey = "sku"
+```
+
+#### Cache Configuration
+
+The cache system prevents duplicate messages and persists across application restarts:
+
+```toml
+[bot.providers.config.cache]
+# Enable/disable caching
+enabled = true
+
+# Time-to-live in milliseconds (default: 14 days)
+ttl = 1209600000
+
+# Maximum number of cached entries
+maxSize = 10000
+
+# Custom cache file path
+filePath = "./cache/my-provider-cache.json"
+```
+
+**Cache Key Format**: `{providerName}:{uniqueKeyValue}`
+
+This ensures that:
+- Same content can be posted to different accounts without conflicts
+- Each provider maintains its own cache namespace
+- Cache entries are properly isolated between providers
+
+#### Error Handling
+
+- **Invalid JSON**: Logs error and skips processing
+- **Missing Unique Key**: Validates all objects have the required unique field
+- **Duplicate Keys**: Detects and reports duplicate unique keys in the same array
+- **Command Failures**: Graceful error handling with detailed logging
+- **Cache Errors**: Cache failures don't interrupt message processing
+
 ### Push Provider
 
 Reacts to external events instead of cron schedules. Push providers are triggered programmatically and can accept custom messages:
