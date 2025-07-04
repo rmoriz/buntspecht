@@ -2,6 +2,7 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { PingProvider, PingProviderConfig } from './pingProvider';
 import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
+import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from './multiJsonCommandProvider';
 import { PushProvider, PushProviderConfig } from './pushProvider';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';
@@ -16,13 +17,15 @@ export class MessageProviderFactory {
    * @param config Configuration for the provider
    * @param logger Logger instance
    * @param telemetry Optional telemetry service for metrics
+   * @param providerName Optional provider name for caching
    * @returns MessageProvider instance
    */
   public static async createProvider(
     providerType: string,
     config: MessageProviderConfig,
     logger: Logger,
-    telemetry?: TelemetryService
+    telemetry?: TelemetryService,
+    providerName?: string
   ): Promise<MessageProvider> {
     let provider: MessageProvider;
 
@@ -39,6 +42,10 @@ export class MessageProviderFactory {
         provider = new JsonCommandProvider(config as JsonCommandProviderConfig);
         break;
       
+      case 'multijsoncommand':
+        provider = new MultiJsonCommandProvider(config as MultiJsonCommandProviderConfig);
+        break;
+      
       case 'push':
         provider = new PushProvider(config as PushProviderConfig);
         break;
@@ -51,7 +58,12 @@ export class MessageProviderFactory {
 
     // Initialize the provider if it has an initialize method
     if (provider.initialize) {
-      await provider.initialize(logger, telemetry);
+      // Check if provider supports provider name parameter (MultiJsonCommandProvider)
+      if (provider.getProviderName() === 'multijsoncommand') {
+        await (provider as unknown as { initialize: (logger: Logger, telemetry?: TelemetryService, providerName?: string) => Promise<void> }).initialize(logger, telemetry, providerName);
+      } else {
+        await provider.initialize(logger, telemetry);
+      }
     }
 
     logger.info(`Created message provider: ${provider.getProviderName()}`);
@@ -63,6 +75,6 @@ export class MessageProviderFactory {
    * @returns Array of available provider type names
    */
   public static getAvailableProviders(): string[] {
-    return ['ping', 'command', 'jsoncommand', 'push'];
+    return ['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push'];
   }
 }

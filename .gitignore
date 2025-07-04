@@ -41,6 +41,7 @@ coverage/
 .idea/
 *.swp
 *.swo
+.opencode/
 
 # OS generated files
 .DS_Store

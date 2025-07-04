@@ -3,15 +3,10 @@ name: Manual Release
 on:
   workflow_dispatch:
     inputs:
-      version_type:
-        description: 'Version bump type'
+      tag_name:
+        description: 'Release tag (e.g., v1.2.3)'
         required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+        type: string
       prerelease:
         description: 'Create as prerelease'
         required: false
@@ -24,21 +19,19 @@ on:
         type: boolean
 
 jobs:
-  create-release:
+  validate-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-      tag_name: ${{ steps.version.outputs.tag_name }}
+      tag_name: ${{ steps.validate.outputs.tag_name }}
+      version: ${{ steps.validate.outputs.version }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Setup Bun
       uses: oven-sh/setup-bun@v1
@@ -54,69 +47,49 @@ jobs:
     - name: Run linter
       run: bun run lint
     
-    - name: Get current version
-      id: current_version
+    - name: Validate tag and version
+      id: validate
       run: |
-        CURRENT_VERSION=$(node -p "require('./package.json').version")
-        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $CURRENT_VERSION"
-    
-    - name: Calculate new version
-      id: version
-      run: |
-        CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
-        VERSION_TYPE="${{ github.event.inputs.version_type }}"
+        TAG_NAME="${{ github.event.inputs.tag_name }}"
         
-        # Split version into parts
-        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-        MAJOR=${VERSION_PARTS[0]}
-        MINOR=${VERSION_PARTS[1]}
-        PATCH=${VERSION_PARTS[2]}
+        # Validate tag format
+        if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "ERROR: Invalid tag format. Expected format: v1.2.3"
+          exit 1
+        fi
         
-        # Bump version based on type
-        case $VERSION_TYPE in
-          "major")
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-            ;;
-          "minor")
-            MINOR=$((MINOR + 1))
-            PATCH=0
-            ;;
-          "patch")
-            PATCH=$((PATCH + 1))
-            ;;
-        esac
+        # Extract version from tag
+        VERSION=${TAG_NAME#v}
         
-        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-        TAG_NAME="v$NEW_VERSION"
+        # Check if tag already exists
+        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+          echo "ERROR: Tag $TAG_NAME already exists"
+          exit 1
+        fi
         
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        # Verify version consistency with package.json
+        PACKAGE_VERSION=$(node -e "console.log(require('./package.json').version)")
+        
+        echo "Package.json version: $PACKAGE_VERSION"
+        echo "Requested version: $VERSION"
+        
+        if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+          echo "ERROR: Version mismatch between package.json ($PACKAGE_VERSION) and requested tag ($VERSION)"
+          echo "Please update package.json version to $VERSION before creating the release"
+          exit 1
+        fi
+        
+        echo "SUCCESS: Version validation passed"
         echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-        echo "New version: $NEW_VERSION"
-        echo "Tag name: $TAG_NAME"
-    
-    - name: Update package.json version
-      run: |
-        NEW_VERSION="${{ steps.version.outputs.new_version }}"
-        # Update package.json
-        node -e "
-          const fs = require('fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.version = '$NEW_VERSION';
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
-        echo "Updated package.json to version $NEW_VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
     
     - name: Generate changelog
       id: changelog
       run: |
-        TAG_NAME="${{ steps.version.outputs.tag_name }}"
-        CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+        TAG_NAME="${{ steps.validate.outputs.tag_name }}"
         
         # Get the previous tag
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
         
         if [ -z "$PREVIOUS_TAG" ]; then
           echo "No previous tag found, generating changelog from first commit"
@@ -144,26 +117,9 @@ jobs:
         echo "changelog<<EOF" >> $GITHUB_OUTPUT
         echo "$FULL_CHANGELOG" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-    
-    - name: Commit version bump
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add package.json
-        git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}
-
-        Automated version bump using GitHub Actions and Bun tooling.
-        Release type: ${{ github.event.inputs.version_type }}"
-    
-    - name: Create and push tag
-      run: |
-        TAG_NAME="${{ steps.version.outputs.tag_name }}"
-        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
-        git push origin HEAD:${{ github.ref_name }}
-        git push origin "$TAG_NAME"
 
   build-and-release:
-    needs: create-release
+    needs: validate-release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -171,8 +127,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        ref: ${{ needs.create-release.outputs.tag_name }}
     
     - name: Setup Bun
       uses: oven-sh/setup-bun@v1
@@ -187,29 +141,29 @@ jobs:
     
     - name: Build all binaries
       run: |
-        echo "🚀 Building Buntspecht binaries for all platforms..."
+        echo "Building Buntspecht binaries for all platforms..."
         
-        echo "📦 Building Linux x64..."
+        echo "Building Linux x64..."
         bun run build:binary:linux-x64
         
-        echo "📦 Building Linux ARM64..."
+        echo "Building Linux ARM64..."
         bun run build:binary:linux-arm64
         
-        echo "📦 Building Linux ARMv8..."
+        echo "Building Linux ARMv8..."
         bun run build:binary:linux-armv8
         
-        echo "📦 Building macOS x64..."
+        echo "Building macOS x64..."
         bun run build:binary:macos-x64
         
-        echo "📦 Building macOS ARM64..."
+        echo "Building macOS ARM64..."
         bun run build:binary:macos-arm64
         
-        echo "✅ All binaries built successfully!"
+        echo "All binaries built successfully!"
         ls -lh dist/buntspecht-*
     
     - name: Test binaries
       run: |
-        echo "🧪 Testing binaries..."
+        echo "Testing binaries..."
         
         # Test Linux x64 binary (should work on Ubuntu runner)
         if [ -f "dist/buntspecht-linux-x64" ]; then
@@ -219,7 +173,7 @@ jobs:
           ./dist/buntspecht-linux-x64 --help >/dev/null || echo "Help test failed"
         fi
         
-        echo "✅ Binary testing complete!"
+        echo "Binary testing complete!"
     
     - name: Calculate checksums
       run: |
@@ -229,20 +183,28 @@ jobs:
             sha256sum "$file" >> checksums.txt
           fi
         done
-        echo "📋 Checksums:"
+        echo "Checksums:"
         cat checksums.txt
+    
+    - name: Create and push tag
+      run: |
+        TAG_NAME="${{ needs.validate-release.outputs.tag_name }}"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+        git push origin "$TAG_NAME"
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ needs.create-release.outputs.tag_name }}
-        name: "Release ${{ needs.create-release.outputs.tag_name }}"
+        tag_name: ${{ needs.validate-release.outputs.tag_name }}
+        name: "Release ${{ needs.validate-release.outputs.tag_name }}"
         body: |
-          # Buntspecht ${{ needs.create-release.outputs.new_version }}
+          # Buntspecht ${{ needs.validate-release.outputs.version }}
           
           A reliable Fediverse bot for automated messages with flexible sources.
           
-          ## 📦 Installation
+          ## Installation
           
           ### Download Binary
           Download the appropriate binary for your platform from the assets below:
@@ -260,7 +222,7 @@ jobs:
           ### Verify Download
           Check the `checksums.txt` file to verify your download integrity.
           
-          ## 🚀 Quick Start
+          ## Quick Start
           
           1. Download the binary for your platform
           2. Make it executable: `chmod +x buntspecht-*`
@@ -268,9 +230,9 @@ jobs:
           4. Edit the config with your Mastodon credentials
           5. Run: `./buntspecht-* --config config.toml`
           
-          ## 📋 Release Notes
+          ## Release Notes
           
-          ${{ steps.changelog.outputs.changelog }}
+          ${{ needs.validate-release.outputs.changelog }}
           
           ---
           

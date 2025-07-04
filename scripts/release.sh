@@ -2,6 +2,7 @@
 
 # Release script for Buntspecht
 # This script helps create releases manually or can be used for local testing
+# Note: Version bumping must be done manually before running this script
 
 set -e
 
@@ -34,21 +35,23 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -t, --type TYPE     Version bump type (patch, minor, major)"
+    echo "  -v, --version TAG   Release tag (e.g., v1.2.3)"
     echo "  -p, --prerelease    Create as prerelease"
     echo "  -d, --draft         Create as draft"
     echo "  -l, --local         Build locally without creating GitHub release"
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --type patch                    # Create patch release"
-    echo "  $0 --type minor --prerelease       # Create minor prerelease"
-    echo "  $0 --type major --draft             # Create major draft release"
-    echo "  $0 --local                         # Build locally only"
+    echo "  $0 --version v1.2.3                # Create release v1.2.3"
+    echo "  $0 --version v1.3.0 --prerelease   # Create prerelease v1.3.0"
+    echo "  $0 --version v2.0.0 --draft         # Create draft release v2.0.0"
+    echo "  $0 --local                          # Build locally only"
+    echo ""
+    echo "Note: Make sure to update package.json version manually before running this script"
 }
 
 # Default values
-VERSION_TYPE="patch"
+TAG_NAME=""
 PRERELEASE="false"
 DRAFT="false"
 LOCAL_ONLY="false"
@@ -56,8 +59,8 @@ LOCAL_ONLY="false"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -t|--type)
-            VERSION_TYPE="$2"
+        -v|--version)
+            TAG_NAME="$2"
             shift 2
             ;;
         -p|--prerelease)
@@ -84,18 +87,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate version type
-if [[ ! "$VERSION_TYPE" =~ ^(patch|minor|major)$ ]]; then
-    print_error "Invalid version type: $VERSION_TYPE. Must be patch, minor, or major."
-    exit 1
-fi
-
-print_status "Starting release process..."
-print_status "Version type: $VERSION_TYPE"
-print_status "Prerelease: $PRERELEASE"
-print_status "Draft: $DRAFT"
-print_status "Local only: $LOCAL_ONLY"
-
 # Check if we're in a git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     print_error "Not in a git repository"
@@ -103,55 +94,52 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
 fi
 
 # Check if working directory is clean
-if ! git diff-index --quiet HEAD --; then
-    print_error "Working directory is not clean. Please commit or stash your changes."
+if [[ "$LOCAL_ONLY" == "false" ]] && ! git diff-index --quiet HEAD --; then
+    print_error "Working directory is not clean. Please commit or stash changes."
     exit 1
 fi
 
-# Check if we're on main branch (unless local only)
-if [[ "$LOCAL_ONLY" == "false" ]]; then
-    CURRENT_BRANCH=$(git branch --show-current)
-    if [[ "$CURRENT_BRANCH" != "main" ]]; then
-        print_warning "You're not on the main branch (current: $CURRENT_BRANCH)"
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_status "Aborted by user"
-            exit 0
-        fi
+# Validate tag name if provided
+if [[ -n "$TAG_NAME" ]]; then
+    # Validate tag format
+    if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        print_error "Invalid tag format: $TAG_NAME. Expected format: v1.2.3"
+        exit 1
     fi
+    
+    # Extract version from tag
+    VERSION=${TAG_NAME#v}
+    
+    # Check if tag already exists
+    if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+        print_error "Tag $TAG_NAME already exists"
+        exit 1
+    fi
+    
+    # Verify version consistency with package.json
+    PACKAGE_VERSION=$(node -e "console.log(require('./package.json').version)")
+    
+    if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+        print_error "Version mismatch between package.json ($PACKAGE_VERSION) and requested tag ($VERSION)"
+        print_error "Please update package.json version to $VERSION before creating the release"
+        exit 1
+    fi
+    
+    print_success "Version validation passed"
+elif [[ "$LOCAL_ONLY" == "false" ]]; then
+    print_error "Tag name is required for GitHub releases. Use --version or --local"
+    show_usage
+    exit 1
 fi
 
-# Get current version
-CURRENT_VERSION=$(node -p "require('./package.json').version")
-print_status "Current version: $CURRENT_VERSION"
-
-# Calculate new version
-IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-MAJOR=${VERSION_PARTS[0]}
-MINOR=${VERSION_PARTS[1]}
-PATCH=${VERSION_PARTS[2]}
-
-case $VERSION_TYPE in
-    "major")
-        MAJOR=$((MAJOR + 1))
-        MINOR=0
-        PATCH=0
-        ;;
-    "minor")
-        MINOR=$((MINOR + 1))
-        PATCH=0
-        ;;
-    "patch")
-        PATCH=$((PATCH + 1))
-        ;;
-esac
-
-NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-TAG_NAME="v$NEW_VERSION"
-
-print_status "New version: $NEW_VERSION"
-print_status "Tag name: $TAG_NAME"
+print_status "Starting release process..."
+if [[ -n "$TAG_NAME" ]]; then
+    print_status "Tag: $TAG_NAME"
+    print_status "Version: $VERSION"
+fi
+print_status "Prerelease: $PRERELEASE"
+print_status "Draft: $DRAFT"
+print_status "Local only: $LOCAL_ONLY"
 
 # Confirm with user
 if [[ "$LOCAL_ONLY" == "false" ]]; then
@@ -163,6 +151,19 @@ if [[ "$LOCAL_ONLY" == "false" ]]; then
         print_status "Aborted by user"
         exit 0
     fi
+fi
+
+# Check if Bun is available
+if ! command -v bun &> /dev/null; then
+    print_error "Bun is not installed or not in PATH"
+    exit 1
+fi
+
+# Install dependencies
+print_status "Installing dependencies..."
+if ! bun install --frozen-lockfile; then
+    print_error "Failed to install dependencies"
+    exit 1
 fi
 
 # Run tests
@@ -203,27 +204,9 @@ if [[ "$LOCAL_ONLY" == "true" ]]; then
     exit 0
 fi
 
-# Update package.json version
-print_status "Updating package.json version..."
-node -e "
-    const fs = require('fs');
-    const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    pkg.version = '$NEW_VERSION';
-    fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-"
-
-# Commit version bump
-print_status "Committing version bump..."
-git add package.json
-git commit -m "chore: bump version to $NEW_VERSION
-
-Automated version bump using release script and Bun tooling.
-Release type: $VERSION_TYPE"
-
 # Create and push tag
 print_status "Creating and pushing tag..."
 git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
-git push origin HEAD
 git push origin "$TAG_NAME"
 
 print_success "Release process completed!"

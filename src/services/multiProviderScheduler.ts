@@ -91,7 +91,8 @@ export class MultiProviderScheduler {
       providerConfig.type,
       providerConfig.config,
       this.logger,
-      this.telemetry
+      this.telemetry,
+      providerConfig.name
     );
 
     let task: cron.ScheduledTask | undefined;

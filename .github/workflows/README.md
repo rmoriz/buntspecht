@@ -33,14 +33,14 @@ git push && git push --tags
 **Trigger**: Manual workflow dispatch via GitHub Actions UI
 
 **What it does**:
-- Allows manual control over version bumping
+- Requires manual version management (no automatic bumping)
 - Builds binaries and creates releases
 - Useful for hotfixes or when you need manual control
 
 **Usage**:
 1. Go to GitHub Actions → Manual Release
 2. Click "Run workflow"
-3. Select version bump type and options
+3. Enter the release tag (e.g., v1.2.3) and options
 
 
 ## Other Workflows
