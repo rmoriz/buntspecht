@@ -280,7 +280,7 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 
 ### Multi JSON Command Provider
 
-Führt externe Kommandos aus, die JSON-Arrays ausgeben und verarbeitet jedes Objekt als separate Nachricht. Perfekt für RSS-Feeds, API-Endpunkte mit mehreren Einträgen oder jede Datenquelle mit mehreren Elementen. Bietet intelligentes Caching zur Vermeidung doppelter Nachrichten und unterstützt Throttling zur Vermeidung von Flooding.
+Führt externe Kommandos aus, die JSON-Arrays ausgeben und verarbeitet jedes Objekt als separate Nachricht. Perfekt für RSS-Feeds, API-Endpunkte mit mehreren Einträgen oder jede Datenquelle mit mehreren Elementen. Bietet intelligentes Caching zur Vermeidung doppelter Nachrichten. Jede Cron-Ausführung verarbeitet ein neues Element aus dem Array, wobei das Timing durch den Cron-Schedule kontrolliert wird.
 
 ```toml
 [[bot.providers]]
@@ -300,8 +300,9 @@ template = "📰 {{title}}\n🔗 {{url}}\n📅 {{published}}"
 # Eindeutiges Identifikationsfeld (Standard: "id")
 uniqueKey = "id"
 
-# Throttling-Verzögerung zwischen Nachrichten in Millisekunden (Standard: 1000)
-throttleDelay = 2000
+# DEPRECATED: throttleDelay wird nicht mehr verwendet - verwenden Sie stattdessen cronSchedule für das Timing
+# Der obige Cron-Schedule kontrolliert, wann neue Nachrichten gepostet werden
+# throttleDelay = 2000
 
 # Cache-Konfiguration (optional)
 [bot.providers.config.cache]
@@ -311,11 +312,20 @@ maxSize = 10000                             # Maximale Cache-Einträge (Standard
 filePath = "./cache/rss-feed-cache.json"    # Cache-Dateipfad (Standard: ./cache/multijson-cache.json)
 ```
 
+#### Funktionsweise
+
+Der MultiJSONCommand Provider verarbeitet ein Element pro Ausführung:
+
+1. **Erste Ausführung**: Verarbeitet das erste unverarbeitete Element aus dem JSON-Array
+2. **Folgende Ausführungen**: Verarbeitet das nächste unverarbeitete Element (vorherige Elemente sind gecacht)
+3. **Wenn alle Elemente verarbeitet sind**: Gibt leer zurück (keine Nachricht gepostet) bis neue Elemente erscheinen
+4. **Timing**: Kontrolliert durch den `cronSchedule` - jede Cron-Ausführung verarbeitet ein Element
+
 #### Hauptfunktionen
 
 - **🔄 Array-Verarbeitung**: Verarbeitet JSON-Arrays mit mehreren Objekten
 - **🚫 Duplikat-Vermeidung**: Intelligentes Caching verhindert erneutes Posten desselben Inhalts
-- **⏱️ Throttling**: Konfigurierbare Verzögerungen zwischen Nachrichten zur Vermeidung von Flooding
+- **⏱️ Timing-Kontrolle**: Timing wird durch Cron-Schedule kontrolliert, nicht durch interne Verzögerungen
 - **💾 Persistenter Cache**: 14-Tage-Cache übersteht Anwendungsneustarts
 - **🔑 Account-bewusst**: Cache-Schlüssel enthalten Provider-Namen für Multi-Account-Unterstützung
 - **⚙️ Flexible Konfiguration**: Anpassbare eindeutige Schlüssel, TTL und Cache-Pfade
@@ -327,7 +337,8 @@ filePath = "./cache/rss-feed-cache.json"    # Cache-Dateipfad (Standard: ./cache
 command = "curl -s 'https://api.example.com/news' | jq '[.articles[] | {id: .id, title: .title, summary: .summary, url: .link}]'"
 template = "📰 {{title}}\n\n{{summary}}\n\n🔗 Weiterlesen: {{url}}"
 uniqueKey = "id"
-throttleDelay = 3000  # 3 Sekunden zwischen Posts
+# DEPRECATED: Verwenden Sie cronSchedule für das Timing
+# throttleDelay = 3000
 
 # GitHub Releases Monitor
 command = "curl -s 'https://api.github.com/repos/owner/repo/releases' | jq '[.[] | {id: .id, name: .name, tag: .tag_name, url: .html_url}] | .[0:3]'"
@@ -343,7 +354,8 @@ uniqueKey = "mention_id"
 command = "curl -s 'http://monitoring.local/api/alerts' | jq '[.alerts[] | select(.status == \"firing\") | {id: .id, service: .labels.service, message: .annotations.summary}]'"
 template = "🚨 Alert: {{service}}\n{{message}}"
 uniqueKey = "id"
-throttleDelay = 5000  # 5 Sekunden zwischen Alerts
+# DEPRECATED: Verwenden Sie cronSchedule für das Timing
+# throttleDelay = 5000
 
 # E-Commerce Produkt-Updates
 command = "curl -s 'https://api.shop.com/products/new' | jq '[.products[] | {sku: .sku, name: .name, price: .price, category: .category}]'"

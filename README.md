@@ -282,7 +282,7 @@ template = "👤 User {{user.name}} ({{user.email}}) has {{stats.posts}} posts"
 
 ### Multi JSON Command Provider
 
-Executes external commands that output JSON arrays and processes each object as a separate message. Perfect for RSS feeds, API endpoints returning multiple items, or any data source with multiple entries. Features intelligent caching to prevent duplicate messages and supports throttling to avoid flooding.
+Executes external commands that output JSON arrays and processes each object as a separate message. Perfect for RSS feeds, API endpoints returning multiple items, or any data source with multiple entries. Features intelligent caching to prevent duplicate messages. Each cron execution processes one new item from the array, with timing controlled by the cron schedule.
 
 ```toml
 [[bot.providers]]
@@ -302,8 +302,9 @@ template = "📰 {{title}}\n🔗 {{url}}\n📅 {{published}}"
 # Unique identifier field (default: "id")
 uniqueKey = "id"
 
-# Throttling delay between messages in milliseconds (default: 1000)
-throttleDelay = 2000
+# DEPRECATED: throttleDelay is no longer used - use cronSchedule instead for timing
+# The cron schedule above controls when new messages are posted
+# throttleDelay = 2000
 
 # Cache configuration (optional)
 [bot.providers.config.cache]
@@ -329,7 +330,8 @@ filePath = "./cache/rss-feed-cache.json"    # Cache file path (default: ./cache/
 command = "curl -s 'https://api.example.com/news' | jq '[.articles[] | {id: .id, title: .title, summary: .summary, url: .link}]'"
 template = "📰 {{title}}\n\n{{summary}}\n\n🔗 Read more: {{url}}"
 uniqueKey = "id"
-throttleDelay = 3000  # 3 seconds between posts
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 3000
 
 # GitHub Releases Monitor
 command = "curl -s 'https://api.github.com/repos/owner/repo/releases' | jq '[.[] | {id: .id, name: .name, tag: .tag_name, url: .html_url}] | .[0:3]'"
@@ -345,13 +347,23 @@ uniqueKey = "mention_id"
 command = "curl -s 'http://monitoring.local/api/alerts' | jq '[.alerts[] | select(.status == \"firing\") | {id: .id, service: .labels.service, message: .annotations.summary}]'"
 template = "🚨 Alert: {{service}}\n{{message}}"
 uniqueKey = "id"
-throttleDelay = 5000  # 5 seconds between alerts
+# DEPRECATED: Use cronSchedule for timing instead  
+# throttleDelay = 5000
 
 # E-commerce Product Updates
 command = "curl -s 'https://api.shop.com/products/new' | jq '[.products[] | {sku: .sku, name: .name, price: .price, category: .category}]'"
 template = "🛍️ New Product: {{name}}\n💰 Price: ${{price}}\n📂 Category: {{category}}"
 uniqueKey = "sku"
 ```
+
+#### How It Works
+
+The MultiJSONCommand provider processes one item per execution:
+
+1. **First execution**: Processes the first unprocessed item from the JSON array
+2. **Subsequent executions**: Processes the next unprocessed item (previous items are cached)
+3. **When all items are processed**: Returns empty (no message posted) until new items appear
+4. **Timing**: Controlled by the `cronSchedule` - each cron execution processes one item
 
 #### Cache Configuration
 

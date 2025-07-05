@@ -44,7 +44,8 @@ template = """📰 {{title}}
 uniqueKey = "id"
 
 # 5 seconds between posts to avoid flooding
-throttleDelay = 5000
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 5000
 
 # Cache configuration
 [bot.providers.config.cache]
@@ -91,7 +92,8 @@ template = """🚀 New Release: {{repo}}
 #GitHub #Release #{{repo}}"""
 
 uniqueKey = "id"
-throttleDelay = 10000  # 10 seconds between release announcements
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 10000  # 10 seconds between release announcements
 
 [bot.providers.config.cache]
 enabled = true
@@ -136,7 +138,8 @@ template = """🚨 Service Alert
 #SystemAlert #{{service}} #{{hostname}}"""
 
 uniqueKey = "id"
-throttleDelay = 2000
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 2000
 
 [bot.providers.config.cache]
 enabled = true
@@ -167,7 +170,8 @@ template = """🛍️ New Product Available!
 #NewProduct #{{category}} #Shopping"""
 
 uniqueKey = "sku"
-throttleDelay = 8000  # 8 seconds between product announcements
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 8000  # 8 seconds between product announcements
 
 [bot.providers.config.cache]
 enabled = true
@@ -197,7 +201,8 @@ template = """⚠️ Weather Alert
 #WeatherAlert #{{severity}}"""
 
 uniqueKey = "id"
-throttleDelay = 1000
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 1000
 
 [bot.providers.config.cache]
 enabled = true
@@ -227,7 +232,8 @@ template = """💬 Brand Mention
 #BrandMention #{{platform}}"""
 
 uniqueKey = "mention_id"
-throttleDelay = 3000
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 3000
 
 [bot.providers.config.cache]
 enabled = true
@@ -259,7 +265,8 @@ template = """📈 Crypto Alert
 #Crypto #{{symbol}} #PriceAlert"""
 
 uniqueKey = "alert_id"
-throttleDelay = 2000
+# DEPRECATED: Use cronSchedule for timing instead
+# throttleDelay = 2000
 
 [bot.providers.config.cache]
 enabled = true
