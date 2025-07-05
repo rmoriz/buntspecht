@@ -28,6 +28,9 @@ buntspecht-*.exe
 # Configuration files (contain secrets)
 config.toml
 
+# Cache directories (runtime data)
+cache/
+
 # Logs
 logs
 *.log
