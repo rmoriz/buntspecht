@@ -67,8 +67,9 @@ template = """🚲 Neue Radweg-Meldung in München
 # Use ID as unique identifier to avoid duplicate posts
 uniqueKey = "id"
 
-# 10 seconds between posts to avoid flooding
-throttleDelay = 10000
+# DEPRECATED: throttleDelay is no longer used - use cronSchedule instead for timing
+# The cron schedule above (every 2 hours) controls when new messages are posted
+# throttleDelay = 10000
 
 # Cache configuration
 [bot.providers.config.cache]
