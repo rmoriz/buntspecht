@@ -28,7 +28,7 @@ export interface MultiJsonCommandProviderConfig extends MessageProviderConfig {
   env?: Record<string, string>; // Environment variables
   maxBuffer?: number; // Maximum buffer size for stdout/stderr (default: 1024 * 1024)
   uniqueKey?: string; // Unique key field name (default: "id")
-  throttleDelay?: number; // Delay between messages in milliseconds (default: 1000)
+  throttleDelay?: number; // DEPRECATED: Use cron schedule instead for timing between messages
   cache?: {
     enabled?: boolean; // Enable caching (default: true)
     ttl?: number; // Time to live in milliseconds (default: 1209600000 = 14 days)
@@ -90,9 +90,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Generates messages by executing the configured command, parsing JSON array output,
-   * and applying the template for each object
-   * Note: This method returns the first message, but the provider will handle multiple messages internally
+   * Generates a single message by executing the configured command, parsing JSON array output,
+   * and returning the next unprocessed object as a message
    */
   public async generateMessage(): Promise<string> {
     this.logger?.debug(`Executing command: "${this.command}"`);
@@ -153,11 +152,18 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Validate unique keys
       this.validateUniqueKeys(objects);
       
-      // Process all objects and generate messages
-      const messages = await this.processObjects(objects);
+      // Find the first unprocessed object
+      const nextObject = await this.findNextUnprocessedObject(objects);
       
-      // Return the first message (for compatibility with MessageProvider interface)
-      return messages[0] || '';
+      if (!nextObject) {
+        this.logger?.info('All objects have been processed (cached), no new messages to send');
+        return '';
+      }
+      
+      // Process the single object
+      const message = await this.processSingleObject(nextObject);
+      
+      return message;
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -167,14 +173,12 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Processes all objects and generates messages with throttling
+   * Finds the first unprocessed object from the array
    */
-  private async processObjects(objects: Record<string, unknown>[]): Promise<string[]> {
-    const messages: string[] = [];
-    const newItems: Record<string, unknown>[] = [];
+  private async findNextUnprocessedObject(objects: Record<string, unknown>[]): Promise<Record<string, unknown> | null> {
     let cachedCount = 0;
     
-    // Filter out cached items
+    // Find the first non-cached item
     for (const obj of objects) {
       const uniqueId = String(obj[this.uniqueKey]);
       
@@ -187,60 +191,65 @@ export class MultiJsonCommandProvider implements MessageProvider {
           this.telemetry.incrementCounter('messages_cached_skip', 1, { provider: this.getProviderName() });
         }
       } else {
-        newItems.push(obj);
+        if (cachedCount > 0) {
+          this.logger?.info(`Skipped ${cachedCount} cached items, found 1 new item to process`);
+        }
+        
+        // Record cache performance metrics
+        if (this.telemetry && this.cacheEnabled) {
+          this.recordCacheMetrics();
+        }
+        
+        return obj;
       }
     }
     
     if (cachedCount > 0) {
-      this.logger?.info(`Skipped ${cachedCount} cached items, processing ${newItems.length} new items`);
+      this.logger?.info(`Skipped ${cachedCount} cached items, no new items to process`);
     }
-
+    
     // Record cache performance metrics
     if (this.telemetry && this.cacheEnabled) {
       this.recordCacheMetrics();
     }
     
-    // Process new items
-    for (let i = 0; i < newItems.length; i++) {
-      const obj = newItems[i];
+    return null;
+  }
+
+  /**
+   * Processes a single object and generates a message
+   */
+  private async processSingleObject(obj: Record<string, unknown>): Promise<string> {
+    try {
+      const uniqueId = String(obj[this.uniqueKey]);
       
-      try {
-        const uniqueId = String(obj[this.uniqueKey]);
-        
-        // Apply template with JSON variables
-        const message = this.applyTemplate(this.template, obj);
-        messages.push(message);
-        
-        this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}": "${message}"`);
-        
-        // Add to cache after successful message generation
-        await this.addToCache(uniqueId);
-        
-        // Record telemetry
-        if (this.telemetry) {
-          this.telemetry.incrementCounter('messages_generated', 1, { provider: this.getProviderName() });
-        }
-        
-        // Apply throttling delay between messages (except for the last one)
-        if (i < newItems.length - 1 && this.throttleDelay > 0) {
-          this.logger?.debug(`Applying throttle delay of ${this.throttleDelay}ms`);
-          await this.sleep(this.throttleDelay);
-        }
-        
-      } catch (error) {
-        const uniqueId = obj[this.uniqueKey];
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger?.error(`Failed to process object with ${this.uniqueKey}="${uniqueId}": ${errorMessage}`);
-        
-        // Record telemetry for errors
-        if (this.telemetry) {
-          this.telemetry.incrementCounter('messages_generation_errors', 1, { provider: this.getProviderName() });
-        }
-        // Continue processing other objects
+      // Apply template with JSON variables
+      const message = this.applyTemplate(this.template, obj);
+      
+      this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}": "${message}"`);
+      
+      // Add to cache after successful message generation
+      await this.addToCache(uniqueId);
+      
+      // Record telemetry
+      if (this.telemetry) {
+        this.telemetry.incrementCounter('messages_generated', 1, { provider: this.getProviderName() });
       }
+      
+      return message;
+      
+    } catch (error) {
+      const uniqueId = obj[this.uniqueKey];
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger?.error(`Failed to process object with ${this.uniqueKey}="${uniqueId}": ${errorMessage}`);
+      
+      // Record telemetry for errors
+      if (this.telemetry) {
+        this.telemetry.incrementCounter('messages_generation_errors', 1, { provider: this.getProviderName() });
+      }
+      
+      throw error;
     }
-    
-    return messages;
   }
 
   /**
@@ -297,12 +306,6 @@ export class MultiJsonCommandProvider implements MessageProvider {
     }, obj);
   }
 
-  /**
-   * Sleep utility for throttling
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 
   /**
    * Loads cache from persistent storage
@@ -588,7 +591,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.logger.info(`Initialized MultiJsonCommandProvider "${this.providerName}" with command: "${this.command}"`);
     this.logger.info(`Template: "${this.template}"`);
     this.logger.info(`Unique key: "${this.uniqueKey}"`);
-    this.logger.info(`Throttle delay: ${this.throttleDelay}ms`);
+    this.logger.info(`Throttle delay: ${this.throttleDelay}ms (DEPRECATED: Use cron schedule for timing)`);
     
     // Log cache configuration
     if (this.cacheEnabled) {

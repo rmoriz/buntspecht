@@ -1,0 +1,82 @@
+# Munich Bike Reports Configuration
+# Configuration for parsing Munich bike reporting platform JSON data
+# This configuration processes bike infrastructure reports from Munich
+
+# Fediverse/Mastodon Account
+[[accounts]]
+name = "munich-bike-account"
+instance = "https://mastodon.social"  # Replace with your Mastodon instance
+accessToken = "your-access-token-here"  # Replace with your access token
+
+# Bot Configuration
+[bot]
+
+# Munich Bike Reports Provider
+[[bot.providers]]
+name = "munich-bike-reports"
+type = "multijsoncommand"
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["munich-bike-account"]
+
+[bot.providers.config]
+# Command to output your JSON data (replace this with your actual data source)
+# For now, this is a placeholder - you'll need to replace this with your actual command
+# that fetches or outputs the JSON data you provided
+command = """echo '[
+  {
+    "id": 2035653,
+    "title": "Radweg endet in Sackgasse",
+    "url": "https://meldeplattform-rad.muenchenunterwegs.de/bms/2035653",
+    "pub_date": "Wed, 25 Jun 2025 14:47:55 +0000",
+    "creation_date": "25.06.2025",
+    "address": "Paul-Heyse-Straße 23, 80336 München",
+    "borough": "Ludwigsvorstadt-Isarvorstadt",
+    "description": "Aktuell endet der Radweg in der Paul Heyse Straße in einer abgesperrten Sackgasse in Richtung Paul Heyse Unterführung \\n\\nAntwort von Landeshauptstadt München Vielen Dank für Ihre Meldung. Wir werden dieser schnellstmöglich nachgehen und an die zuständige Dienstelle zur Überprüfung weiterleiten. Soweit erforderlich, wird diese die notwendigen Maßnahmen veranlassen.",
+    "cached": false,
+    "html_length": 26696
+  },
+  {
+    "id": 2035073,
+    "title": "Übergang kaum möglich",
+    "url": "https://meldeplattform-rad.muenchenunterwegs.de/bms/2035073",
+    "pub_date": "Wed, 25 Jun 2025 10:43:56 +0000",
+    "creation_date": "25.06.2025",
+    "address": "Postfach 801112, 81611 München",
+    "borough": "Altstadt-Lehel",
+    "description": "Auf der friedrich-Kreuzer Straße gibt es keinen Übergang für Räder und Fußgänger. Insbesondere aus der scharfenbergstrasse kommen viele Radfahrer. Dort ist viel Verkehr und für Kinder ist wegen der schmalen Radwege in der Umgebung kein anderer Weg und Übergang nutzbar. Hier wäre ein Zebrastreifen oder Ampel sehr hilfreich (Adresssuche nach: Friedrich-Kreuzer-strasse München) \\n\\nAntwort von Landeshauptstadt München Vielen Dank für Ihre Nachricht und den Vorschlag für eine mögliche Verbesserung der Verkehrssicherheit. Wir haben uns die von Ihnen geschilderte Situation angeschaut und konnten keinen dringenden Handlungsbedarf feststellen. Gemessen an den genannten Vorgaben erfordert die vor Ort bestehende Verkehrsführung keine unmittelbaren Maßnahmen. Die Friedrich-Creuzer-Straße befindet sich in einer Tempo-30-Zone, was bereits für den Radverkehr mehr Sicherheit bedeutet, da der Kfz-Verkehr hier langsamer fahren muss. Ein Fußgängerüberweg (Zebrastreifen) ist grundsätzli",
+    "cached": false,
+    "html_length": 29270
+  }
+]'"""
+
+# Template for bike report posts
+template = """🚲 Neue Radweg-Meldung in München
+
+📍 {{title}}
+🏘️ {{borough}}
+📍 {{address}}
+
+{{description}}
+
+🔗 {{url}}
+📅 {{creation_date}}
+
+#München #Radverkehr #Verkehrssicherheit #{{borough}}"""
+
+# Use ID as unique identifier to avoid duplicate posts
+uniqueKey = "id"
+
+# 10 seconds between posts to avoid flooding
+throttleDelay = 10000
+
+# Cache configuration
+[bot.providers.config.cache]
+enabled = true
+ttl = 1209600000  # 14 days
+maxSize = 1000
+filePath = "./cache/munich-bike-reports-cache.json"
+
+# Logging configuration
+[logging]
+level = "info"

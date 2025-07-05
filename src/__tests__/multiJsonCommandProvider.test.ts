@@ -291,7 +291,7 @@ describe('MultiJsonCommandProvider', () => {
       expect(logger.info).toHaveBeenCalledWith('Initialized MultiJsonCommandProvider "test-provider" with command: "echo \'[{"id": 1, "message": "test"}]\'"');
       expect(logger.info).toHaveBeenCalledWith('Template: "Message: {{message}}"');
       expect(logger.info).toHaveBeenCalledWith('Unique key: "id"');
-      expect(logger.info).toHaveBeenCalledWith('Throttle delay: 500ms');
+      expect(logger.info).toHaveBeenCalledWith('Throttle delay: 500ms (DEPRECATED: Use cron schedule for timing)');
     });
   });
 
@@ -310,15 +310,20 @@ describe('MultiJsonCommandProvider', () => {
       const provider = new MultiJsonCommandProvider(config);
       await provider.initialize(logger, undefined, 'test-provider');
 
-      // First run - should process all items
+      // First run - should process first item
       const result1 = await provider.generateMessage();
       expect(result1).toBe('Message: Hello');
       expect(logger.info).toHaveBeenCalledWith('Found 2 objects to process');
 
-      // Second run - should skip cached items
+      // Second run - should process second item (first is cached)
       const result2 = await provider.generateMessage();
-      expect(result2).toBe('');
-      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, processing 0 new items');
+      expect(result2).toBe('Message: World');
+      expect(logger.info).toHaveBeenCalledWith('Skipped 1 cached items, found 1 new item to process');
+
+      // Third run - should skip all cached items
+      const result3 = await provider.generateMessage();
+      expect(result3).toBe('');
+      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, no new items to process');
     });
 
     it('should process items when cache is disabled', async () => {
@@ -411,18 +416,22 @@ describe('MultiJsonCommandProvider', () => {
       });
       await provider.initialize(logger, undefined, 'test-provider-mixed');
 
-      // First run with two items
+      // First run with two items - processes first item
       const result1 = await provider.generateMessage();
       expect(result1).toBe('Message: Hello');
+
+      // Second run - processes second item (first is cached)
+      const result2a = await provider.generateMessage();
+      expect(result2a).toBe('Message: World');
 
       // Manually update the command to include a third item
       // This simulates getting new data from the external command
       (provider as unknown as { command: string }).command = `echo '[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}, {"id": 3, "message": "New"}]'`;
 
-      // Second run with three items - should only process the new one
-      const result2 = await provider.generateMessage();
-      expect(result2).toBe('Message: New'); // Should return the new item's message
-      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, processing 1 new items');
+      // Third run with three items - should only process the new one
+      const result3 = await provider.generateMessage();
+      expect(result3).toBe('Message: New'); // Should return the new item's message
+      expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, found 1 new item to process');
     });
   });
 });
