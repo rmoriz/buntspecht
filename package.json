@@ -1,6 +1,6 @@
 {
   "name": "buntspecht",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A reliable Fediverse bot for automated messages with flexible sources",
   "main": "dist/index.js",
   "scripts": {
