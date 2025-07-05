@@ -27,7 +27,15 @@ export class ConfigLoader {
       throw new Error('No configuration file found. Please provide a config.toml file.');
     }
 
-    return this.parseConfigFile(configPath);
+    // Validate config file is readable
+    this.validateConfigFileReadable(configPath);
+
+    const config = this.parseConfigFile(configPath);
+    
+    // Validate cache files are writable
+    this.validateCacheFilesWritable(config);
+
+    return config;
   }
 
   private static findConfigPath(cliOptions: CliOptions): string | null {
@@ -221,6 +229,84 @@ export class ConfigLoader {
         enabled: false,
       },
     };
+  }
+
+  /**
+   * Validates that the config file is readable
+   */
+  private static validateConfigFileReadable(configPath: string): void {
+    try {
+      fs.accessSync(configPath, fs.constants.R_OK);
+    } catch (error) {
+      throw new Error(`Configuration file is not readable: ${configPath}. Please check file permissions.`);
+    }
+  }
+
+  /**
+   * Validates that cache files specified in provider configurations are writable
+   */
+  private static validateCacheFilesWritable(config: BotConfig): void {
+    const cacheFilePaths = new Set<string>();
+    
+    // Extract cache file paths from providers
+    for (const provider of config.bot.providers) {
+      if (provider.type === 'multijsoncommand' && provider.config.cache) {
+        const cacheConfig = provider.config.cache as { filePath?: string };
+        if (cacheConfig.filePath) {
+          cacheFilePaths.add(cacheConfig.filePath);
+        } else {
+          // Add default cache file path
+          cacheFilePaths.add('./cache/multijson-cache.json');
+        }
+      }
+    }
+
+    // Validate each unique cache file path
+    for (const cacheFilePath of cacheFilePaths) {
+      this.validateCacheFileWritable(cacheFilePath);
+    }
+  }
+
+  /**
+   * Validates that a cache file path is writable
+   */
+  private static validateCacheFileWritable(cacheFilePath: string): void {
+    const resolvedPath = path.resolve(cacheFilePath);
+    const cacheDir = path.dirname(resolvedPath);
+    
+    // Ensure cache directory exists
+    try {
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+    } catch (error) {
+      throw new Error(`Cannot create cache directory: ${cacheDir}. Please check directory permissions.`);
+    }
+
+    // Check if cache file exists and is writable, or if directory is writable for new files
+    if (fs.existsSync(resolvedPath)) {
+      try {
+        fs.accessSync(resolvedPath, fs.constants.W_OK);
+      } catch (error) {
+        throw new Error(`Cache file is not writable: ${resolvedPath}. Please check file permissions.`);
+      }
+    } else {
+      // File doesn't exist, check if we can write to the directory
+      try {
+        fs.accessSync(cacheDir, fs.constants.W_OK);
+      } catch (error) {
+        throw new Error(`Cache directory is not writable: ${cacheDir}. Please check directory permissions.`);
+      }
+      
+      // Test write by creating and immediately deleting a temporary file
+      const testFile = path.join(cacheDir, '.buntspecht_write_test');
+      try {
+        fs.writeFileSync(testFile, '');
+        fs.unlinkSync(testFile);
+      } catch (error) {
+        throw new Error(`Cannot write to cache directory: ${cacheDir}. Please check directory permissions.`);
+      }
+    }
   }
 
   /**
