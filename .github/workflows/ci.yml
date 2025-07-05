@@ -32,14 +32,6 @@ jobs:
       
     - name: Run tests
       run: bun run test:coverage
-      
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      if: matrix.bun-version == '1.2.17'
-      with:
-        file: ./coverage/lcov.info
-        flags: unittests
-        name: codecov-umbrella
 
   build:
     needs: test
