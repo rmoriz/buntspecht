@@ -145,15 +145,13 @@ export class ConfigLoader {
 
     // Validate webhook section if present
     const webhook = config.webhook as Record<string, unknown> | undefined;
-    if (webhook) {
-      if (webhook.enabled === true) {
-        if (!webhook.secret || typeof webhook.secret !== 'string' || webhook.secret.trim() === '') {
-          throw new Error('Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.');
-        }
-        
-        if (webhook.port && (typeof webhook.port !== 'number' || webhook.port < 1 || webhook.port > 65535)) {
-          throw new Error('Invalid webhook port. Must be a number between 1 and 65535.');
-        }
+    if (webhook && webhook.enabled === true) {
+      if (!webhook.secret || typeof webhook.secret !== 'string' || webhook.secret.trim() === '') {
+        throw new Error('Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.');
+      }
+      
+      if (!webhook.port || typeof webhook.port !== 'number' || webhook.port < 1 || webhook.port > 65535) {
+        throw new Error('Invalid webhook port. Must be a number between 1 and 65535.');
       }
     }
 
