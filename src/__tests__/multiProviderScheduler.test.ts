@@ -205,6 +205,50 @@ describe('MultiProviderScheduler', () => {
 
       expect(logger.error).toHaveBeenCalledWith('Failed to execute task for provider "test-provider":', expect.any(Error));
     });
+
+    it('should skip posting when provider generates empty message', async () => {
+      // Create a mock provider that returns empty message
+      const mockProvider = {
+        generateMessage: jest.fn().mockResolvedValue(''),
+        getProviderName: jest.fn().mockReturnValue('test-provider'),
+        initialize: jest.fn().mockResolvedValue(undefined)
+      };
+
+      // Replace the provider in the scheduler's internal scheduledProviders array
+      const scheduledProviders = (scheduler as any).scheduledProviders;
+      const existingProvider = scheduledProviders.find((p: any) => p.name === 'test-provider');
+      if (existingProvider) {
+        existingProvider.provider = mockProvider;
+      }
+
+      await scheduler.executeProviderTaskNow('test-provider');
+
+      expect(mockProvider.generateMessage).toHaveBeenCalled();
+      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith('Provider "test-provider" generated empty message, skipping post');
+    });
+
+    it('should skip posting when provider generates whitespace-only message', async () => {
+      // Create a mock provider that returns whitespace-only message
+      const mockProvider = {
+        generateMessage: jest.fn().mockResolvedValue('   \n\t  '),
+        getProviderName: jest.fn().mockReturnValue('test-provider'),
+        initialize: jest.fn().mockResolvedValue(undefined)
+      };
+
+      // Replace the provider in the scheduler's internal scheduledProviders array
+      const scheduledProviders = (scheduler as any).scheduledProviders;
+      const existingProvider = scheduledProviders.find((p: any) => p.name === 'test-provider');
+      if (existingProvider) {
+        existingProvider.provider = mockProvider;
+      }
+
+      await scheduler.executeProviderTaskNow('test-provider');
+
+      expect(mockProvider.generateMessage).toHaveBeenCalled();
+      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith('Provider "test-provider" generated empty message, skipping post');
+    });
   });
 
   describe('scheduler lifecycle', () => {

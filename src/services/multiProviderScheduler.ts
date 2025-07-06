@@ -212,6 +212,13 @@ export class MultiProviderScheduler {
         'provider.message_length': message.length,
       });
 
+      // Check if message is empty - if so, skip posting
+      if (!message || message.trim() === '') {
+        this.logger.info(`Provider "${providerName}" generated empty message, skipping post`);
+        span?.setStatus({ code: 1 }); // OK
+        return;
+      }
+
       // Determine visibility: push provider specific > provider config > default (unlisted)
       let finalVisibility = providerConfig.visibility;
       if (provider.getProviderName() === 'push') {
