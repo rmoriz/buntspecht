@@ -5,16 +5,18 @@
 
 <img src="buntspecht-header.jpeg" alt="Buntspecht Header"/>
 
-Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nach Zeitplan postet. Unterstützt verschiedene Nachrichtenquellen wie statische Texte oder externe Kommandos.
+Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**, **Bluesky** und andere Plattformen, der automatisch Nachrichten nach Zeitplan postet. Unterstützt verschiedene Nachrichtenquellen wie statische Texte oder externe Kommandos mit plattformübergreifenden Posting-Funktionen.
 
 ## Features
 
+- 🌐 **Multi-Plattform-Unterstützung**: Posten auf **Mastodon**, **Bluesky** und andere Social Media Plattformen
 - 🤖 Automatisches Posten von Nachrichten nach Zeitplan
 - 📨 **Mehrere Nachrichtenquellen**: Statische Texte, externe Kommandos, JSON-basierte Templates oder Push-Benachrichtigungen
 - 🔄 **Multi-Provider-Unterstützung**: Mehrere Provider parallel mit individuellen Zeitplänen
 - 🔔 **Push-Provider**: Event-gesteuerte Nachrichten für Webhooks, Alerts und externe Integrationen
-- 🌐 **Multi-Account-Unterstützung**: Mehrere Fediverse/Mastodon-Accounts mit eigenen Access-Tokens
-- 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts posten
+- 🔀 **Plattformübergreifendes Posten**: Einzelne Provider können gleichzeitig an Mastodon- und Bluesky-Accounts posten
+- 🌐 **Multi-Account-Unterstützung**: Mehrere Accounts über verschiedene Plattformen mit eigener Authentifizierung
+- 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts über Plattformen hinweg posten
 - 👁️ **Sichtbarkeits-Kontrolle**: Konfigurierbare Nachrichtensichtbarkeit (öffentlich, ungelistet, privat, direkt) pro Account, Provider oder Webhook-Anfrage
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
@@ -22,7 +24,7 @@ Ein TypeScript-basierter Mastodon/Fediverse-Bot, der automatisch Nachrichten nac
 - 🧪 Vollständige Testabdeckung (161+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
-- 📡 Moderne Mastodon-API-Integration mit masto.js
+- 📡 Moderne API-Integration mit masto.js (Mastodon) und @atproto/api (Bluesky)
 - 🔧 Erweiterbare Provider-Architektur
 - 📊 **OpenTelemetry-Integration**: Monitoring, Tracing und Metriken für Observability
 - ⚡ **Bun-Runtime**: Schnellere Performance und native TypeScript-Unterstützung
@@ -101,11 +103,19 @@ nano config.toml
 ### Konfigurationsformat
 
 ```toml
-# Fediverse/Mastodon Accounts
+# Social Media Accounts - Mastodon und Bluesky
 [[accounts]]
-name = "main-account"
+name = "mastodon-account"
+type = "mastodon"  # Account-Typ (Standard: mastodon)
 instance = "https://mastodon.social"
-accessToken = "dein-access-token-hier"
+accessToken = "dein-mastodon-access-token-hier"
+
+[[accounts]]
+name = "bluesky-account"
+type = "bluesky"  # Account-Typ für Bluesky
+instance = "https://bsky.social"  # Optional: Standard ist https://bsky.social
+identifier = "deinhandle.bsky.social"  # Dein Bluesky-Handle oder DID
+password = "dein-app-passwort"  # App-Passwort aus den Bluesky-Einstellungen
 
 [bot]
 # Multi-Provider Konfiguration
@@ -948,11 +958,57 @@ cronSchedule = "0 9 * * 1"
 cronSchedule = "*/15 9-17 * * 1-5"
 ```
 
+## Bluesky-Integration
+
+Buntspecht unterstützt jetzt **Bluesky** neben Mastodon und ermöglicht plattformübergreifende Social Media Automatisierung.
+
+### Bluesky-Account-Einrichtung
+
+1. **Erstellen Sie ein App-Passwort** in Ihren Bluesky-Einstellungen (nicht Ihr Hauptpasswort!)
+2. **Konfigurieren Sie Ihren Account** in der TOML-Datei:
+
+```toml
+[[accounts]]
+name = "mein-bluesky"
+type = "bluesky"
+instance = "https://bsky.social"  # Optional: Standard ist https://bsky.social
+identifier = "deinhandle.bsky.social"  # Ihr Bluesky-Handle oder DID
+password = "ihr-app-passwort"  # App-Passwort aus den Bluesky-Einstellungen
+```
+
+### Plattformübergreifendes Posten
+
+Posten Sie gleichzeitig auf Mastodon und Bluesky:
+
+```toml
+[[bot.providers]]
+name = "plattformuebergreifende-ankuendigungen"
+type = "ping"
+cronSchedule = "0 12 * * *"  # Täglich um 12:00 Uhr
+enabled = true
+accounts = ["mastodon-haupt", "bluesky-haupt"]  # Postet auf beide Plattformen!
+
+[bot.providers.config]
+message = "🤖 Tägliches Update von unserem Bot! #automation #crossplatform"
+```
+
+### Plattform-spezifische Features
+
+- **Mastodon**: Vollständige Sichtbarkeitskontrolle (öffentlich, ungelistet, privat, direkt)
+- **Bluesky**: Alle Posts sind öffentlich (Sichtbarkeitseinstellungen werden ignoriert)
+- **Zeichenlimits**: Mastodon (500), Bluesky (300) - halten Sie Nachrichten unter 280 für Kompatibilität
+- **Authentifizierung**: Mastodon verwendet Access-Tokens, Bluesky verwendet App-Passwörter
+
+### Bluesky-Konfigurationsbeispiele
+
+Siehe `config.bluesky.example.toml` für umfassende plattformübergreifende Konfigurationsbeispiele.
+
 ## Technologien
 
 ### Core Dependencies
 
 - **[masto.js](https://github.com/neet/masto.js)** (v6.8.0): Moderne TypeScript-Bibliothek für Mastodon-API
+- **[@atproto/api](https://github.com/bluesky-social/atproto)** (v0.15.23): Offizielle Bluesky/AT Protocol API-Client
 - **[node-cron](https://github.com/node-cron/node-cron)** (v3.0.3): Cron-Job-Scheduling
 - **[toml](https://github.com/BinaryMuse/toml-node)** (v3.0.0): TOML-Konfigurationsdateien
 - **[commander](https://github.com/tj/commander.js)** (v11.1.0): CLI-Argument-Parsing

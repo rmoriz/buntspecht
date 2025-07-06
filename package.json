@@ -1,7 +1,7 @@
 {
   "name": "buntspecht",
   "version": "0.5.1",
-  "description": "A reliable Fediverse bot for automated messages with flexible sources",
+  "description": "A reliable multi-platform social media bot for Mastodon, Bluesky and other platforms with flexible message sources",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -30,8 +30,11 @@
   },
   "keywords": [
     "mastodon",
+    "bluesky",
     "bot",
     "fediverse",
+    "social-media",
+    "atproto",
     "typescript"
   ],
   "author": "Moriz GmbH, Muenchen/Germany <info@moriz.com>",

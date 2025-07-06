@@ -7,16 +7,18 @@
 
 <img src="buntspecht-header.jpeg" alt="Buntspecht Header"/>
 
-A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on schedule. Supports various message sources like static texts or external commands.
+A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Bluesky**, and other platforms that automatically posts messages on schedule. Supports various message sources like static texts or external commands with cross-platform posting capabilities.
 
 ## Features
 
+- 🌐 **Multi-Platform Support**: Post to **Mastodon**, **Bluesky**, and other social media platforms
 - 🤖 Automatic scheduled message posting
 - 📨 **Multiple message sources**: Static texts, external commands, JSON-based templates, or push notifications
 - 🔄 **Multi-provider support**: Multiple providers running in parallel with individual schedules
 - 🔔 **Push providers**: Event-driven messaging for webhooks, alerts, and external integrations
-- 🌐 **Multi-account support**: Multiple Fediverse/Mastodon accounts with their own access tokens
-- 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts
+- 🔀 **Cross-platform posting**: Single providers can post to both Mastodon and Bluesky accounts simultaneously
+- 🌐 **Multi-account support**: Multiple accounts across different platforms with their own authentication
+- 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts across platforms
 - 👁️ **Visibility control**: Configurable message visibility (public, unlisted, private, direct) per account, provider, or webhook request
 - ⚙️ Flexible configuration via TOML files
 - 🔍 Multiple configuration paths with priority order
@@ -24,7 +26,7 @@ A TypeScript-based Mastodon/Fediverse bot that automatically posts messages on s
 - 🧪 Complete test coverage (108+ tests)
 - 🐳 Docker support for CI/CD
 - 🛡️ TypeScript for type safety
-- 📡 Modern Mastodon API integration with masto.js
+- 📡 Modern API integration with masto.js (Mastodon) and @atproto/api (Bluesky)
 - 🔧 Extensible provider architecture
 - 📊 **OpenTelemetry integration**: Monitoring, tracing, and metrics for observability
 - ⚡ **Bun runtime**: Faster performance and native TypeScript support
@@ -103,11 +105,19 @@ nano config.toml
 ### Configuration Format
 
 ```toml
-# Fediverse/Mastodon Accounts
+# Social Media Accounts - Mastodon and Bluesky
 [[accounts]]
-name = "main-account"
+name = "mastodon-account"
+type = "mastodon"  # Account type (default: mastodon)
 instance = "https://mastodon.social"
-accessToken = "your-access-token-here"
+accessToken = "your-mastodon-access-token-here"
+
+[[accounts]]
+name = "bluesky-account"
+type = "bluesky"  # Account type for Bluesky
+instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
+identifier = "yourhandle.bsky.social"  # Your Bluesky handle or DID
+password = "your-app-password"  # App password from Bluesky settings
 
 [bot]
 # Multi-Provider Configuration
@@ -120,7 +130,7 @@ name = "hourly-ping"
 type = "ping"
 cronSchedule = "0 * * * *"  # Every hour
 enabled = true
-accounts = ["main-account"]  # Which accounts to post to
+accounts = ["mastodon-account", "bluesky-account"]  # Cross-platform posting!
 
 [bot.providers.config]
 message = "🤖 Hourly ping from Buntspecht!"
@@ -131,7 +141,7 @@ name = "daily-stats"
 type = "command"
 cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
 enabled = false
-accounts = ["main-account"]  # Which accounts to post to
+accounts = ["mastodon-account"]  # Mastodon only
 
 [bot.providers.config]
 command = "uptime"
@@ -728,19 +738,29 @@ Buntspecht supports multiple Fediverse/Mastodon accounts with their own access t
 First, configure multiple accounts:
 
 ```toml
-# Multiple Fediverse/Mastodon accounts
+# Multiple Social Media Accounts - Mastodon and Bluesky
 [[accounts]]
-name = "main-account"
+name = "mastodon-main"
+type = "mastodon"
 instance = "https://mastodon.social"
-accessToken = "your-main-account-token-here"
+accessToken = "your-mastodon-main-token-here"
 
 [[accounts]]
-name = "backup-account"
+name = "mastodon-backup"
+type = "mastodon"
 instance = "https://fosstodon.org"
-accessToken = "your-backup-account-token-here"
+accessToken = "your-mastodon-backup-token-here"
+
+[[accounts]]
+name = "bluesky-main"
+type = "bluesky"
+instance = "https://bsky.social"
+identifier = "yourhandle.bsky.social"
+password = "your-bluesky-app-password"
 
 [[accounts]]
 name = "work-account"
+type = "mastodon"
 instance = "https://your-company-instance.com"
 accessToken = "your-work-token-here"
 ```
@@ -917,7 +937,7 @@ enabled = true
 - **`buntspecht_posts_total`**: Number of successfully sent posts (with labels: account, provider)
 - **`buntspecht_errors_total`**: Number of errors (with labels: error_type, provider, account)
 - **`buntspecht_provider_execution_duration_seconds`**: Provider execution time (with label: provider)
-- **`buntspecht_active_connections`**: Number of active Mastodon connections
+- **`buntspecht_active_connections`**: Number of active social media connections (Mastodon + Bluesky)
 - **`buntspecht_rate_limit_hits_total`**: Number of rate limit hits (with labels: provider, current_count, limit)
 - **`buntspecht_rate_limit_resets_total`**: Number of rate limit resets (with label: provider)
 - **`buntspecht_rate_limit_current_count`**: Current rate limit usage count (with labels: provider, limit, usage_percentage)
@@ -926,6 +946,10 @@ enabled = true
 
 - **`mastodon.post_status`**: Mastodon post operations with attributes like:
   - `mastodon.accounts_count`: Number of target accounts
+- **`bluesky.post_status`**: Bluesky post operations with attributes like:
+  - `bluesky.accounts_count`: Number of target accounts
+- **`social_media.post_status`**: Cross-platform post operations with attributes like:
+  - `social_media.accounts_count`: Total number of target accounts
   - `mastodon.provider`: Provider name
   - `mastodon.message_length`: Message length
 
@@ -1023,11 +1047,57 @@ cronSchedule = "0 9 * * 1"
 cronSchedule = "*/15 9-17 * * 1-5"
 ```
 
+## Bluesky Integration
+
+Buntspecht now supports **Bluesky** alongside Mastodon, enabling cross-platform social media automation.
+
+### Bluesky Account Setup
+
+1. **Create an App Password** in your Bluesky settings (not your main password!)
+2. **Configure your account** in the TOML file:
+
+```toml
+[[accounts]]
+name = "my-bluesky"
+type = "bluesky"
+instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
+identifier = "yourhandle.bsky.social"  # Your Bluesky handle or DID
+password = "your-app-password"  # App password from Bluesky settings
+```
+
+### Cross-Platform Posting
+
+Post to both Mastodon and Bluesky simultaneously:
+
+```toml
+[[bot.providers]]
+name = "cross-platform-announcements"
+type = "ping"
+cronSchedule = "0 12 * * *"  # Daily at noon
+enabled = true
+accounts = ["mastodon-main", "bluesky-main"]  # Posts to both platforms!
+
+[bot.providers.config]
+message = "🤖 Daily update from our bot! #automation #crossplatform"
+```
+
+### Platform-Specific Features
+
+- **Mastodon**: Full visibility control (public, unlisted, private, direct)
+- **Bluesky**: All posts are public (visibility settings ignored)
+- **Character Limits**: Mastodon (500), Bluesky (300) - keep messages under 280 for compatibility
+- **Authentication**: Mastodon uses access tokens, Bluesky uses app passwords
+
+### Bluesky Configuration Examples
+
+See `config.bluesky.example.toml` for comprehensive cross-platform configuration examples.
+
 ## Technologies
 
 ### Core Dependencies
 
 - **[masto.js](https://github.com/neet/masto.js)** (v6.8.0): Modern TypeScript library for Mastodon API
+- **[@atproto/api](https://github.com/bluesky-social/atproto)** (v0.15.23): Official Bluesky/AT Protocol API client
 - **[node-cron](https://github.com/node-cron/node-cron)** (v3.0.3): Cron job scheduling
 - **[toml](https://github.com/BinaryMuse/toml-node)** (v3.0.0): TOML configuration files
 - **[commander](https://github.com/tj/commander.js)** (v11.1.0): CLI argument parsing
