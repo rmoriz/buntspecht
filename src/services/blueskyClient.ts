@@ -32,6 +32,30 @@ interface LinkMetadata {
   image?: string;
 }
 
+interface Facet {
+  index: {
+    byteStart: number;
+    byteEnd: number;
+  };
+  features: Array<{
+    $type: string;
+    tag?: string;
+    did?: string;
+  }>;
+}
+
+interface HashtagMatch {
+  hashtag: string;
+  start: number;
+  end: number;
+}
+
+interface MentionMatch {
+  handle: string;
+  start: number;
+  end: number;
+}
+
 export class BlueskyClient {
   private clients: Map<string, BlueskyAccountClient> = new Map();
   private config: BotConfig;
@@ -53,6 +77,97 @@ export class BlueskyClient {
     const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
     const matches = text.match(urlRegex);
     return matches || [];
+  }
+
+  /**
+   * Detects hashtags in text and returns their positions
+   */
+  private detectHashtags(text: string): HashtagMatch[] {
+    const hashtagRegex = /#[a-zA-Z0-9_]+/g;
+    const matches: HashtagMatch[] = [];
+    let match;
+
+    while ((match = hashtagRegex.exec(text)) !== null) {
+      matches.push({
+        hashtag: match[0].slice(1), // Remove the # symbol
+        start: match.index,
+        end: match.index + match[0].length,
+      });
+    }
+
+    return matches;
+  }
+
+  /**
+   * Detects mentions in text and returns their positions
+   */
+  private detectMentions(text: string): MentionMatch[] {
+    const mentionRegex = /@[a-zA-Z0-9._-]+(?:\.[a-zA-Z]{2,})?/g;
+    const matches: MentionMatch[] = [];
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      matches.push({
+        handle: match[0].slice(1), // Remove the @ symbol
+        start: match.index,
+        end: match.index + match[0].length,
+      });
+    }
+
+    return matches;
+  }
+
+  /**
+   * Creates facets for hashtags and mentions in the text
+   */
+  private createFacets(text: string): Facet[] {
+    const facets: Facet[] = [];
+    const textBytes = new TextEncoder().encode(text);
+
+    // Detect hashtags
+    const hashtags = this.detectHashtags(text);
+    for (const hashtag of hashtags) {
+      const startBytes = new TextEncoder().encode(text.slice(0, hashtag.start)).length;
+      const endBytes = new TextEncoder().encode(text.slice(0, hashtag.end)).length;
+
+      facets.push({
+        index: {
+          byteStart: startBytes,
+          byteEnd: endBytes,
+        },
+        features: [
+          {
+            $type: 'app.bsky.richtext.facet#tag',
+            tag: hashtag.hashtag,
+          },
+        ],
+      });
+    }
+
+    // Detect mentions
+    const mentions = this.detectMentions(text);
+    for (const mention of mentions) {
+      const startBytes = new TextEncoder().encode(text.slice(0, mention.start)).length;
+      const endBytes = new TextEncoder().encode(text.slice(0, mention.end)).length;
+
+      facets.push({
+        index: {
+          byteStart: startBytes,
+          byteEnd: endBytes,
+        },
+        features: [
+          {
+            $type: 'app.bsky.richtext.facet#mention',
+            did: `at://${mention.handle}`, // This is a simplified DID - in practice, you'd resolve the handle to a proper DID
+          },
+        ],
+      });
+    }
+
+    // Sort facets by start position
+    facets.sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+    return facets;
   }
 
   /**
@@ -204,10 +319,14 @@ export class BlueskyClient {
           // Check for URLs and create external embed if found
           const embed = await this.createExternalEmbed(message);
           
+          // Create facets for hashtags and mentions
+          const facets = this.createFacets(message);
+          
           const postData: {
             text: string;
             createdAt: string;
             embed?: ExternalEmbed;
+            facets?: Facet[];
           } = {
             text: message,
             createdAt: new Date().toISOString(),
@@ -216,6 +335,11 @@ export class BlueskyClient {
           if (embed) {
             postData.embed = embed;
             this.logger.debug(`Adding external embed for URL: ${embed.external.uri}`);
+          }
+
+          if (facets.length > 0) {
+            postData.facets = facets;
+            this.logger.debug(`Adding ${facets.length} facets for hashtags/mentions`);
           }
 
           const response = await accountClient.agent.post(postData);

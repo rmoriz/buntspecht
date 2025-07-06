@@ -197,6 +197,80 @@ describe('BlueskyClient', () => {
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
     });
 
+    it('should post status with facets for hashtags', async () => {
+      await client.postStatus('Hello world! #typescript #bluesky', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Hello world! #typescript #bluesky',
+        createdAt: expect.any(String),
+        facets: [
+          {
+            index: { byteStart: 13, byteEnd: 24 },
+            features: [{ $type: 'app.bsky.richtext.facet#tag', tag: 'typescript' }]
+          },
+          {
+            index: { byteStart: 25, byteEnd: 33 },
+            features: [{ $type: 'app.bsky.richtext.facet#tag', tag: 'bluesky' }]
+          }
+        ]
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should post status with facets for mentions', async () => {
+      await client.postStatus('Hello @alice.bsky.social and @bob.example.com!', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Hello @alice.bsky.social and @bob.example.com!',
+        createdAt: expect.any(String),
+        facets: [
+          {
+            index: { byteStart: 6, byteEnd: 24 },
+            features: [{ $type: 'app.bsky.richtext.facet#mention', did: 'at://alice.bsky.social' }]
+          },
+          {
+            index: { byteStart: 29, byteEnd: 45 },
+            features: [{ $type: 'app.bsky.richtext.facet#mention', did: 'at://bob.example.com' }]
+          }
+        ]
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should post status with both URL embed and facets', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Test Page</title><meta name="description" content="Test description"></head></html>'),
+      } as Response);
+
+      await client.postStatus('Check out https://example.com #awesome @friend.bsky.social', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check out https://example.com #awesome @friend.bsky.social',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com',
+            title: 'Test Page',
+            description: 'Test description'
+          }
+        },
+        facets: [
+          {
+            index: { byteStart: 30, byteEnd: 38 },
+            features: [{ $type: 'app.bsky.richtext.facet#tag', tag: 'awesome' }]
+          },
+          {
+            index: { byteStart: 39, byteEnd: 58 },
+            features: [{ $type: 'app.bsky.richtext.facet#mention', did: 'at://friend.bsky.social' }]
+          }
+        ]
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
     it('should throw error when no accounts specified', async () => {
       await expect(client.postStatus('Test message', [])).rejects.toThrow(
         'No accounts specified for posting'
