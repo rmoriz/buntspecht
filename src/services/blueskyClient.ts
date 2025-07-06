@@ -88,7 +88,7 @@ export class BlueskyClient {
         }
 
         try {
-          this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}): "${message}"`);
+          this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}) (${message.length} chars): "${message}"`);
           
           const response = await accountClient.agent.post({
             text: message,

@@ -284,20 +284,117 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
   /**
    * Applies a template string with variables from JSON data
-   * Supports syntax like {{variable}} and {{nested.property}}
+   * Supports syntax like {{variable}}, {{nested.property}}, and {{variable|trim:50}}
    */
   private applyTemplate(template: string, data: Record<string, unknown>): string {
-    return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-      const trimmedPath = path.trim();
-      const value = this.getNestedProperty(data, trimmedPath);
+    return template.replace(/\{\{([^}]+)\}\}/g, (match, expression) => {
+      const trimmedExpression = expression.trim();
+      
+      // Check if expression contains a function call (pipe syntax)
+      const pipeIndex = trimmedExpression.indexOf('|');
+      let path: string;
+      let functionCall: string | null = null;
+      
+      if (pipeIndex !== -1) {
+        path = trimmedExpression.substring(0, pipeIndex).trim();
+        functionCall = trimmedExpression.substring(pipeIndex + 1).trim();
+      } else {
+        path = trimmedExpression;
+      }
+      
+      const value = this.getNestedProperty(data, path);
       
       if (value === undefined || value === null) {
-        this.logger?.warn(`Template variable "${trimmedPath}" not found in JSON data`);
+        this.logger?.warn(`Template variable "${path}" not found in JSON data`);
         return match; // Return the original placeholder if variable not found
       }
       
-      return String(value);
+      let result = String(value);
+      
+      // Apply function if specified
+      if (functionCall) {
+        result = this.applyTemplateFunction(result, functionCall, path);
+      }
+      
+      return result;
     });
+  }
+
+  /**
+   * Applies a template function to a value
+   * Currently supports: trim:length
+   */
+  private applyTemplateFunction(value: string, functionCall: string, variablePath: string): string {
+    const colonIndex = functionCall.indexOf(':');
+    let functionName: string;
+    let functionArgs: string[] = [];
+    
+    if (colonIndex !== -1) {
+      functionName = functionCall.substring(0, colonIndex).trim();
+      const argsString = functionCall.substring(colonIndex + 1);
+      // Split by comma but preserve commas within the suffix argument
+      const firstCommaIndex = argsString.indexOf(',');
+      if (firstCommaIndex !== -1) {
+        functionArgs = [
+          argsString.substring(0, firstCommaIndex).trim(),
+          argsString.substring(firstCommaIndex + 1).trim()
+        ];
+      } else {
+        functionArgs = [argsString.trim()];
+      }
+    } else {
+      functionName = functionCall.trim();
+    }
+    
+    switch (functionName) {
+      case 'trim':
+        return this.trimFunction(value, functionArgs, variablePath);
+      default:
+        this.logger?.warn(`Unknown template function "${functionName}" for variable "${variablePath}"`);
+        return value; // Return original value if function is unknown
+    }
+  }
+
+  /**
+   * Trims a string to a specified maximum length
+   * Usage: {{variable|trim:50}} or {{variable|trim:50,...}}
+   * Args: [maxLength, suffix?]
+   */
+  private trimFunction(value: string, args: string[], variablePath: string): string {
+    if (args.length === 0) {
+      this.logger?.warn(`trim function requires at least one argument (maxLength) for variable "${variablePath}"`);
+      return value;
+    }
+    
+    const maxLengthStr = args[0];
+    const maxLength = parseInt(maxLengthStr, 10);
+    
+    if (isNaN(maxLength) || maxLength < 0) {
+      this.logger?.warn(`Invalid maxLength "${maxLengthStr}" for trim function on variable "${variablePath}". Must be a non-negative integer.`);
+      return value;
+    }
+    
+    if (value.length <= maxLength) {
+      return value; // No trimming needed
+    }
+    
+    // Optional suffix (default: "...")
+    const suffix = args.length > 1 ? args[1] : '...';
+    
+    // Special case: if maxLength is 0, return just the suffix
+    if (maxLength === 0) {
+      return suffix;
+    }
+    
+    // Ensure the suffix doesn't make the result longer than maxLength
+    const effectiveMaxLength = Math.max(0, maxLength - suffix.length);
+    
+    if (effectiveMaxLength <= 0) {
+      // If suffix is longer than maxLength, just return the suffix truncated
+      return suffix.substring(0, maxLength);
+    }
+    
+    return value.substring(0, effectiveMaxLength) + suffix;
   }
 
   /**

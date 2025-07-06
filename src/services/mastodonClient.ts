@@ -81,7 +81,7 @@ export class MastodonClient {
           // Determine visibility: parameter > account default > global default (unlisted)
           const finalVisibility = visibility || accountClient.config.defaultVisibility || 'unlisted';
           
-          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}': "${message}"`);
+          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}' (${message.length} chars): "${message}"`);
           
           const status = await accountClient.client.v1.statuses.create({
             status: message,

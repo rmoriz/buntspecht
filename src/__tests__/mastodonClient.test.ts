@@ -146,7 +146,7 @@ describe('MastodonClient', () => {
         status: 'Test message',
         visibility: 'unlisted',
       });
-      expect(logger.info).toHaveBeenCalledWith('Posting status to test-account (https://test.mastodon) with visibility \'unlisted\': "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to test-account (https://test.mastodon) with visibility \'unlisted\' (12 chars): "Test message"');
       expect(logger.info).toHaveBeenCalledWith('Status posted successfully to test-account. ID: 12345');
     });
 
@@ -170,8 +170,8 @@ describe('MastodonClient', () => {
       await multiClient.postStatus('Test message', ['account1', 'account2']);
 
       expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledTimes(2);
-      expect(logger.info).toHaveBeenCalledWith('Posting status to account1 (https://mastodon.social) with visibility \'unlisted\': "Test message"');
-      expect(logger.info).toHaveBeenCalledWith('Posting status to account2 (https://fosstodon.org) with visibility \'unlisted\': "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account1 (https://mastodon.social) with visibility \'unlisted\' (12 chars): "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account2 (https://fosstodon.org) with visibility \'unlisted\' (12 chars): "Test message"');
     });
 
     it('should throw error when no accounts specified', async () => {
