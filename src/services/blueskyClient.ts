@@ -219,9 +219,9 @@ export class BlueskyClient {
   }
 
   /**
-   * Creates an external embed for the first URL found in the text
+   * Creates an external embed for the first URL found in the text and returns both the embed and the URL to remove
    */
-  private async createExternalEmbed(text: string): Promise<ExternalEmbed | null> {
+  private async createExternalEmbed(text: string): Promise<{ embed: ExternalEmbed; urlToRemove: string } | null> {
     const urls = this.detectUrls(text);
     if (urls.length === 0) {
       return null;
@@ -236,15 +236,31 @@ export class BlueskyClient {
     }
 
     return {
-      $type: 'app.bsky.embed.external',
-      external: {
-        uri: url,
-        title: metadata.title || new URL(url).hostname,
-        description: metadata.description || '',
-        // Note: thumb (image) support would require uploading the image as a blob first
-        // This is more complex and can be added in a future enhancement
+      embed: {
+        $type: 'app.bsky.embed.external',
+        external: {
+          uri: url,
+          title: metadata.title || new URL(url).hostname,
+          description: metadata.description || '',
+          // Note: thumb (image) support would require uploading the image as a blob first
+          // This is more complex and can be added in a future enhancement
+        },
       },
+      urlToRemove: url,
     };
+  }
+
+  /**
+   * Removes a URL from the text and cleans up extra whitespace
+   */
+  private removeUrlFromText(text: string, urlToRemove: string): string {
+    // Remove the URL from the text
+    let cleanedText = text.replace(urlToRemove, '');
+    
+    // Clean up extra whitespace that might be left behind
+    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    
+    return cleanedText;
   }
 
   private async initializeClients(): Promise<void> {
@@ -316,10 +332,17 @@ export class BlueskyClient {
           this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}) (${message.length} chars): "${message}"`);
           
           // Check for URLs and create external embed if found
-          const embed = await this.createExternalEmbed(message);
+          const embedResult = await this.createExternalEmbed(message);
           
-          // Create facets for hashtags and mentions
-          const facets = this.createFacets(message);
+          // Determine the final text to use (with URL removed if embed was created)
+          let finalText = message;
+          if (embedResult) {
+            finalText = this.removeUrlFromText(message, embedResult.urlToRemove);
+            this.logger.debug(`Removed URL from text: "${embedResult.urlToRemove}"`);
+          }
+          
+          // Create facets for hashtags and mentions using the final text
+          const facets = this.createFacets(finalText);
           
           const postData: {
             text: string;
@@ -327,13 +350,13 @@ export class BlueskyClient {
             embed?: ExternalEmbed;
             facets?: Facet[];
           } = {
-            text: message,
+            text: finalText,
             createdAt: new Date().toISOString(),
           };
 
-          if (embed) {
-            postData.embed = embed;
-            this.logger.debug(`Adding external embed for URL: ${embed.external.uri}`);
+          if (embedResult) {
+            postData.embed = embedResult.embed;
+            this.logger.debug(`Adding external embed for URL: ${embedResult.embed.external.uri}`);
           }
 
           if (facets.length > 0) {

@@ -170,7 +170,7 @@ describe('BlueskyClient', () => {
       await client.postStatus('Check this out: https://example.com', ['test-bluesky']);
 
       expect(mockBskyAgent.post).toHaveBeenCalledWith({
-        text: 'Check this out: https://example.com',
+        text: 'Check this out:',
         createdAt: expect.any(String),
         embed: {
           $type: 'app.bsky.embed.external',
@@ -193,6 +193,30 @@ describe('BlueskyClient', () => {
       expect(mockBskyAgent.post).toHaveBeenCalledWith({
         text: 'Check this out: https://example.com',
         createdAt: expect.any(String)
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should remove URL from text when embed is successfully created', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Test Page</title><meta name="description" content="Test description"></head></html>'),
+      } as Response);
+
+      await client.postStatus('Check this out https://example.com and tell me what you think!', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check this out and tell me what you think!',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com',
+            title: 'Test Page',
+            description: 'Test description'
+          }
+        }
       });
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
     });
@@ -247,7 +271,7 @@ describe('BlueskyClient', () => {
       await client.postStatus('Check out https://example.com #awesome @friend.bsky.social', ['test-bluesky']);
 
       expect(mockBskyAgent.post).toHaveBeenCalledWith({
-        text: 'Check out https://example.com #awesome @friend.bsky.social',
+        text: 'Check out #awesome @friend.bsky.social',
         createdAt: expect.any(String),
         embed: {
           $type: 'app.bsky.embed.external',
@@ -259,11 +283,11 @@ describe('BlueskyClient', () => {
         },
         facets: [
           {
-            index: { byteStart: 30, byteEnd: 38 },
+            index: { byteStart: 10, byteEnd: 18 },
             features: [{ $type: 'app.bsky.richtext.facet#tag', tag: 'awesome' }]
           },
           {
-            index: { byteStart: 39, byteEnd: 58 },
+            index: { byteStart: 19, byteEnd: 38 },
             features: [{ $type: 'app.bsky.richtext.facet#mention', did: 'at://friend.bsky.social' }]
           }
         ]
