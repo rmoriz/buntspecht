@@ -24,6 +24,12 @@ export class MastodonClient {
 
   private initializeClients(): void {
     for (const accountConfig of this.config.accounts) {
+      // Only initialize Mastodon accounts (default type or explicitly set to mastodon)
+      const accountType = accountConfig.type || 'mastodon';
+      if (accountType !== 'mastodon') {
+        continue; // Skip non-Mastodon accounts
+      }
+
       if (!accountConfig.instance || !accountConfig.accessToken) {
         this.logger.error(`Mastodon account "${accountConfig.name}" missing required instance or accessToken`);
         continue;
@@ -40,7 +46,7 @@ export class MastodonClient {
         client,
       });
 
-      this.logger.debug(`Initialized client for account: ${accountConfig.name} (${accountConfig.instance})`);
+      this.logger.debug(`Initialized Mastodon client for account: ${accountConfig.name} (${accountConfig.instance})`);
     }
   }
 

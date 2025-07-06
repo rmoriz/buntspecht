@@ -104,11 +104,11 @@ export class ConfigLoader {
       }
       accountNames.add(account.name as string);
       
-      // Validate account type-specific requirements
+      // Validate account type-specific requirements based on what each client actually uses
       const accountType = account.type || 'mastodon';
       
       if (accountType === 'bluesky') {
-        // Bluesky accounts require identifier and password
+        // BlueskyClient requires: identifier and password
         if (!account.identifier || typeof account.identifier !== 'string') {
           throw new Error(`Bluesky account "${account.name}": Missing or invalid identifier (handle or DID)`);
         }
@@ -119,14 +119,16 @@ export class ConfigLoader {
         if (account.instance && typeof account.instance !== 'string') {
           throw new Error(`Bluesky account "${account.name}": Invalid instance (must be a string)`);
         }
+        // Don't enforce accessToken for Bluesky accounts (not used by BlueskyClient)
       } else {
-        // Mastodon and other accounts require instance and accessToken
+        // MastodonClient requires: instance and accessToken
         if (!account.instance || typeof account.instance !== 'string') {
-          throw new Error(`Account "${account.name}": Missing or invalid instance`);
+          throw new Error(`Mastodon account "${account.name}": Missing or invalid instance`);
         }
         if (!account.accessToken || typeof account.accessToken !== 'string') {
-          throw new Error(`Account "${account.name}": Missing or invalid accessToken`);
+          throw new Error(`Mastodon account "${account.name}": Missing or invalid accessToken`);
         }
+        // Don't enforce identifier/password for Mastodon accounts (not used by MastodonClient)
       }
     }
 
