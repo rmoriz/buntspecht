@@ -378,7 +378,15 @@ export class WebhookServer {
     if (forwarded) {
       return forwarded.split(',')[0].trim();
     }
-    return req.socket.remoteAddress || 'unknown';
+    
+    const remoteAddress = req.socket.remoteAddress || 'unknown';
+    
+    // Normalize IPv6-mapped IPv4 addresses to IPv4
+    if (remoteAddress.startsWith('::ffff:')) {
+      return remoteAddress.substring(7);
+    }
+    
+    return remoteAddress;
   }
 
   /**
