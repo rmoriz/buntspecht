@@ -215,8 +215,8 @@ describe('MultiProviderScheduler', () => {
       };
 
       // Replace the provider in the scheduler's internal scheduledProviders array
-      const scheduledProviders = (scheduler as any).scheduledProviders;
-      const existingProvider = scheduledProviders.find((p: any) => p.name === 'test-provider');
+      const scheduledProviders = (scheduler as unknown as { scheduledProviders: Array<{ name: string; provider: unknown }> }).scheduledProviders;
+      const existingProvider = scheduledProviders.find(p => p.name === 'test-provider');
       if (existingProvider) {
         existingProvider.provider = mockProvider;
       }
@@ -237,8 +237,8 @@ describe('MultiProviderScheduler', () => {
       };
 
       // Replace the provider in the scheduler's internal scheduledProviders array
-      const scheduledProviders = (scheduler as any).scheduledProviders;
-      const existingProvider = scheduledProviders.find((p: any) => p.name === 'test-provider');
+      const scheduledProviders = (scheduler as unknown as { scheduledProviders: Array<{ name: string; provider: unknown }> }).scheduledProviders;
+      const existingProvider = scheduledProviders.find(p => p.name === 'test-provider');
       if (existingProvider) {
         existingProvider.provider = mockProvider;
       }
