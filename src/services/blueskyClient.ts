@@ -9,6 +9,29 @@ interface BlueskyAccountClient {
   agent: BskyAgent;
 }
 
+interface ExternalEmbed {
+  $type: 'app.bsky.embed.external';
+  external: {
+    uri: string;
+    title: string;
+    description: string;
+    thumb?: {
+      $type: 'blob';
+      ref: {
+        $link: string;
+      };
+      mimeType: string;
+      size: number;
+    };
+  };
+}
+
+interface LinkMetadata {
+  title: string;
+  description: string;
+  image?: string;
+}
+
 export class BlueskyClient {
   private clients: Map<string, BlueskyAccountClient> = new Map();
   private config: BotConfig;
@@ -20,6 +43,94 @@ export class BlueskyClient {
     this.logger = logger;
     this.telemetry = telemetry;
     this.initializeClients();
+  }
+
+  /**
+   * Detects URLs in text using a comprehensive regex pattern
+   */
+  private detectUrls(text: string): string[] {
+    // Regex pattern to match URLs (http/https, with or without www)
+    const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
+    const matches = text.match(urlRegex);
+    return matches || [];
+  }
+
+  /**
+   * Fetches metadata for a URL by scraping basic HTML meta tags
+   */
+  private async fetchLinkMetadata(url: string): Promise<LinkMetadata | null> {
+    try {
+      this.logger.debug(`Fetching metadata for URL: ${url}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Buntspecht Bot/1.0 (+https://github.com/rmoriz/buntspecht)',
+        },
+        // Set a reasonable timeout
+        signal: AbortSignal.timeout(10000), // 10 seconds
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`Failed to fetch URL ${url}: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const html = await response.text();
+      
+      // Extract title
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const ogTitleMatch = html.match(/<meta[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const title = ogTitleMatch?.[1] || titleMatch?.[1] || new URL(url).hostname;
+
+      // Extract description
+      const descMatch = html.match(/<meta[^>]*name=["\']description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const ogDescMatch = html.match(/<meta[^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const description = ogDescMatch?.[1] || descMatch?.[1] || '';
+
+      // Extract image (optional for now, as uploading images to Bluesky requires additional steps)
+      const ogImageMatch = html.match(/<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const image = ogImageMatch?.[1] || undefined;
+
+      this.logger.debug(`Extracted metadata for ${url}: title="${title}", description="${description}"`);
+
+      return {
+        title: title.trim(),
+        description: description.trim(),
+        image,
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to fetch metadata for URL ${url}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Creates an external embed for the first URL found in the text
+   */
+  private async createExternalEmbed(text: string): Promise<ExternalEmbed | null> {
+    const urls = this.detectUrls(text);
+    if (urls.length === 0) {
+      return null;
+    }
+
+    // Use the first URL found for embedding
+    const url = urls[0];
+    const metadata = await this.fetchLinkMetadata(url);
+    
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      $type: 'app.bsky.embed.external',
+      external: {
+        uri: url,
+        title: metadata.title || new URL(url).hostname,
+        description: metadata.description || '',
+        // Note: thumb (image) support would require uploading the image as a blob first
+        // This is more complex and can be added in a future enhancement
+      },
+    };
   }
 
   private async initializeClients(): Promise<void> {
@@ -90,10 +201,24 @@ export class BlueskyClient {
         try {
           this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}) (${message.length} chars): "${message}"`);
           
-          const response = await accountClient.agent.post({
+          // Check for URLs and create external embed if found
+          const embed = await this.createExternalEmbed(message);
+          
+          const postData: {
+            text: string;
+            createdAt: string;
+            embed?: ExternalEmbed;
+          } = {
             text: message,
             createdAt: new Date().toISOString(),
-          });
+          };
+
+          if (embed) {
+            postData.embed = embed;
+            this.logger.debug(`Adding external embed for URL: ${embed.external.uri}`);
+          }
+
+          const response = await accountClient.agent.post(postData);
 
           this.logger.info(`Status posted successfully to Bluesky ${accountName}. URI: ${response.uri}`);
           this.telemetry.recordPost(accountName, provider || 'unknown');

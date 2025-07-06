@@ -141,13 +141,57 @@ describe('BlueskyClient', () => {
         uri: 'at://did:plc:test/app.bsky.feed.post/test123',
         cid: 'test-cid'
       });
+
+      // Mock fetch for URL metadata
+      global.fetch = jest.fn();
     });
 
-    it('should post status successfully to Bluesky account', async () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should post status successfully to Bluesky account without URLs', async () => {
       await client.postStatus('Test message', ['test-bluesky']);
 
       expect(mockBskyAgent.post).toHaveBeenCalledWith({
         text: 'Test message',
+        createdAt: expect.any(String)
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should post status with external embed when URL is detected', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Test Page</title><meta name="description" content="Test description"></head></html>'),
+      } as Response);
+
+      await client.postStatus('Check this out: https://example.com', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check this out: https://example.com',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com',
+            title: 'Test Page',
+            description: 'Test description'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should handle URL metadata fetch failure gracefully', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await client.postStatus('Check this out: https://example.com', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check this out: https://example.com',
         createdAt: expect.any(String)
       });
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
