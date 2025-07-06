@@ -207,7 +207,7 @@ accounts = ["test-account"]
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
-        'Account "test-account": Missing or invalid accessToken'
+        'Mastodon account "test-account": Missing or invalid accessToken'
       );
     });
 
