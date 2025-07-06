@@ -102,13 +102,15 @@ export class MastodonPingBot {
     
     for (const { accountName, account, instance, platform } of accountsInfo) {
       if (platform === 'mastodon') {
-        this.logger.info(`  ${accountName} (Mastodon): @${account.username}@${new URL(instance).hostname}`);
-        this.logger.info(`    Display Name: ${account.displayName}`);
-        this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+        const mastodonAccount = account as any;
+        this.logger.info(`  ${accountName} (Mastodon): @${mastodonAccount.username}@${new URL(instance).hostname}`);
+        this.logger.info(`    Display Name: ${mastodonAccount.displayName}`);
+        this.logger.info(`    Followers: ${mastodonAccount.followersCount}, Following: ${mastodonAccount.followingCount}`);
       } else if (platform === 'bluesky') {
-        this.logger.info(`  ${accountName} (Bluesky): @${account.handle}`);
-        this.logger.info(`    Display Name: ${account.displayName}`);
-        this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+        const blueskyAccount = account as any;
+        this.logger.info(`  ${accountName} (Bluesky): @${blueskyAccount.handle}`);
+        this.logger.info(`    Display Name: ${blueskyAccount.displayName}`);
+        this.logger.info(`    Followers: ${blueskyAccount.followersCount}, Following: ${blueskyAccount.followingCount}`);
       }
     }
     

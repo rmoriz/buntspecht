@@ -207,31 +207,37 @@ export class MultiProviderScheduler {
         'provider.accounts': providerConfig.accounts.join(','),
       });
 
-      const message = await provider.generateMessage();
-      span?.setAttributes({
-        'provider.message_length': message.length,
-      });
+      // Handle MultiJsonCommandProvider differently - generate messages per account for proper caching
+      if (provider.getProviderName() === 'multijsoncommand') {
+        await this.executeMultiJsonProviderPerAccount(provider, providerConfig, providerName, span);
+      } else {
+        // Standard behavior for other providers - generate once, post to all accounts
+        const message = await provider.generateMessage();
+        span?.setAttributes({
+          'provider.message_length': message.length,
+        });
 
-      // Check if message is empty - if so, skip posting
-      if (!message || message.trim() === '') {
-        this.logger.info(`Provider "${providerName}" generated empty message, skipping post`);
-        span?.setStatus({ code: 1 }); // OK
-        return;
-      }
+        // Check if message is empty - if so, skip posting
+        if (!message || message.trim() === '') {
+          this.logger.info(`Provider "${providerName}" generated empty message, skipping post`);
+          span?.setStatus({ code: 1 }); // OK
+          return;
+        }
 
-      // Determine visibility: push provider specific > provider config > default (unlisted)
-      let finalVisibility = providerConfig.visibility;
-      if (provider.getProviderName() === 'push') {
-        const pushProvider = provider as MessageProvider & PushProviderInterface;
-        if (typeof pushProvider.getVisibility === 'function') {
-          const pushVisibility = pushProvider.getVisibility();
-          if (pushVisibility) {
-            finalVisibility = pushVisibility;
+        // Determine visibility: push provider specific > provider config > default (unlisted)
+        let finalVisibility = providerConfig.visibility;
+        if (provider.getProviderName() === 'push') {
+          const pushProvider = provider as MessageProvider & PushProviderInterface;
+          if (typeof pushProvider.getVisibility === 'function') {
+            const pushVisibility = pushProvider.getVisibility();
+            if (pushVisibility) {
+              finalVisibility = pushVisibility;
+            }
           }
         }
-      }
 
-      await this.socialMediaClient.postStatus(message, providerConfig.accounts, providerName, finalVisibility);
+        await this.socialMediaClient.postStatus(message, providerConfig.accounts, providerName, finalVisibility);
+      }
       
       const durationSeconds = (Date.now() - startTime) / 1000;
       this.telemetry.recordProviderExecution(providerName, durationSeconds);
@@ -247,6 +253,71 @@ export class MultiProviderScheduler {
     } finally {
       span?.end();
     }
+  }
+
+  /**
+   * Executes MultiJsonCommandProvider per account for proper cache isolation
+   */
+  private async executeMultiJsonProviderPerAccount(
+    provider: MessageProvider, 
+    providerConfig: ProviderConfig, 
+    providerName: string,
+    span?: any
+  ): Promise<void> {
+    this.logger.debug(`Executing MultiJsonCommandProvider "${providerName}" per account for proper cache isolation`);
+    
+    const accountMessages: Array<{ account: string; message: string }> = [];
+    let totalMessageLength = 0;
+
+    // Generate message for each account independently
+    for (const accountName of providerConfig.accounts) {
+      try {
+        this.logger.debug(`Generating message for account "${accountName}" from provider "${providerName}"`);
+        
+        // Generate message with account-aware caching
+        const message = await provider.generateMessage(accountName);
+        
+        if (message && message.trim() !== '') {
+          accountMessages.push({ account: accountName, message });
+          totalMessageLength += message.length;
+          this.logger.debug(`Generated message for account "${accountName}": "${message}"`);
+        } else {
+          this.logger.debug(`Provider "${providerName}" generated empty message for account "${accountName}", skipping`);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to generate message for account "${accountName}" from provider "${providerName}":`, error);
+        // Continue with other accounts even if one fails
+      }
+    }
+
+    // Update span with aggregated metrics
+    span?.setAttributes({
+      'provider.accounts_with_messages': accountMessages.length,
+      'provider.total_message_length': totalMessageLength,
+      'provider.average_message_length': accountMessages.length > 0 ? Math.round(totalMessageLength / accountMessages.length) : 0,
+    });
+
+    if (accountMessages.length === 0) {
+      this.logger.info(`Provider "${providerName}" generated no messages for any account, skipping post`);
+      span?.setStatus({ code: 1 }); // OK
+      return;
+    }
+
+    // Determine visibility
+    const finalVisibility = providerConfig.visibility;
+
+    // Post messages to their respective accounts
+    for (const { account, message } of accountMessages) {
+      try {
+        await this.socialMediaClient.postStatus(message, [account], providerName, finalVisibility);
+        this.logger.info(`Successfully posted message from provider "${providerName}" to account "${account}"`);
+      } catch (error) {
+        this.logger.error(`Failed to post message from provider "${providerName}" to account "${account}":`, error);
+        // Continue with other accounts even if one fails
+      }
+    }
+
+    this.logger.info(`Provider "${providerName}" completed: generated ${accountMessages.length} messages for ${providerConfig.accounts.length} accounts`);
   }
 
   /**

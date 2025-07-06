@@ -92,8 +92,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
   /**
    * Generates a single message by executing the configured command, parsing JSON array output,
    * and returning the next unprocessed object as a message
+   * @param accountName Optional account name for account-aware caching
    */
-  public async generateMessage(): Promise<string> {
+  public async generateMessage(accountName?: string): Promise<string> {
     this.logger?.debug(`Executing command: "${this.command}"`);
     
     try {
@@ -152,16 +153,16 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Validate unique keys
       this.validateUniqueKeys(objects);
       
-      // Find the first unprocessed object
-      const nextObject = await this.findNextUnprocessedObject(objects);
+      // Find the first unprocessed object for this account
+      const nextObject = await this.findNextUnprocessedObject(objects, accountName);
       
       if (!nextObject) {
-        this.logger?.info('All objects have been processed (cached), no new messages to send');
+        this.logger?.info(`All objects have been processed (cached) for account "${accountName || 'default'}", no new messages to send`);
         return '';
       }
       
-      // Process the single object
-      const message = await this.processSingleObject(nextObject);
+      // Process the single object for this account
+      const message = await this.processSingleObject(nextObject, accountName);
       
       return message;
       
@@ -173,22 +174,25 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Finds the first unprocessed object from the array
+   * Finds the first unprocessed object from the array for a specific account
    */
-  private async findNextUnprocessedObject(objects: Record<string, unknown>[]): Promise<Record<string, unknown> | null> {
+  private async findNextUnprocessedObject(objects: Record<string, unknown>[], accountName?: string): Promise<Record<string, unknown> | null> {
     let cachedCount = 0;
     
     // Find the first non-cached item
     for (const obj of objects) {
       const uniqueId = String(obj[this.uniqueKey]);
       
-      if (this.isItemCached(uniqueId)) {
+      if (this.isItemCached(uniqueId, accountName)) {
         cachedCount++;
-        this.logger?.debug(`Skipping cached item: ${this.uniqueKey}="${uniqueId}"`);
+        this.logger?.debug(`Skipping cached item: ${this.uniqueKey}="${uniqueId}" (account: ${accountName || 'default'})`);
         
         // Record telemetry for cached items
         if (this.telemetry) {
-          this.telemetry.incrementCounter('messages_cached_skip', 1, { provider: this.getProviderName() });
+          this.telemetry.incrementCounter('messages_cached_skip', 1, { 
+            provider: this.getProviderName(),
+            account: accountName || 'default'
+          });
         }
       } else {
         if (cachedCount > 0) {
@@ -217,23 +221,26 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Processes a single object and generates a message
+   * Processes a single object and generates a message for a specific account
    */
-  private async processSingleObject(obj: Record<string, unknown>): Promise<string> {
+  private async processSingleObject(obj: Record<string, unknown>, accountName?: string): Promise<string> {
     try {
       const uniqueId = String(obj[this.uniqueKey]);
       
       // Apply template with JSON variables
       const message = this.applyTemplate(this.template, obj);
       
-      this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}": "${message}"`);
+      this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}" (account: ${accountName || 'default'}): "${message}"`);
       
       // Add to cache after successful message generation
-      await this.addToCache(uniqueId);
+      await this.addToCache(uniqueId, accountName);
       
       // Record telemetry
       if (this.telemetry) {
-        this.telemetry.incrementCounter('messages_generated', 1, { provider: this.getProviderName() });
+        this.telemetry.incrementCounter('messages_generated', 1, { 
+          provider: this.getProviderName(),
+          account: accountName || 'default'
+        });
       }
       
       return message;
@@ -389,21 +396,26 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Creates a cache key combining provider name and unique key value
+   * Creates a cache key combining provider name, account name, and unique key value
+   * This ensures that the same content can be posted to different accounts independently
    */
-  private createCacheKey(uniqueKeyValue: string): string {
+  private createCacheKey(uniqueKeyValue: string, accountName?: string): string {
+    if (accountName) {
+      return `${this.providerName}:${accountName}:${uniqueKeyValue}`;
+    }
+    // Fallback for backward compatibility when no account name is provided
     return `${this.providerName}:${uniqueKeyValue}`;
   }
 
   /**
-   * Checks if an item is already cached (and not expired)
+   * Checks if an item is already cached (and not expired) for a specific account
    */
-  private isItemCached(uniqueKeyValue: string): boolean {
+  private isItemCached(uniqueKeyValue: string, accountName?: string): boolean {
     if (!this.cacheEnabled || this.skipCaching) {
       return false;
     }
 
-    const cacheKey = this.createCacheKey(uniqueKeyValue);
+    const cacheKey = this.createCacheKey(uniqueKeyValue, accountName);
     const entry = this.cache.get(cacheKey);
     if (!entry) {
       return false;
@@ -413,7 +425,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     const now = Date.now();
     if (now - entry.timestamp > this.cacheTtl) {
       this.cache.delete(cacheKey);
-      this.logger?.debug(`Cache entry expired for ${this.uniqueKey}="${uniqueKeyValue}"`);
+      this.logger?.debug(`Cache entry expired for ${this.uniqueKey}="${uniqueKeyValue}" (account: ${accountName || 'default'})`);
       return false;
     }
 
@@ -421,9 +433,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Adds an item to the cache
+   * Adds an item to the cache for a specific account
    */
-  private async addToCache(uniqueKeyValue: string): Promise<void> {
+  private async addToCache(uniqueKeyValue: string, accountName?: string): Promise<void> {
     if (!this.cacheEnabled || this.skipCaching) {
       return;
     }
@@ -431,7 +443,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     // Clean up expired entries and enforce max size
     this.cleanupCache();
 
-    const cacheKey = this.createCacheKey(uniqueKeyValue);
+    const cacheKey = this.createCacheKey(uniqueKeyValue, accountName);
     const entry: CacheEntry = {
       timestamp: Date.now(),
       uniqueKeyValue: uniqueKeyValue,
@@ -439,7 +451,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     };
 
     this.cache.set(cacheKey, entry);
-    this.logger?.debug(`Added to cache: ${this.uniqueKey}="${uniqueKeyValue}" (key: ${cacheKey})`);
+    this.logger?.debug(`Added to cache: ${this.uniqueKey}="${uniqueKeyValue}" (account: ${accountName || 'default'}, key: ${cacheKey})`);
 
     // Save to persistent storage (async, don't wait)
     this.saveCacheToFile().catch(error => {
@@ -607,7 +619,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     try {
       // Skip caching during validation to avoid polluting cache
       this.skipCaching = true;
-      await this.generateMessage();
+      await this.generateMessage(); // No account name during validation
       this.skipCaching = false;
       
       this.logger.info('Multi JSON command provider validation successful');

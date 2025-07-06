@@ -50,7 +50,7 @@ describe('MultiProviderScheduler', () => {
       hasAccount: jest.fn().mockReturnValue(true),
       getMastodonClient: jest.fn(),
       getBlueskyClient: jest.fn()
-    } as jest.Mocked<SocialMediaClient>;
+    } as unknown as jest.Mocked<SocialMediaClient>;
 
     config = {
       accounts: [

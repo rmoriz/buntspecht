@@ -8,9 +8,10 @@ import type { TelemetryService } from '../services/telemetryInterface';
 export interface MessageProvider {
   /**
    * Generates the message content to be posted
+   * @param accountName Optional account name for account-aware providers
    * @returns Promise<string> The message content
    */
-  generateMessage(): Promise<string>;
+  generateMessage(accountName?: string): Promise<string>;
 
   /**
    * Gets the name/type of this message provider
