@@ -291,15 +291,19 @@ export class MultiProviderScheduler {
     }
 
     // Update span with aggregated metrics
-    span?.setAttributes({
-      'provider.accounts_with_messages': accountMessages.length,
-      'provider.total_message_length': totalMessageLength,
-      'provider.average_message_length': accountMessages.length > 0 ? Math.round(totalMessageLength / accountMessages.length) : 0,
-    });
+    if (span && typeof span === 'object' && span !== null && 'setAttributes' in span) {
+      (span as any).setAttributes({
+        'provider.accounts_with_messages': accountMessages.length,
+        'provider.total_message_length': totalMessageLength,
+        'provider.average_message_length': accountMessages.length > 0 ? Math.round(totalMessageLength / accountMessages.length) : 0,
+      });
+    }
 
     if (accountMessages.length === 0) {
       this.logger.info(`Provider "${providerName}" generated no messages for any account, skipping post`);
-      span?.setStatus({ code: 1 }); // OK
+      if (span && typeof span === 'object' && span !== null && 'setStatus' in span) {
+        (span as any).setStatus({ code: 1 }); // OK
+      }
       return;
     }
 

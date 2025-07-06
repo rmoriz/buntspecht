@@ -186,7 +186,33 @@ describe('SocialMediaClient', () => {
 
   describe('getAccountInfo', () => {
     it('should route to Mastodon client for mastodon accounts', async () => {
-      const mockAccountData = { username: 'testuser', displayName: 'Test User' };
+      const mockAccountData = { 
+        id: '123',
+        acct: 'testuser',
+        username: 'testuser', 
+        displayName: 'Test User',
+        url: 'https://mastodon.social/@testuser',
+        note: 'Test bio',
+        avatar: 'https://example.com/avatar.jpg',
+        avatarStatic: 'https://example.com/avatar.jpg',
+        header: 'https://example.com/header.jpg',
+        headerStatic: 'https://example.com/header.jpg',
+        locked: false,
+        bot: false,
+        discoverable: true,
+        group: false,
+        noindex: false,
+        suspended: false,
+        limited: false,
+        createdAt: '2023-01-01T00:00:00.000Z',
+        lastStatusAt: '2023-01-01T00:00:00.000Z',
+        statusesCount: 0,
+        followersCount: 0,
+        followingCount: 0,
+        fields: [],
+        emojis: [],
+        roles: []
+      };
       mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData);
 
       const result = await client.getAccountInfo('mastodon-account');
