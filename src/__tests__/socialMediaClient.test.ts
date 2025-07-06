@@ -61,7 +61,7 @@ describe('SocialMediaClient', () => {
       recordError: jest.fn(),
       initialize: jest.fn(),
       shutdown: jest.fn()
-    } as jest.Mocked<TelemetryService>;
+    } as unknown as jest.Mocked<TelemetryService>;
 
     // Create mocked instances
     mockMastodonClient = {
@@ -71,7 +71,7 @@ describe('SocialMediaClient', () => {
       getAllAccountsInfo: jest.fn(),
       getAccountNames: jest.fn(),
       hasAccount: jest.fn()
-    } as jest.Mocked<MastodonClient>;
+    } as unknown as jest.Mocked<MastodonClient>;
 
     mockBlueskyClient = {
       postStatus: jest.fn(),
@@ -80,7 +80,7 @@ describe('SocialMediaClient', () => {
       getAllAccountsInfo: jest.fn(),
       getAccountNames: jest.fn(),
       hasAccount: jest.fn()
-    } as jest.Mocked<BlueskyClient>;
+    } as unknown as jest.Mocked<BlueskyClient>;
 
     // Mock the constructors
     (MastodonClient as jest.MockedClass<typeof MastodonClient>).mockImplementation(() => mockMastodonClient);
@@ -186,8 +186,8 @@ describe('SocialMediaClient', () => {
 
   describe('getAccountInfo', () => {
     it('should route to Mastodon client for mastodon accounts', async () => {
-      const mockAccountData = { username: 'testuser', displayName: 'Test User' } as unknown;
-      mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData);
+      const mockAccountData = { username: 'testuser', displayName: 'Test User' };
+      mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData as any);
 
       const result = await client.getAccountInfo('mastodon-account');
 
