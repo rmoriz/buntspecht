@@ -74,7 +74,7 @@ export class BlueskyClient {
    */
   private detectUrls(text: string): string[] {
     // Regex pattern to match URLs (http/https, with or without www)
-    const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&=]*)/g;
+    const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&=]*)/g;
     const matches = text.match(urlRegex);
     return matches || [];
   }
@@ -122,7 +122,6 @@ export class BlueskyClient {
    */
   private createFacets(text: string): Facet[] {
     const facets: Facet[] = [];
-    const textBytes = new TextEncoder().encode(text);
 
     // Detect hashtags
     const hashtags = this.detectHashtags(text);
@@ -194,16 +193,16 @@ export class BlueskyClient {
       
       // Extract title
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      const ogTitleMatch = html.match(/<meta[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["'][^>]*>/i);
       const title = ogTitleMatch?.[1] || titleMatch?.[1] || new URL(url).hostname;
 
       // Extract description
-      const descMatch = html.match(/<meta[^>]*name=["\']description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
-      const ogDescMatch = html.match(/<meta[^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+      const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
       const description = ogDescMatch?.[1] || descMatch?.[1] || '';
 
       // Extract image (optional for now, as uploading images to Bluesky requires additional steps)
-      const ogImageMatch = html.match(/<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i);
+      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
       const image = ogImageMatch?.[1] || undefined;
 
       this.logger.debug(`Extracted metadata for ${url}: title="${title}", description="${description}"`);

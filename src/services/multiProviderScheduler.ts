@@ -292,7 +292,8 @@ export class MultiProviderScheduler {
 
     // Update span with aggregated metrics
     if (span && typeof span === 'object' && span !== null && 'setAttributes' in span) {
-      (span as any).setAttributes({
+      const spanWithAttributes = span as { setAttributes: (attributes: Record<string, number>) => void };
+      spanWithAttributes.setAttributes({
         'provider.accounts_with_messages': accountMessages.length,
         'provider.total_message_length': totalMessageLength,
         'provider.average_message_length': accountMessages.length > 0 ? Math.round(totalMessageLength / accountMessages.length) : 0,
@@ -302,7 +303,8 @@ export class MultiProviderScheduler {
     if (accountMessages.length === 0) {
       this.logger.info(`Provider "${providerName}" generated no messages for any account, skipping post`);
       if (span && typeof span === 'object' && span !== null && 'setStatus' in span) {
-        (span as any).setStatus({ code: 1 }); // OK
+        const spanWithStatus = span as { setStatus: (status: { code: number }) => void };
+        spanWithStatus.setStatus({ code: 1 }); // OK
       }
       return;
     }
