@@ -963,7 +963,7 @@ Buntspecht supports OpenTelemetry for comprehensive monitoring, tracing, and met
 # Enable/disable OpenTelemetry
 enabled = true
 serviceName = "buntspecht"
-serviceVersion = "0.6.2"
+serviceVersion = "0.6.3"
 
 [telemetry.jaeger]
 # Jaeger for Distributed Tracing
