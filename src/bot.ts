@@ -1,5 +1,5 @@
 import { ConfigLoader } from './config/configLoader';
-import { MastodonClient } from './services/mastodonClient';
+import { SocialMediaClient } from './services/socialMediaClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
 import { WebhookServer } from './services/webhookServer';
 import { createTelemetryService } from './services/telemetryFactory';
@@ -10,7 +10,7 @@ export class MastodonPingBot {
   private config: BotConfig;
   private logger: Logger;
   private telemetry: any; // Will be set in initialize()
-  private mastodonClient!: MastodonClient; // Initialized in initialize()
+  private socialMediaClient!: SocialMediaClient; // Initialized in initialize()
   private scheduler!: MultiProviderScheduler; // Initialized in initialize()
   private webhookServer?: WebhookServer; // Optional webhook server
 
@@ -31,17 +31,17 @@ export class MastodonPingBot {
     await this.telemetry.initialize();
     
     // Initialize other services with telemetry
-    this.mastodonClient = new MastodonClient(this.config, this.logger, this.telemetry);
-    this.scheduler = new MultiProviderScheduler(this.mastodonClient, this.config, this.logger, this.telemetry);
+    this.socialMediaClient = new SocialMediaClient(this.config, this.logger, this.telemetry);
+    this.scheduler = new MultiProviderScheduler(this.socialMediaClient, this.config, this.logger, this.telemetry);
     
     // Initialize webhook server if configured
     if (this.config.webhook?.enabled) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
     }
     
-    const isConnected = await this.mastodonClient.verifyConnection();
+    const isConnected = await this.socialMediaClient.verifyConnection();
     if (!isConnected) {
-      throw new Error('Failed to connect to Mastodon. Please check your configuration.');
+      throw new Error('Failed to connect to social media accounts. Please check your configuration.');
     }
 
     // Initialize the scheduler with message provider
@@ -92,18 +92,24 @@ export class MastodonPingBot {
   public async verify(): Promise<void> {
     this.logger.info('Verifying connections...');
     
-    const isConnected = await this.mastodonClient.verifyConnection();
+    const isConnected = await this.socialMediaClient.verifyConnection();
     if (!isConnected) {
       throw new Error('Connection verification failed for one or more accounts');
     }
 
-    const accountsInfo = await this.mastodonClient.getAllAccountsInfo();
+    const accountsInfo = await this.socialMediaClient.getAllAccountsInfo();
     this.logger.info(`Successfully verified ${accountsInfo.length} account(s):`);
     
-    for (const { accountName, account, instance } of accountsInfo) {
-      this.logger.info(`  ${accountName}: @${account.username}@${new URL(instance).hostname}`);
-      this.logger.info(`    Display Name: ${account.displayName}`);
-      this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+    for (const { accountName, account, instance, platform } of accountsInfo) {
+      if (platform === 'mastodon') {
+        this.logger.info(`  ${accountName} (Mastodon): @${account.username}@${new URL(instance).hostname}`);
+        this.logger.info(`    Display Name: ${account.displayName}`);
+        this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+      } else if (platform === 'bluesky') {
+        this.logger.info(`  ${accountName} (Bluesky): @${account.handle}`);
+        this.logger.info(`    Display Name: ${account.displayName}`);
+        this.logger.info(`    Followers: ${account.followersCount}, Following: ${account.followingCount}`);
+      }
     }
     
     this.logger.info('All connections verified successfully');

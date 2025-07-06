@@ -4,6 +4,9 @@ export interface AccountConfig {
   instance: string;
   accessToken: string;
   defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
+  // Bluesky-specific fields
+  identifier?: string; // Bluesky handle or DID
+  password?: string; // Bluesky app password
 }
 
 export interface ProviderConfig {

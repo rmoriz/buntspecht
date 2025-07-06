@@ -1,5 +1,5 @@
 import * as cron from 'node-cron';
-import { MastodonClient } from './mastodonClient';
+import { SocialMediaClient } from './socialMediaClient';
 import type { TelemetryService } from './telemetryInterface';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
@@ -15,15 +15,15 @@ interface ScheduledProvider {
 }
 
 export class MultiProviderScheduler {
-  private mastodonClient: MastodonClient;
+  private socialMediaClient: SocialMediaClient;
   private config: BotConfig;
   private logger: Logger;
   private telemetry: TelemetryService;
   private scheduledProviders: ScheduledProvider[] = [];
   private isRunning = false;
 
-  constructor(mastodonClient: MastodonClient, config: BotConfig, logger: Logger, telemetry: TelemetryService) {
-    this.mastodonClient = mastodonClient;
+  constructor(socialMediaClient: SocialMediaClient, config: BotConfig, logger: Logger, telemetry: TelemetryService) {
+    this.socialMediaClient = socialMediaClient;
     this.config = config;
     this.logger = logger;
     this.telemetry = telemetry;
@@ -81,7 +81,7 @@ export class MultiProviderScheduler {
 
     // Validate that all specified accounts exist in configuration
     for (const accountName of providerConfig.accounts) {
-      if (!this.mastodonClient.hasAccount(accountName)) {
+      if (!this.socialMediaClient.hasAccount(accountName)) {
         throw new Error(`Provider "${providerConfig.name}" references unknown account: "${accountName}"`);
       }
     }
@@ -231,7 +231,7 @@ export class MultiProviderScheduler {
         }
       }
 
-      await this.mastodonClient.postStatus(message, providerConfig.accounts, providerName, finalVisibility);
+      await this.socialMediaClient.postStatus(message, providerConfig.accounts, providerName, finalVisibility);
       
       const durationSeconds = (Date.now() - startTime) / 1000;
       this.telemetry.recordProviderExecution(providerName, durationSeconds);

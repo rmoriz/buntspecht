@@ -18,6 +18,16 @@ instance = "https://fosstodon.org"
 accessToken = "your-backup-account-token-here"
 # defaultVisibility = "public"  # Optional: public, unlisted, private, direct (default: unlisted)
 
+# Bluesky Account Example
+[[accounts]]
+name = "bluesky-account"
+type = "bluesky"  # Account type for Bluesky
+instance = "https://bsky.social"  # Optional: Bluesky instance (default: https://bsky.social)
+identifier = "your-handle.bsky.social"  # Your Bluesky handle or DID
+password = "your-app-password"  # App password from Bluesky settings
+# accessToken = "your-access-token"  # Alternative: use access token (for future OAuth support)
+# defaultVisibility = "public"  # Note: Bluesky posts are always public
+
 # Optional: Additional accounts
 # [[accounts]]
 # name = "work-account"

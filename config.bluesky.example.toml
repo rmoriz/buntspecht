@@ -1,0 +1,142 @@
+# Buntspecht Bluesky Configuration Example
+# Copy this file to config.toml and adjust the values
+
+# Mixed Social Media Accounts - Mastodon and Bluesky
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-token-here"
+defaultVisibility = "unlisted"
+
+[[accounts]]
+name = "bluesky-main"
+type = "bluesky"
+instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
+identifier = "yourhandle.bsky.social"  # Your Bluesky handle
+password = "your-app-password"  # App password from Bluesky settings
+# Note: Bluesky posts are always public, defaultVisibility is ignored
+
+[[accounts]]
+name = "bluesky-alt"
+type = "bluesky"
+identifier = "did:plc:your-did-here"  # Alternative: use DID instead of handle
+password = "your-app-password"
+
+[bot]
+# Multi-Platform Provider Configuration
+
+# Provider 1: Cross-platform hourly ping
+[[bot.providers]]
+name = "cross-platform-ping"
+type = "ping"
+cronSchedule = "0 * * * *"  # Every hour
+enabled = true
+accounts = ["mastodon-main", "bluesky-main"]  # Posts to both platforms
+
+[bot.providers.config]
+message = "Hourly cross-platform ping from Buntspecht! 🤖"
+
+# Provider 2: Mastodon-only updates
+[[bot.providers]]
+name = "mastodon-updates"
+type = "command"
+cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
+enabled = true
+accounts = ["mastodon-main"]  # Only to Mastodon
+
+[bot.providers.config]
+command = "date '+Today is %A, %B %d, %Y'"
+timeout = 10000
+
+# Provider 3: Bluesky-only announcements
+[[bot.providers]]
+name = "bluesky-announcements"
+type = "ping"
+cronSchedule = "0 12 * * 1"  # Every Monday at noon
+enabled = true
+accounts = ["bluesky-main", "bluesky-alt"]  # Only to Bluesky accounts
+
+[bot.providers.config]
+message = "Weekly Bluesky announcement! 🦋 #Bluesky #Bot"
+
+# Provider 4: JSON command with cross-platform posting
+[[bot.providers]]
+name = "weather-updates"
+type = "jsoncommand"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = false  # Disabled by default
+accounts = ["mastodon-main", "bluesky-main"]  # Cross-platform
+
+[bot.providers.config]
+command = "curl -s 'https://api.openweathermap.org/data/2.5/weather?q=Berlin&appid=YOUR_API_KEY&units=metric' | jq '{temp: .main.temp, desc: .weather[0].description, city: .name}'"
+template = "Weather in {{city}}: {{temp}}°C, {{desc}} 🌤️"
+timeout = 15000
+
+[bot.providers.config.env]
+API_KEY = "your-openweathermap-api-key"
+
+# Provider 5: Push provider for alerts (cross-platform)
+[[bot.providers]]
+name = "alert-system"
+type = "push"
+enabled = true
+accounts = ["mastodon-main", "bluesky-main"]  # Alert both platforms
+
+[bot.providers.config]
+defaultMessage = "🚨 Alert from monitoring system"
+allowExternalMessages = true
+maxMessageLength = 280  # Keep it short for cross-platform compatibility
+
+[logging]
+level = "info"
+
+[telemetry]
+# OpenTelemetry configuration for monitoring and observability
+# IMPORTANT: Telemetry only works with 'bun run' or 'npm start', NOT with single binaries!
+# Single binaries (buntspecht-linux-x64, etc.) have OpenTelemetry dependencies excluded.
+# For telemetry use Docker or run the bot directly with Bun/Node.js.
+enabled = false
+serviceName = "buntspecht"
+serviceVersion = "0.5.1"
+
+[telemetry.jaeger]
+enabled = false
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+enabled = false
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+enabled = false
+
+[telemetry.metrics]
+enabled = false
+
+# Notes about Bluesky Integration:
+#
+# 1. Account Setup:
+#    - Create an app password in your Bluesky settings (not your main password!)
+#    - Use your handle (e.g., "yourname.bsky.social") or DID as identifier
+#    - Instance is optional and defaults to https://bsky.social
+#
+# 2. Authentication:
+#    - Currently uses identifier + app password authentication
+#    - Future versions may support OAuth with access tokens
+#
+# 3. Posting Behavior:
+#    - All Bluesky posts are public (no visibility control like Mastodon)
+#    - Character limit is 300 characters
+#    - Supports rich text features (links, mentions, hashtags)
+#
+# 4. Cross-Platform Considerations:
+#    - Keep messages under 280 characters for cross-platform compatibility
+#    - Consider platform-specific features when designing content
+#    - Test thoroughly when posting to multiple platforms
+#
+# 5. Error Handling:
+#    - If one platform fails, the other will still receive the post
+#    - Check logs for platform-specific errors
+#    - Rate limiting is handled per platform
