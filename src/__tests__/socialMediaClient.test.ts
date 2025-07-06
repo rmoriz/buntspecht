@@ -187,7 +187,7 @@ describe('SocialMediaClient', () => {
   describe('getAccountInfo', () => {
     it('should route to Mastodon client for mastodon accounts', async () => {
       const mockAccountData = { username: 'testuser', displayName: 'Test User' };
-      mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData as any);
+      mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData);
 
       const result = await client.getAccountInfo('mastodon-account');
 

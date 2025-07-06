@@ -262,7 +262,7 @@ export class MultiProviderScheduler {
     provider: MessageProvider, 
     providerConfig: ProviderConfig, 
     providerName: string,
-    span?: any
+    span?: unknown
   ): Promise<void> {
     this.logger.debug(`Executing MultiJsonCommandProvider "${providerName}" per account for proper cache isolation`);
     

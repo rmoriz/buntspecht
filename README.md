@@ -22,8 +22,8 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 👁️ **Visibility control**: Configurable message visibility (public, unlisted, private, direct) per account, provider, or webhook request
 - ⚙️ Flexible configuration via TOML files
 - 🔍 Multiple configuration paths with priority order
-- 📝 Comprehensive logging
-- 🧪 Complete test coverage (108+ tests)
+- 📝 **Enhanced logging**: Comprehensive logging with message character counts
+- 🧪 Complete test coverage (221+ tests)
 - 🐳 Docker support for CI/CD
 - 🛡️ TypeScript for type safety
 - 📡 Modern API integration with masto.js (Mastodon) and @atproto/api (Bluesky)
@@ -287,8 +287,35 @@ template = "👤 User {{user.name}} ({{user.email}}) has {{stats.posts}} posts"
 - `{{variable}}` - Simple variable from JSON
 - `{{nested.property}}` - Nested property with dot notation
 - `{{ variable }}` - Whitespace around variable names is ignored
+- `{{variable|trim:50}}` - Trim variable to 50 characters with "..." suffix
+- `{{variable|trim:30,…}}` - Trim variable to 30 characters with custom "…" suffix
 - Missing variables are left as `{{variable}}` in the text
 - JSON values are automatically converted to strings
+
+#### Template Functions
+
+**Trim Function**: Limit field lengths for social media character restrictions
+
+```toml
+# Basic trimming with default "..." suffix
+template = "{{title|trim:50}}: {{description|trim:100}}"
+
+# Custom suffix
+template = "{{content|trim:280, [more]}}"
+
+# Multiple trim functions
+template = "{{title|trim:30}} - {{summary|trim:80}} #news"
+
+# Works with nested properties
+template = "{{user.name|trim:20}}: {{user.bio|trim:60}}"
+```
+
+**Use Cases:**
+- **Twitter/X**: Limit to 280 characters
+- **Mastodon**: Respect instance character limits (typically 500)
+- **Bluesky**: Stay within 300 character limit
+- **Headlines**: Consistent length for news feeds
+- **Mobile**: Optimize for small screen readability
 
 ### Multi JSON Command Provider
 
@@ -844,6 +871,32 @@ message = "📅 New work week begins!"
 "0 9,17 * * 1-5"  = Mon-Fri at 9:00 AM and 5:00 PM
 "*/15 9-17 * * 1-5" = every 15 min between 9-17, Mon-Fri
 ```
+
+## Logging and Monitoring
+
+### Enhanced Logging Features
+
+Buntspecht provides comprehensive logging with detailed information about message posting:
+
+```
+[2025-07-06T12:48:21.509Z] INFO  Posting status to Bluesky test-account (https://bsky.social) (280 chars): "Your message content here..."
+[2025-07-06T12:48:21.511Z] INFO  Status posted successfully to Bluesky test-account. URI: at://did:plc:test/app.bsky.feed.post/test123
+```
+
+**Character Count Monitoring:**
+- Shows exact character count for each posted message
+- Helps verify compliance with platform limits:
+  - **Twitter/X**: 280 characters
+  - **Mastodon**: 500 characters (default, varies by instance)
+  - **Bluesky**: 300 characters
+- Useful for debugging trim function effectiveness
+- Enables analytics on message length patterns
+
+**Log Levels:**
+- `DEBUG`: Detailed execution information
+- `INFO`: Normal operations and status updates
+- `WARN`: Non-critical issues and warnings
+- `ERROR`: Critical errors and failures
 
 ## Usage
 
