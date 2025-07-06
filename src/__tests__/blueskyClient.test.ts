@@ -295,6 +295,36 @@ describe('BlueskyClient', () => {
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
     });
 
+    it('should preserve newlines when removing URLs', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Multiline Page</title><meta name="description" content="Page with newlines"></head></html>'),
+      } as Response);
+
+      const multilineText = `First line with URL: https://example.com/test
+Second line after newline
+Third line here`;
+
+      await client.postStatus(multilineText, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: `First line with URL:
+Second line after newline
+Third line here`,
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com/test',
+            title: 'Multiline Page',
+            description: 'Page with newlines'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
     it('should post status with facets for hashtags', async () => {
       await client.postStatus('Hello world! #typescript #bluesky', ['test-bluesky']);
 

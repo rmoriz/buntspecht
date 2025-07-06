@@ -253,7 +253,7 @@ export class BlueskyClient {
   }
 
   /**
-   * Removes a URL from the text and cleans up extra whitespace
+   * Removes a URL from the text and cleans up extra whitespace while preserving newlines
    */
   private removeUrlFromText(text: string, urlToRemove: string): string {
     // Escape special regex characters in the URL for safe replacement
@@ -262,9 +262,15 @@ export class BlueskyClient {
     // Remove the URL from the text using regex for exact match
     let cleanedText = text.replace(new RegExp(escapedUrl, 'g'), '');
     
-    // Clean up extra whitespace that might be left behind
-    // Replace multiple consecutive whitespace characters with a single space
-    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    // Clean up extra spaces and tabs, but preserve newlines
+    // Replace multiple consecutive spaces/tabs with a single space, but keep newlines
+    cleanedText = cleanedText.replace(/[ \t]+/g, ' ');
+    
+    // Clean up spaces before newlines and at the end of lines
+    cleanedText = cleanedText.replace(/[ \t]+\n/g, '\n');
+    
+    // Trim only leading/trailing spaces, not newlines
+    cleanedText = cleanedText.replace(/^[ \t]+|[ \t]+$/g, '');
     
     return cleanedText;
   }
