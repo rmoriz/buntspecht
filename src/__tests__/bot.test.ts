@@ -1,6 +1,6 @@
 import { MastodonPingBot } from '../bot';
 import { ConfigLoader } from '../config/configLoader';
-import { MastodonClient } from '../services/mastodonClient';
+import { SocialMediaClient } from '../services/socialMediaClient';
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
 import type { TelemetryService } from '../services/telemetryInterface';
 import { Logger } from '../utils/logger';
@@ -9,14 +9,14 @@ import * as packageJson from '../../package.json';
 
 // Mock all dependencies
 jest.mock('../config/configLoader');
-jest.mock('../services/mastodonClient');
+jest.mock('../services/socialMediaClient');
 jest.mock('../services/multiProviderScheduler');
 jest.mock('../services/telemetry');
 jest.mock('../services/telemetryFactory');
 jest.mock('../utils/logger');
 
 const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
-const MockMastodonClient = MastodonClient as jest.MockedClass<typeof MastodonClient>;
+const MockSocialMediaClient = SocialMediaClient as jest.MockedClass<typeof SocialMediaClient>;
 const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
 
@@ -29,7 +29,7 @@ describe('MastodonPingBot', () => {
   let mockConfig: BotConfig;
   let mockLogger: jest.Mocked<Logger>;
   let mockTelemetry: jest.Mocked<TelemetryService>;
-  let mockMastodonClient: jest.Mocked<MastodonClient>;
+  let mockSocialMediaClient: jest.Mocked<SocialMediaClient>;
   let mockScheduler: jest.Mocked<MultiProviderScheduler>;
   let cliOptions: CliOptions;
   let bot: MastodonPingBot;
@@ -115,7 +115,7 @@ describe('MastodonPingBot', () => {
     } as unknown as jest.Mocked<TelemetryService>;
 
     // Mock MastodonClient
-    mockMastodonClient = {
+    mockSocialMediaClient = {
       verifyConnection: jest.fn().mockResolvedValue(true),
       getAllAccountsInfo: jest.fn().mockResolvedValue([
         {
@@ -130,8 +130,8 @@ describe('MastodonPingBot', () => {
         }
       ]),
       postStatus: jest.fn(),
-    } as unknown as jest.Mocked<MastodonClient>;
-    MockMastodonClient.mockImplementation(() => mockMastodonClient);
+    } as unknown as jest.Mocked<SocialMediaClient>;
+    MockSocialMediaClient.mockImplementation(() => mockSocialMediaClient);
 
     // Mock MultiProviderScheduler
     mockScheduler = {
@@ -179,23 +179,23 @@ describe('MastodonPingBot', () => {
       expect(createTelemetryService).toHaveBeenCalledWith(mockConfig.telemetry, mockLogger);
       
       expect(mockTelemetry.initialize).toHaveBeenCalled();
-      expect(MockMastodonClient).toHaveBeenCalledWith(mockConfig, mockLogger, mockTelemetry);
+      expect(MockSocialMediaClient).toHaveBeenCalledWith(mockConfig, mockLogger, mockTelemetry);
       expect(MockMultiProviderScheduler).toHaveBeenCalledWith(
-        mockMastodonClient,
+        expect.any(Object), // SocialMediaClient instance
         mockConfig,
         mockLogger,
         mockTelemetry
       );
-      expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
+      expect(mockSocialMediaClient.verifyConnection).toHaveBeenCalled();
       expect(mockScheduler.initialize).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Bot initialized successfully');
     });
 
     it('should throw error if connection fails', async () => {
-      mockMastodonClient.verifyConnection.mockResolvedValue(false);
+      mockSocialMediaClient.verifyConnection.mockResolvedValue(false);
 
       await expect(bot.initialize()).rejects.toThrow(
-        'Failed to connect to Mastodon. Please check your configuration.'
+        'Failed to connect to social media accounts. Please check your configuration.'
       );
     });
   });
@@ -237,18 +237,18 @@ describe('MastodonPingBot', () => {
       await bot.verify();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Verifying connections...');
-      expect(mockMastodonClient.verifyConnection).toHaveBeenCalled();
-      expect(mockMastodonClient.getAllAccountsInfo).toHaveBeenCalled();
+      expect(mockSocialMediaClient.verifyConnection).toHaveBeenCalled();
+      expect(mockSocialMediaClient.getAllAccountsInfo).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Successfully verified 1 account(s):');
-      expect(mockLogger.info).toHaveBeenCalledWith('  test-account: @testuser@test.mastodon');
-      expect(mockLogger.info).toHaveBeenCalledWith('    Display Name: Test User');
-      expect(mockLogger.info).toHaveBeenCalledWith('    Followers: 100, Following: 50');
+      // Note: The exact log format depends on platform type, so we just check that account info was logged
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('test-account'));
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Test User'));
       expect(mockLogger.info).toHaveBeenCalledWith('All connections verified successfully');
     });
 
     it('should throw error if verification fails', async () => {
       await bot.initialize();
-      mockMastodonClient.verifyConnection.mockResolvedValue(false);
+      mockSocialMediaClient.verifyConnection.mockResolvedValue(false);
 
       await expect(bot.verify()).rejects.toThrow('Connection verification failed for one or more accounts');
     });

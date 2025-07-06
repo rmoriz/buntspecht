@@ -74,7 +74,7 @@ describe('BlueskyClient', () => {
       recordError: jest.fn(),
       initialize: jest.fn(),
       shutdown: jest.fn()
-    } as any;
+    } as jest.Mocked<TelemetryService>;
 
     // Mock successful login
     mockBskyAgent.login.mockResolvedValue({});

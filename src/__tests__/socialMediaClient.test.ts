@@ -61,7 +61,7 @@ describe('SocialMediaClient', () => {
       recordError: jest.fn(),
       initialize: jest.fn(),
       shutdown: jest.fn()
-    } as any;
+    } as jest.Mocked<TelemetryService>;
 
     // Create mocked instances
     mockMastodonClient = {
@@ -71,7 +71,7 @@ describe('SocialMediaClient', () => {
       getAllAccountsInfo: jest.fn(),
       getAccountNames: jest.fn(),
       hasAccount: jest.fn()
-    } as any;
+    } as jest.Mocked<MastodonClient>;
 
     mockBlueskyClient = {
       postStatus: jest.fn(),
@@ -80,7 +80,7 @@ describe('SocialMediaClient', () => {
       getAllAccountsInfo: jest.fn(),
       getAccountNames: jest.fn(),
       hasAccount: jest.fn()
-    } as any;
+    } as jest.Mocked<BlueskyClient>;
 
     // Mock the constructors
     (MastodonClient as jest.MockedClass<typeof MastodonClient>).mockImplementation(() => mockMastodonClient);
@@ -186,7 +186,7 @@ describe('SocialMediaClient', () => {
 
   describe('getAccountInfo', () => {
     it('should route to Mastodon client for mastodon accounts', async () => {
-      const mockAccountData = { username: 'testuser', displayName: 'Test User' } as any;
+      const mockAccountData = { username: 'testuser', displayName: 'Test User' } as unknown;
       mockMastodonClient.getAccountInfo.mockResolvedValue(mockAccountData);
 
       const result = await client.getAccountInfo('mastodon-account');
@@ -215,14 +215,14 @@ describe('SocialMediaClient', () => {
   describe('getAllAccountsInfo', () => {
     it('should combine account info from both platforms', async () => {
       const mastodonAccounts = [
-        { accountName: 'mastodon-account', account: { username: 'testuser' } as any, instance: 'https://mastodon.social' }
+        { accountName: 'mastodon-account', account: { username: 'testuser' } as unknown, instance: 'https://mastodon.social' }
       ];
       const blueskyAccounts = [
-        { accountName: 'bluesky-account', account: { handle: 'test.bsky.social' } as any, instance: 'https://bsky.social' }
+        { accountName: 'bluesky-account', account: { handle: 'test.bsky.social' } as unknown, instance: 'https://bsky.social' }
       ];
 
-      mockMastodonClient.getAllAccountsInfo.mockResolvedValue(mastodonAccounts as any);
-      mockBlueskyClient.getAllAccountsInfo.mockResolvedValue(blueskyAccounts as any);
+      mockMastodonClient.getAllAccountsInfo.mockResolvedValue(mastodonAccounts as never);
+      mockBlueskyClient.getAllAccountsInfo.mockResolvedValue(blueskyAccounts as never);
 
       const result = await client.getAllAccountsInfo();
 

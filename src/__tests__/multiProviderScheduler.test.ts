@@ -1,5 +1,5 @@
 import { MultiProviderScheduler } from '../services/multiProviderScheduler';
-import { MastodonClient } from '../services/mastodonClient';
+import { SocialMediaClient } from '../services/socialMediaClient';
 import type { TelemetryService } from '../services/telemetryInterface';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
@@ -9,7 +9,7 @@ jest.mock('../services/mastodonClient');
 
 describe('MultiProviderScheduler', () => {
   let scheduler: MultiProviderScheduler;
-  let mockMastodonClient: jest.Mocked<MastodonClient>;
+  let mockSocialMediaClient: jest.Mocked<SocialMediaClient>;
   let mockTelemetry: jest.Mocked<TelemetryService>;
   let logger: Logger;
   let config: BotConfig;
@@ -40,9 +40,17 @@ describe('MultiProviderScheduler', () => {
       getMeter: jest.fn(),
     } as unknown as jest.Mocked<TelemetryService>;
 
-    mockMastodonClient = new MastodonClient({} as BotConfig, logger, mockTelemetry) as jest.Mocked<MastodonClient>;
-    mockMastodonClient.postStatus = jest.fn().mockResolvedValue(undefined);
-    mockMastodonClient.hasAccount = jest.fn().mockReturnValue(true);
+    // Mock SocialMediaClient
+    mockSocialMediaClient = {
+      postStatus: jest.fn().mockResolvedValue(undefined),
+      verifyConnection: jest.fn(),
+      getAccountInfo: jest.fn(),
+      getAllAccountsInfo: jest.fn(),
+      getAccountNames: jest.fn(),
+      hasAccount: jest.fn().mockReturnValue(true),
+      getMastodonClient: jest.fn(),
+      getBlueskyClient: jest.fn()
+    } as jest.Mocked<SocialMediaClient>;
 
     config = {
       accounts: [
@@ -60,7 +68,7 @@ describe('MultiProviderScheduler', () => {
       }
     };
 
-    scheduler = new MultiProviderScheduler(mockMastodonClient, config, logger, mockTelemetry);
+    scheduler = new MultiProviderScheduler(mockSocialMediaClient, config, logger, mockTelemetry);
   });
 
   afterEach(() => {
@@ -183,14 +191,14 @@ describe('MultiProviderScheduler', () => {
     it('should execute all tasks immediately', async () => {
       await scheduler.executeAllTasksNow();
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
+      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
     it('should execute specific provider task', async () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
+      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
@@ -199,7 +207,7 @@ describe('MultiProviderScheduler', () => {
     });
 
     it('should handle provider execution errors gracefully', async () => {
-      mockMastodonClient.postStatus.mockRejectedValue(new Error('Posting failed'));
+      mockSocialMediaClient.postStatus.mockRejectedValue(new Error('Posting failed'));
 
       await scheduler.executeAllTasksNow();
 
@@ -224,7 +232,7 @@ describe('MultiProviderScheduler', () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
       expect(mockProvider.generateMessage).toHaveBeenCalled();
-      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
+      expect(mockSocialMediaClient.postStatus).not.toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith('Provider "test-provider" generated empty message, skipping post');
     });
 
@@ -246,7 +254,7 @@ describe('MultiProviderScheduler', () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
       expect(mockProvider.generateMessage).toHaveBeenCalled();
-      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
+      expect(mockSocialMediaClient.postStatus).not.toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith('Provider "test-provider" generated empty message, skipping post');
     });
   });

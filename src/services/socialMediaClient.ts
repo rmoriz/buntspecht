@@ -95,7 +95,7 @@ export class SocialMediaClient {
   /**
    * Gets account information for a specific account
    */
-  public async getAccountInfo(accountName: string): Promise<any> {
+  public async getAccountInfo(accountName: string): Promise<unknown> {
     const account = this.config.accounts.find(acc => acc.name === accountName);
     if (!account) {
       throw new Error(`Account "${accountName}" not found in configuration`);
@@ -111,7 +111,7 @@ export class SocialMediaClient {
   /**
    * Gets account information for all configured accounts across all platforms
    */
-  public async getAllAccountsInfo(): Promise<Array<{ accountName: string; account: any; instance: string; platform: string }>> {
+  public async getAllAccountsInfo(): Promise<Array<{ accountName: string; account: unknown; instance: string; platform: string }>> {
     const mastodonAccounts = await this.mastodonClient.getAllAccountsInfo();
     const blueskyAccounts = await this.blueskyClient.getAllAccountsInfo();
 

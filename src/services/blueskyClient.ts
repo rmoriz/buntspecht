@@ -164,7 +164,7 @@ export class BlueskyClient {
   /**
    * Gets account information for a specific Bluesky account
    */
-  public async getAccountInfo(accountName: string): Promise<any> {
+  public async getAccountInfo(accountName: string): Promise<unknown> {
     const accountClient = this.clients.get(accountName);
     if (!accountClient) {
       throw new Error(`Bluesky account "${accountName}" not found in configuration`);
@@ -184,8 +184,8 @@ export class BlueskyClient {
   /**
    * Gets account information for all configured Bluesky accounts
    */
-  public async getAllAccountsInfo(): Promise<Array<{ accountName: string; account: any; instance: string }>> {
-    const accountsInfo: Array<{ accountName: string; account: any; instance: string }> = [];
+  public async getAllAccountsInfo(): Promise<Array<{ accountName: string; account: unknown; instance: string }>> {
+    const accountsInfo: Array<{ accountName: string; account: unknown; instance: string }> = [];
 
     for (const [accountName, accountClient] of this.clients) {
       try {
@@ -194,7 +194,7 @@ export class BlueskyClient {
         });
         accountsInfo.push({
           accountName,
-          account: profile.data,
+          account: profile.data as unknown,
           instance: accountClient.config.instance || 'https://bsky.social'
         });
       } catch (error) {
