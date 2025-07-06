@@ -20,8 +20,8 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - 👁️ **Sichtbarkeits-Kontrolle**: Konfigurierbare Nachrichtensichtbarkeit (öffentlich, ungelistet, privat, direkt) pro Account, Provider oder Webhook-Anfrage
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
-- 📝 Umfassendes Logging
-- 🧪 Vollständige Testabdeckung (161+ Tests)
+- 📝 **Erweiterte Logging-Funktionen**: Umfassendes Logging mit Zeichenanzahl-Anzeige
+- 🧪 Vollständige Testabdeckung (221+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne API-Integration mit masto.js (Mastodon) und @atproto/api (Bluesky)
@@ -285,8 +285,35 @@ template = "👤 Benutzer {{user.name}} ({{user.email}}) hat {{stats.posts}} Pos
 - `{{variable}}` - Einfache Variable aus JSON
 - `{{nested.property}}` - Verschachtelte Eigenschaft mit Punkt-Notation
 - `{{ variable }}` - Leerzeichen um Variablennamen werden ignoriert
+- `{{variable|trim:50}}` - Variable auf 50 Zeichen kürzen mit "..."-Suffix
+- `{{variable|trim:30,…}}` - Variable auf 30 Zeichen kürzen mit benutzerdefiniertem "…"-Suffix
 - Fehlende Variablen werden als `{{variable}}` im Text belassen
 - JSON-Werte werden automatisch zu Strings konvertiert
+
+#### Template-Funktionen
+
+**Trim-Funktion**: Feldlängen für Social Media Zeichenbeschränkungen begrenzen
+
+```toml
+# Grundlegendes Kürzen mit Standard-"..."-Suffix
+template = "{{title|trim:50}}: {{description|trim:100}}"
+
+# Benutzerdefiniertes Suffix
+template = "{{content|trim:280, [mehr]}}"
+
+# Mehrere Trim-Funktionen
+template = "{{title|trim:30}} - {{summary|trim:80}} #news"
+
+# Funktioniert mit verschachtelten Eigenschaften
+template = "{{user.name|trim:20}}: {{user.bio|trim:60}}"
+```
+
+**Anwendungsfälle:**
+- **Twitter/X**: Auf 280 Zeichen begrenzen
+- **Mastodon**: Instanz-Zeichenlimits respektieren (typisch 500)
+- **Bluesky**: Innerhalb des 300-Zeichen-Limits bleiben
+- **Schlagzeilen**: Konsistente Länge für News-Feeds
+- **Mobile**: Für kleine Bildschirme optimieren
 
 ### Multi JSON Command Provider
 
@@ -762,6 +789,32 @@ message = "📅 Neue Arbeitswoche beginnt!"
 "0 9,17 * * 1-5"  = Mo-Fr um 9:00 und 17:00 Uhr
 "*/15 9-17 * * 1-5" = alle 15 Min zwischen 9-17 Uhr, Mo-Fr
 ```
+
+## Logging und Monitoring
+
+### Erweiterte Logging-Funktionen
+
+Buntspecht bietet umfassendes Logging mit detaillierten Informationen über das Posten von Nachrichten:
+
+```
+[2025-07-06T12:48:21.509Z] INFO  Posting status to Bluesky test-account (https://bsky.social) (280 chars): "Ihr Nachrichteninhalt hier..."
+[2025-07-06T12:48:21.511Z] INFO  Status posted successfully to Bluesky test-account. URI: at://did:plc:test/app.bsky.feed.post/test123
+```
+
+**Zeichenanzahl-Monitoring:**
+- Zeigt exakte Zeichenanzahl für jede gepostete Nachricht
+- Hilft bei der Überprüfung der Einhaltung von Plattform-Limits:
+  - **Twitter/X**: 280 Zeichen
+  - **Mastodon**: 500 Zeichen (Standard, variiert je Instanz)
+  - **Bluesky**: 300 Zeichen
+- Nützlich für das Debugging der Trim-Funktions-Effektivität
+- Ermöglicht Analysen von Nachrichtenlängen-Mustern
+
+**Log-Level:**
+- `DEBUG`: Detaillierte Ausführungsinformationen
+- `INFO`: Normale Operationen und Status-Updates
+- `WARN`: Nicht-kritische Probleme und Warnungen
+- `ERROR`: Kritische Fehler und Ausfälle
 
 ## Verwendung
 
