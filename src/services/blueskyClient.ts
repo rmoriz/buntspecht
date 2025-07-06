@@ -254,13 +254,18 @@ export class BlueskyClient {
 
   /**
    * Removes a URL from the text and cleans up extra whitespace while preserving newlines
+   * Also removes exactly one newline that appears immediately before the URL
    */
   private removeUrlFromText(text: string, urlToRemove: string): string {
     // Escape special regex characters in the URL for safe replacement
     const escapedUrl = urlToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // Remove the URL from the text using regex for exact match
-    let cleanedText = text.replace(new RegExp(escapedUrl, 'g'), '');
+    // Create regex pattern that optionally matches one newline before the URL
+    // This will remove the URL and exactly one preceding newline if it exists
+    const urlWithOptionalNewlineRegex = new RegExp(`(?:\n)?${escapedUrl}`, 'g');
+    
+    // Remove the URL (and optional preceding newline) from the text
+    let cleanedText = text.replace(urlWithOptionalNewlineRegex, '');
     
     // Clean up extra spaces and tabs, but preserve newlines
     // Replace multiple consecutive spaces/tabs with a single space, but keep newlines

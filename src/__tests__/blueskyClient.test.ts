@@ -325,6 +325,90 @@ Third line here`,
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
     });
 
+    it('should remove exactly one newline before URL when URL is on its own line', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>URL on Own Line</title><meta name="description" content="URL on separate line"></head></html>'),
+      } as Response);
+
+      const textWithUrlOnNewLine = `Check out this link:
+https://example.com/standalone
+More text after the URL`;
+
+      await client.postStatus(textWithUrlOnNewLine, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: `Check out this link:
+More text after the URL`,
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com/standalone',
+            title: 'URL on Own Line',
+            description: 'URL on separate line'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should handle URL at the very beginning after newline', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>URL at Start</title><meta name="description" content="URL at beginning"></head></html>'),
+      } as Response);
+
+      const textWithUrlAtStart = `Some intro text:
+https://example.com/at-start`;
+
+      await client.postStatus(textWithUrlAtStart, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Some intro text:',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com/at-start',
+            title: 'URL at Start',
+            description: 'URL at beginning'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should not remove newlines when URL is not preceded by one', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Inline URL</title><meta name="description" content="URL inline with text"></head></html>'),
+      } as Response);
+
+      const textWithInlineUrl = `Check this https://example.com/inline link
+And this continues on next line`;
+
+      await client.postStatus(textWithInlineUrl, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: `Check this link
+And this continues on next line`,
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com/inline',
+            title: 'Inline URL',
+            description: 'URL inline with text'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
     it('should post status with facets for hashtags', async () => {
       await client.postStatus('Hello world! #typescript #bluesky', ['test-bluesky']);
 
