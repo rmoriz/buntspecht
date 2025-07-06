@@ -33,6 +33,33 @@ message = "TEST PING"
 level = "debug"
 `;
 
+  const mockConfigWithAccountType = `
+[[accounts]]
+name = "test-account-with-type"
+type = "mastodon"
+instance = "https://test.mastodon"
+accessToken = "test-token"
+
+[[accounts]]
+name = "test-account-without-type"
+instance = "https://test2.mastodon"
+accessToken = "test-token-2"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["test-account-with-type", "test-account-without-type"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[logging]
+level = "debug"
+`;
+
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.BUNTSPECHT_CONFIG;
@@ -50,6 +77,7 @@ level = "debug"
 
       expect(config.accounts).toHaveLength(1);
       expect(config.accounts[0].name).toBe('test-account');
+      expect(config.accounts[0].type).toBe('mastodon'); // Default should be set
       expect(config.accounts[0].instance).toBe('https://test.mastodon');
       expect(config.accounts[0].accessToken).toBe('test-token');
       expect(config.bot.providers).toHaveLength(1);
@@ -449,6 +477,56 @@ level = "debug"
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
         'Invalid webhook port. Must be a number between 1 and 65535.'
       );
+    });
+
+    it('should set default account type to mastodon when not specified', () => {
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(mockConfigWithAccountType);
+
+      const config = ConfigLoader.loadConfig(cliOptions);
+
+      expect(config.accounts).toHaveLength(2);
+      expect(config.accounts[0].name).toBe('test-account-with-type');
+      expect(config.accounts[0].type).toBe('mastodon'); // Explicitly set
+      expect(config.accounts[1].name).toBe('test-account-without-type');
+      expect(config.accounts[1].type).toBe('mastodon'); // Default should be set
+    });
+
+    it('should preserve explicitly set account type', () => {
+      const configWithCustomType = `
+[[accounts]]
+name = "custom-account"
+type = "custom-platform"
+instance = "https://custom.platform"
+accessToken = "test-token"
+
+[bot]
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["custom-account"]
+
+[bot.providers.config]
+message = "TEST PING"
+
+[logging]
+level = "debug"
+`;
+
+      const cliOptions: CliOptions = { config: '/test/config.toml' };
+      
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(configWithCustomType);
+
+      const config = ConfigLoader.loadConfig(cliOptions);
+
+      expect(config.accounts).toHaveLength(1);
+      expect(config.accounts[0].name).toBe('custom-account');
+      expect(config.accounts[0].type).toBe('custom-platform'); // Should preserve custom type
     });
   });
 

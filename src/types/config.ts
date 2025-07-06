@@ -1,5 +1,6 @@
 export interface AccountConfig {
   name: string;
+  type?: string;
   instance: string;
   accessToken: string;
   defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';

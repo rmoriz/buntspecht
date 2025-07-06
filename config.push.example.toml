@@ -4,11 +4,13 @@
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "main-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
 
 [[accounts]]
 name = "alerts-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://fosstodon.org"
 accessToken = "your-alerts-account-token-here"
 

@@ -5,6 +5,7 @@
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "main-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-access-token-here"
 

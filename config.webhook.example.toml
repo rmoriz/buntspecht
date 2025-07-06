@@ -4,12 +4,14 @@
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "main-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
 defaultVisibility = "unlisted"  # Default visibility for this account
 
 [[accounts]]
 name = "alerts-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://fosstodon.org"
 accessToken = "your-alerts-account-token-here"
 defaultVisibility = "public"  # Public alerts for better visibility

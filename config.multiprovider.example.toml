@@ -4,16 +4,19 @@
 # Fediverse/Mastodon Accounts
 [[accounts]]
 name = "personal"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-personal-token"
 
 [[accounts]]
 name = "work"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://fosstodon.org"
 accessToken = "your-work-token"
 
 [[accounts]]
 name = "bot"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://botsin.space"
 accessToken = "your-bot-token"
 

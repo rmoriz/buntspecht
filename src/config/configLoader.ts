@@ -71,8 +71,8 @@ export class ConfigLoader {
       const configContent = fs.readFileSync(configPath, 'utf-8');
       const parsedConfig = toml.parse(configContent);
       
-      this.validateConfig(parsedConfig);
       this.setDefaults(parsedConfig);
+      this.validateConfig(parsedConfig);
       
       return parsedConfig as BotConfig;
     } catch (error) {
@@ -166,6 +166,17 @@ export class ConfigLoader {
   }
 
   private static setDefaults(config: Record<string, unknown>): void {
+    // Set account defaults
+    const accounts = config.accounts as Array<Record<string, unknown>>;
+    if (accounts && Array.isArray(accounts)) {
+      for (const account of accounts) {
+        // Set default account type to 'mastodon' if not specified
+        if (!account.type) {
+          account.type = 'mastodon';
+        }
+      }
+    }
+
     // Set telemetry defaults if not present
     if (!config.telemetry) {
       config.telemetry = this.getDefaultTelemetryConfig();

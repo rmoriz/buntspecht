@@ -6,12 +6,14 @@
 
 [[accounts]]
 name = "main-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
 # defaultVisibility = "unlisted"  # Optional: public, unlisted, private, direct (default: unlisted)
 
 [[accounts]]
 name = "backup-account"
+type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://fosstodon.org"
 accessToken = "your-backup-account-token-here"
 # defaultVisibility = "public"  # Optional: public, unlisted, private, direct (default: unlisted)
@@ -19,6 +21,7 @@ accessToken = "your-backup-account-token-here"
 # Optional: Additional accounts
 # [[accounts]]
 # name = "work-account"
+# type = "mastodon"  # Optional: account type (default: mastodon)
 # instance = "https://your-company-instance.com"
 # accessToken = "your-work-token-here"
 
