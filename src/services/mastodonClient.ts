@@ -24,6 +24,11 @@ export class MastodonClient {
 
   private initializeClients(): void {
     for (const accountConfig of this.config.accounts) {
+      if (!accountConfig.instance || !accountConfig.accessToken) {
+        this.logger.error(`Mastodon account "${accountConfig.name}" missing required instance or accessToken`);
+        continue;
+      }
+
       const client = createRestAPIClient({
         url: accountConfig.instance,
         accessToken: accountConfig.accessToken,
@@ -70,7 +75,7 @@ export class MastodonClient {
           // Determine visibility: parameter > account default > global default (unlisted)
           const finalVisibility = visibility || accountClient.config.defaultVisibility || 'unlisted';
           
-          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance}) with visibility '${finalVisibility}': "${message}"`);
+          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}': "${message}"`);
           
           const status = await accountClient.client.v1.statuses.create({
             status: message,
@@ -131,7 +136,7 @@ export class MastodonClient {
         
         const account = await accountClient.client.v1.accounts.verifyCredentials();
         
-        this.logger.info(`Connected to ${accountName} as: @${account.username}@${new URL(accountClient.config.instance).hostname}`);
+        this.logger.info(`Connected to ${accountName} as: @${account.username}@${new URL(accountClient.config.instance || 'https://mastodon.social').hostname}`);
       } catch (error) {
         this.logger.error(`Failed to verify connection for ${accountName}:`, error);
         allSuccessful = false;
@@ -171,7 +176,7 @@ export class MastodonClient {
         accountsInfo.push({
           accountName,
           account,
-          instance: accountClient.config.instance
+          instance: accountClient.config.instance || 'unknown'
         });
       } catch (error) {
         this.logger.error(`Failed to get account info for ${accountName}:`, error);

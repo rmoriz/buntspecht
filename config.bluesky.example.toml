@@ -12,7 +12,7 @@ defaultVisibility = "unlisted"
 [[accounts]]
 name = "bluesky-main"
 type = "bluesky"
-instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
+# instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
 identifier = "yourhandle.bsky.social"  # Your Bluesky handle
 password = "your-app-password"  # App password from Bluesky settings
 # Note: Bluesky posts are always public, defaultVisibility is ignored
@@ -20,6 +20,7 @@ password = "your-app-password"  # App password from Bluesky settings
 [[accounts]]
 name = "bluesky-alt"
 type = "bluesky"
+# instance = "https://custom-bluesky-instance.com"  # Optional: for custom instances
 identifier = "did:plc:your-did-here"  # Alternative: use DID instead of handle
 password = "your-app-password"
 
@@ -98,7 +99,7 @@ level = "info"
 # For telemetry use Docker or run the bot directly with Bun/Node.js.
 enabled = false
 serviceName = "buntspecht"
-serviceVersion = "0.5.1"
+serviceVersion = "0.6.0"
 
 [telemetry.jaeger]
 enabled = false

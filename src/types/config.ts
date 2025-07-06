@@ -1,8 +1,8 @@
 export interface AccountConfig {
   name: string;
   type?: string;
-  instance: string;
-  accessToken: string;
+  instance?: string; // Optional - defaults to appropriate service (https://bsky.social for Bluesky)
+  accessToken?: string; // Optional for Bluesky (uses identifier+password instead)
   defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
   // Bluesky-specific fields
   identifier?: string; // Bluesky handle or DID

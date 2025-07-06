@@ -104,12 +104,29 @@ export class ConfigLoader {
       }
       accountNames.add(account.name as string);
       
-      if (!account.instance || typeof account.instance !== 'string') {
-        throw new Error(`Account "${account.name}": Missing or invalid instance`);
-      }
+      // Validate account type-specific requirements
+      const accountType = account.type || 'mastodon';
       
-      if (!account.accessToken || typeof account.accessToken !== 'string') {
-        throw new Error(`Account "${account.name}": Missing or invalid accessToken`);
+      if (accountType === 'bluesky') {
+        // Bluesky accounts require identifier and password
+        if (!account.identifier || typeof account.identifier !== 'string') {
+          throw new Error(`Bluesky account "${account.name}": Missing or invalid identifier (handle or DID)`);
+        }
+        if (!account.password || typeof account.password !== 'string') {
+          throw new Error(`Bluesky account "${account.name}": Missing or invalid password (app password)`);
+        }
+        // Instance is optional for Bluesky (defaults to https://bsky.social)
+        if (account.instance && typeof account.instance !== 'string') {
+          throw new Error(`Bluesky account "${account.name}": Invalid instance (must be a string)`);
+        }
+      } else {
+        // Mastodon and other accounts require instance and accessToken
+        if (!account.instance || typeof account.instance !== 'string') {
+          throw new Error(`Account "${account.name}": Missing or invalid instance`);
+        }
+        if (!account.accessToken || typeof account.accessToken !== 'string') {
+          throw new Error(`Account "${account.name}": Missing or invalid accessToken`);
+        }
       }
     }
 
