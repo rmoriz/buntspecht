@@ -32,6 +32,10 @@ describe('MultiJsonCommandProvider', () => {
       './tmp_rovodev_test_cache_basic.json.tmp',
       './tmp_rovodev_test_cache_nested.json',
       './tmp_rovodev_test_cache_nested.json.tmp',
+      './tmp_rovodev_test_cache_external.json',
+      './tmp_rovodev_test_cache_external.json.tmp',
+      './tmp_rovodev_test_cache_cleanup.json',
+      './tmp_rovodev_test_cache_cleanup.json.tmp',
       './cache/tmp_rovodev_test_cache.json',
       './cache/tmp_rovodev_test_cache.json.tmp'
     ];
@@ -432,6 +436,90 @@ describe('MultiJsonCommandProvider', () => {
       const result3 = await provider.generateMessage();
       expect(result3).toBe('Message: New'); // Should return the new item's message
       expect(logger.info).toHaveBeenCalledWith('Skipped 2 cached items, found 1 new item to process');
+    });
+
+    it('should detect external cache file modifications and reload', async () => {
+      const cacheFilePath = './tmp_rovodev_test_cache_external.json';
+      
+      // Clean up any existing cache file
+      if (fs.existsSync(cacheFilePath)) {
+        fs.unlinkSync(cacheFilePath);
+      }
+
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          ttl: 60000,
+          filePath: cacheFilePath,
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger, undefined, 'test-provider-external');
+
+      // First run - should process first item and create cache
+      const result1 = await provider.generateMessage();
+      expect(result1).toBe('Message: Hello');
+      
+      // Verify cache file was created
+      expect(fs.existsSync(cacheFilePath)).toBe(true);
+
+      // Second run - should process second item (first is cached)
+      const result2 = await provider.generateMessage();
+      expect(result2).toBe('Message: World');
+
+      // Externally modify the cache file to remove all entries
+      // This simulates external cache manipulation
+      const emptyCacheData = {};
+      fs.writeFileSync(cacheFilePath, JSON.stringify(emptyCacheData, null, 2), 'utf-8');
+      
+      // Wait a bit to ensure file modification time is different
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Third run - should detect cache file modification and reload
+      // Since cache is now empty, it should process the first item again
+      const result3 = await provider.generateMessage();
+      expect(result3).toBe('Message: Hello');
+      
+      // Verify that the external modification was detected
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Cache file has been modified externally, reloading'));
+
+      // Clean up
+      if (fs.existsSync(cacheFilePath)) {
+        fs.unlinkSync(cacheFilePath);
+      }
+    });
+
+    it('should handle cleanup properly', async () => {
+      const config: MultiJsonCommandProviderConfig = {
+        command: 'echo \'[{"id": 1, "message": "test"}]\'',
+        template: 'Message: {{message}}',
+        cache: {
+          enabled: true,
+          filePath: './tmp_rovodev_test_cache_cleanup.json',
+        },
+      };
+
+      const provider = new MultiJsonCommandProvider(config);
+      await provider.initialize(logger, undefined, 'test-provider-cleanup');
+
+      // Generate a message to create cache
+      const result = await provider.generateMessage();
+      expect(result).toBe('Message: test');
+
+      // Verify cache file was created
+      expect(fs.existsSync('./tmp_rovodev_test_cache_cleanup.json')).toBe(true);
+
+      // Call cleanup - should not throw and should save cache
+      await expect(provider.cleanup()).resolves.not.toThrow();
+
+      // Clean up test file
+      const cacheFile = './tmp_rovodev_test_cache_cleanup.json';
+      if (fs.existsSync(cacheFile)) {
+        fs.unlinkSync(cacheFile);
+      }
     });
   });
 });

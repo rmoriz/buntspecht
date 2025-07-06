@@ -62,6 +62,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private cache: Map<string, CacheEntry>;
   private skipCaching: boolean = false;
   private providerName: string = '';
+  private cacheFileWatcher?: fs.FSWatcher;
+  private lastCacheFileModTime?: number;
 
   constructor(config: MultiJsonCommandProviderConfig) {
     if (!config.command) {
@@ -95,6 +97,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * @param accountName Optional account name for account-aware caching
    */
   public async generateMessage(accountName?: string): Promise<string> {
+    // Check if cache file has been modified externally and reload if necessary
+    await this.checkAndReloadCacheIfModified();
+    
     this.logger?.debug(`Executing command: "${this.command}"`);
     
     try {
@@ -428,8 +433,14 @@ export class MultiJsonCommandProvider implements MessageProvider {
       }
 
       if (fs.existsSync(this.cacheFilePath)) {
+        const stats = fs.statSync(this.cacheFilePath);
+        this.lastCacheFileModTime = stats.mtimeMs;
+        
         const fileContent = fs.readFileSync(this.cacheFilePath, 'utf-8');
         const cacheData = JSON.parse(fileContent) as Record<string, CacheEntry>;
+        
+        // Clear existing cache before loading
+        this.cache.clear();
         
         // Load entries into Map and clean up expired ones
         const now = Date.now();
@@ -451,11 +462,40 @@ export class MultiJsonCommandProvider implements MessageProvider {
         }
       } else {
         this.logger?.debug(`Cache file does not exist: ${this.cacheFilePath}`);
+        this.lastCacheFileModTime = undefined;
       }
     } catch (error) {
       this.logger?.error(`Failed to load cache from file: ${error instanceof Error ? error.message : String(error)}`);
       // Continue without cache rather than failing
       this.cache.clear();
+      this.lastCacheFileModTime = undefined;
+    }
+  }
+
+  /**
+   * Checks if the cache file has been modified externally and reloads if necessary
+   */
+  private async checkAndReloadCacheIfModified(): Promise<void> {
+    if (!this.cacheEnabled || !fs.existsSync(this.cacheFilePath)) {
+      return;
+    }
+
+    try {
+      const stats = fs.statSync(this.cacheFilePath);
+      const currentModTime = stats.mtimeMs;
+
+      // If we don't have a stored mod time or the file has been modified
+      if (!this.lastCacheFileModTime || currentModTime > this.lastCacheFileModTime) {
+        this.logger?.info(`Cache file has been modified externally, reloading: ${this.cacheFilePath}`);
+        await this.loadCacheFromFile();
+        
+        // Record telemetry for external cache reload
+        if (this.telemetry) {
+          this.telemetry.incrementCounter('cache_external_reload', 1, { provider: this.getProviderName() });
+        }
+      }
+    } catch (error) {
+      this.logger?.error(`Failed to check cache file modification: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -484,6 +524,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
       const tempFilePath = `${this.cacheFilePath}.tmp`;
       fs.writeFileSync(tempFilePath, JSON.stringify(cacheData, null, 2), 'utf-8');
       fs.renameSync(tempFilePath, this.cacheFilePath);
+
+      // Update our stored modification time to prevent unnecessary reloads
+      const stats = fs.statSync(this.cacheFilePath);
+      this.lastCacheFileModTime = stats.mtimeMs;
 
       this.logger?.debug(`Saved ${this.cache.size} cache entries to ${this.cacheFilePath}`);
     } catch (error) {
@@ -687,6 +731,23 @@ export class MultiJsonCommandProvider implements MessageProvider {
    */
   public getProviderName(): string {
     return 'multijsoncommand';
+  }
+
+  /**
+   * Cleanup method to dispose of resources
+   */
+  public async cleanup(): Promise<void> {
+    // Close file watcher if it exists
+    if (this.cacheFileWatcher) {
+      this.cacheFileWatcher.close();
+      this.cacheFileWatcher = undefined;
+      this.logger?.debug('Closed cache file watcher');
+    }
+
+    // Save cache one final time
+    if (this.cacheEnabled && this.cache.size > 0) {
+      await this.saveCacheToFile();
+    }
   }
 
   /**
