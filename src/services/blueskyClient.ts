@@ -70,11 +70,13 @@ export class BlueskyClient {
   }
 
   /**
-   * Detects URLs in text using a comprehensive regex pattern
+   * Detects URLs in text using a robust pattern that captures complete URLs
+   * Looks for http:// or https:// and continues until whitespace or end of string
    */
   private detectUrls(text: string): string[] {
-    // Regex pattern to match URLs (http/https, with or without www)
-    const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&=]*)/g;
+    // More robust regex: starts with http:// or https:// and continues until whitespace
+    // This ensures we capture the complete URL including paths, query parameters, etc.
+    const urlRegex = /https?:\/\/\S+/g;
     const matches = text.match(urlRegex);
     return matches || [];
   }
@@ -254,10 +256,14 @@ export class BlueskyClient {
    * Removes a URL from the text and cleans up extra whitespace
    */
   private removeUrlFromText(text: string, urlToRemove: string): string {
-    // Remove the URL from the text
-    let cleanedText = text.replace(urlToRemove, '');
+    // Escape special regex characters in the URL for safe replacement
+    const escapedUrl = urlToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Remove the URL from the text using regex for exact match
+    let cleanedText = text.replace(new RegExp(escapedUrl, 'g'), '');
     
     // Clean up extra whitespace that might be left behind
+    // Replace multiple consecutive whitespace characters with a single space
     cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
     
     return cleanedText;

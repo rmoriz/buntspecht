@@ -221,6 +221,80 @@ describe('BlueskyClient', () => {
       expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
     });
 
+    it('should handle complex URLs with paths and query parameters', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Complex URL Page</title><meta name="description" content="A page with complex URL"></head></html>'),
+      } as Response);
+
+      const complexUrl = 'https://example.com/path/to/page?param1=value1&param2=value2#section';
+      await client.postStatus(`Check this complex URL: ${complexUrl} - pretty cool!`, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check this complex URL: - pretty cool!',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: complexUrl,
+            title: 'Complex URL Page',
+            description: 'A page with complex URL'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should handle URLs with special characters in query parameters', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>Special Chars Page</title><meta name="description" content="Page with special chars"></head></html>'),
+      } as Response);
+
+      const specialUrl = 'https://example.com/search?q=hello+world&filter=type%3Darticle';
+      await client.postStatus(`Search results: ${specialUrl} are here`, ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Search results: are here',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: specialUrl,
+            title: 'Special Chars Page',
+            description: 'Page with special chars'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
+    it('should handle URLs at the end of text without trailing space', async () => {
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<html><head><title>End URL Page</title><meta name="description" content="URL at end"></head></html>'),
+      } as Response);
+
+      await client.postStatus('Check this out: https://example.com/end-url', ['test-bluesky']);
+
+      expect(mockBskyAgent.post).toHaveBeenCalledWith({
+        text: 'Check this out:',
+        createdAt: expect.any(String),
+        embed: {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: 'https://example.com/end-url',
+            title: 'End URL Page',
+            description: 'URL at end'
+          }
+        }
+      });
+      expect(telemetry.recordPost).toHaveBeenCalledWith('test-bluesky', 'unknown');
+    });
+
     it('should post status with facets for hashtags', async () => {
       await client.postStatus('Hello world! #typescript #bluesky', ['test-bluesky']);
 
