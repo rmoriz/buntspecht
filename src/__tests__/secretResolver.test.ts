@@ -99,7 +99,7 @@ describe('SecretResolver', () => {
         provider = new VaultSecretProvider(logger);
       } catch (error) {
         // Skip tests if node-vault is not installed
-        provider = null as any;
+        provider = null as unknown as VaultSecretProvider;
       }
     });
 
@@ -122,7 +122,7 @@ describe('SecretResolver', () => {
       }
 
       // Test private method through reflection for testing purposes
-      const parseMethod = (provider as any).parseVaultUrl;
+      const parseMethod = (provider as unknown as { parseVaultUrl: (url: string) => { secretPath: string; key?: string } }).parseVaultUrl;
       
       expect(parseMethod('vault://secret/myapp/token')).toEqual({
         secretPath: 'secret/myapp/token',
@@ -164,7 +164,7 @@ describe('SecretResolver', () => {
         provider = new AWSSecretsProvider(logger);
       } catch (error) {
         // Skip tests if @aws-sdk/client-secrets-manager is not installed
-        provider = null as any;
+        provider = null as unknown as AWSSecretsProvider;
       }
     });
 
@@ -188,7 +188,7 @@ describe('SecretResolver', () => {
       }
 
       // Test private method through reflection for testing purposes
-      const parseMethod = (provider as any).parseAwsUrl;
+      const parseMethod = (provider as unknown as { parseAwsUrl: (url: string) => { secretName: string; key?: string; region: string } }).parseAwsUrl;
       
       expect(parseMethod('aws://my-secret')).toEqual({
         secretName: 'my-secret',
@@ -212,7 +212,7 @@ describe('SecretResolver', () => {
       const originalRegion = process.env.AWS_DEFAULT_REGION;
       process.env.AWS_DEFAULT_REGION = 'us-west-2';
       
-      const parseMethod = (provider as any).parseAwsUrl;
+      const parseMethod = (provider as unknown as { parseAwsUrl: (url: string) => { secretName: string; key?: string; region: string } }).parseAwsUrl;
       const result = parseMethod('aws://my-secret');
       
       expect(result.region).toBe('us-west-2');
@@ -234,7 +234,7 @@ describe('SecretResolver', () => {
         provider = new AzureKeyVaultProvider(logger);
       } catch (error) {
         // Skip tests if Azure packages are not installed
-        provider = null as any;
+        provider = null as unknown as AzureKeyVaultProvider;
       }
     });
 
@@ -258,7 +258,7 @@ describe('SecretResolver', () => {
       }
 
       // Test private method through reflection for testing purposes
-      const parseMethod = (provider as any).parseAzureUrl;
+      const parseMethod = (provider as unknown as { parseAzureUrl: (url: string) => { vaultName: string; secretName: string; version?: string } }).parseAzureUrl;
       
       expect(parseMethod('azure://my-vault/my-secret')).toEqual({
         vaultName: 'my-vault',
@@ -279,7 +279,7 @@ describe('SecretResolver', () => {
         return;
       }
 
-      const parseMethod = (provider as any).parseAzureUrl;
+      const parseMethod = (provider as unknown as { parseAzureUrl: (url: string) => { vaultName: string; secretName: string; version?: string } }).parseAzureUrl;
       
       expect(() => parseMethod('azure://invalid-format')).toThrow(
         'Invalid Azure Key Vault URL format. Expected: azure://vault-name/secret-name'
@@ -299,7 +299,7 @@ describe('SecretResolver', () => {
         provider = new GCPSecretManagerProvider(logger);
       } catch (error) {
         // Skip tests if Google Cloud package is not installed
-        provider = null as any;
+        provider = null as unknown as GCPSecretManagerProvider;
       }
     });
 
@@ -324,7 +324,7 @@ describe('SecretResolver', () => {
       }
 
       // Test private method through reflection for testing purposes
-      const parseMethod = (provider as any).parseGcpUrl;
+      const parseMethod = (provider as unknown as { parseGcpUrl: (url: string) => { projectId: string; secretName: string; version?: string } }).parseGcpUrl;
       
       expect(parseMethod('gcp://my-project/my-secret')).toEqual({
         projectId: 'my-project',
@@ -351,7 +351,7 @@ describe('SecretResolver', () => {
         return;
       }
 
-      const parseMethod = (provider as any).parseGcpUrl;
+      const parseMethod = (provider as unknown as { parseGcpUrl: (url: string) => { projectId: string; secretName: string; version?: string } }).parseGcpUrl;
       
       expect(() => parseMethod('gcp://invalid-format')).toThrow(
         'Invalid Google Cloud Secret Manager URL format. Expected: gcp://project-id/secret-name'

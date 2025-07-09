@@ -114,7 +114,7 @@ describe('SecretRotationDetector', () => {
       };
 
       // Replace the secret resolver in the detector
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
 
       await detector.initialize();
 
@@ -131,7 +131,7 @@ describe('SecretRotationDetector', () => {
           .mockResolvedValueOnce('initial-env-token'),
       };
 
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
 
       await detector.initialize();
 
@@ -144,12 +144,12 @@ describe('SecretRotationDetector', () => {
 
   describe('secret source detection', () => {
     it('should identify vault:// sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('vault://secret/path');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('vault://secret/path');
       expect(isExternal).toBe(true);
     });
 
     it('should identify aws:// sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('aws://secret-name');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('aws://secret-name');
       expect(isExternal).toBe(true);
     });
 

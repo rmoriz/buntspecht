@@ -3,12 +3,12 @@ import * as path from 'path';
 import { Logger } from '../utils/logger';
 
 // Optional dependencies - only imported if available
-let nodeVault: any;
-let SecretsManagerClient: any;
-let GetSecretValueCommand: any;
-let SecretClient: any;
-let DefaultAzureCredential: any;
-let SecretManagerServiceClient: any;
+let nodeVault: typeof import('node-vault') | undefined;
+let SecretsManagerClient: typeof import('@aws-sdk/client-secrets-manager').SecretsManagerClient | undefined;
+let GetSecretValueCommand: typeof import('@aws-sdk/client-secrets-manager').GetSecretValueCommand | undefined;
+let SecretClient: typeof import('@azure/keyvault-secrets').SecretClient | undefined;
+let DefaultAzureCredential: typeof import('@azure/identity').DefaultAzureCredential | undefined;
+let SecretManagerServiceClient: typeof import('@google-cloud/secret-manager').SecretManagerServiceClient | undefined;
 
 try {
   nodeVault = require('node-vault');
@@ -106,7 +106,7 @@ export class FileSecretProvider implements SecretProvider {
  */
 export class VaultSecretProvider implements SecretProvider {
   name = 'vault';
-  private vault: any;
+  private vault: ReturnType<typeof import('node-vault')> | undefined;
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -134,7 +134,7 @@ export class VaultSecretProvider implements SecretProvider {
       this.logger.debug(`Reading secret from Vault path: ${secretPath}${key ? ` (key: ${key})` : ''}`);
       
       // Read secret from Vault
-      const response = await this.vault.read(secretPath);
+      const response = await this.vault!.read(secretPath);
       
       if (!response || !response.data) {
         throw new Error(`No data found at Vault path: ${secretPath}`);
@@ -178,7 +178,7 @@ export class VaultSecretProvider implements SecretProvider {
       throw new Error('VAULT_TOKEN environment variable is required for Vault authentication');
     }
 
-    this.vault = nodeVault({
+    this.vault = nodeVault!({
       apiVersion: 'v1',
       endpoint: vaultAddr,
       token: vaultToken,
@@ -224,7 +224,7 @@ export class VaultSecretProvider implements SecretProvider {
  */
 export class AWSSecretsProvider implements SecretProvider {
   name = 'aws';
-  private secretsManagerClients: Map<string, any> = new Map();
+  private secretsManagerClients: Map<string, InstanceType<typeof import('@aws-sdk/client-secrets-manager').SecretsManagerClient>> = new Map();
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -254,7 +254,7 @@ export class AWSSecretsProvider implements SecretProvider {
       this.logger.debug(`Reading secret from AWS Secrets Manager: ${secretName}${key ? ` (key: ${key})` : ''} in region ${region}`);
       
       // Create and send the GetSecretValue command
-      const command = new GetSecretValueCommand({ SecretId: secretName });
+      const command = new GetSecretValueCommand!({ SecretId: secretName });
       const response = await secretsManager.send(command);
       
       if (!response.SecretString) {
@@ -262,7 +262,7 @@ export class AWSSecretsProvider implements SecretProvider {
       }
 
       // Parse the secret value
-      let secretData: any;
+      let secretData: Record<string, unknown>;
       try {
         secretData = JSON.parse(response.SecretString);
       } catch (error) {
@@ -278,20 +278,20 @@ export class AWSSecretsProvider implements SecretProvider {
         if (!(key in secretData)) {
           throw new Error(`Key "${key}" not found in AWS secret: ${secretName}`);
         }
-        return secretData[key];
+        return secretData[key] as string;
       } else {
         // If no key specified, try common field names
         const commonKeys = ['value', 'password', 'token', 'secret'];
         for (const commonKey of commonKeys) {
           if (commonKey in secretData) {
-            return secretData[commonKey];
+            return secretData[commonKey] as string;
           }
         }
         
         // If no common keys found, return the first value
         const keys = Object.keys(secretData);
         if (keys.length === 1) {
-          return secretData[keys[0]];
+          return secretData[keys[0]] as string;
         }
         
         throw new Error(`Multiple keys found in AWS secret ${secretName}. Please specify which key to use with ?key=fieldName`);
@@ -303,8 +303,8 @@ export class AWSSecretsProvider implements SecretProvider {
     }
   }
 
-  private createSecretsManagerClient(region: string): any {
-    const client = new SecretsManagerClient({
+  private createSecretsManagerClient(region: string): InstanceType<typeof import('@aws-sdk/client-secrets-manager').SecretsManagerClient> {
+    const client = new SecretsManagerClient!({
       region: region,
       // AWS SDK v3 will automatically use credentials from:
       // 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
@@ -353,7 +353,7 @@ export class AWSSecretsProvider implements SecretProvider {
  */
 export class AzureKeyVaultProvider implements SecretProvider {
   name = 'azure';
-  private keyVaultClients: Map<string, any> = new Map();
+  private keyVaultClients: Map<string, InstanceType<typeof import('@azure/keyvault-secrets').SecretClient>> = new Map();
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -397,7 +397,7 @@ export class AzureKeyVaultProvider implements SecretProvider {
     }
   }
 
-  private createKeyVaultClient(vaultName: string): any {
+  private createKeyVaultClient(vaultName: string): InstanceType<typeof import('@azure/keyvault-secrets').SecretClient> {
     const vaultUrl = `https://${vaultName}.vault.azure.net/`;
     
     // Create credential using DefaultAzureCredential which tries:
@@ -407,9 +407,9 @@ export class AzureKeyVaultProvider implements SecretProvider {
     // 4. Azure PowerShell credentials
     // 5. Visual Studio Code credentials
     // 6. Interactive browser authentication
-    const credential = new DefaultAzureCredential();
+    const credential = new DefaultAzureCredential!();
     
-    const client = new SecretClient(vaultUrl, credential);
+    const client = new SecretClient!(vaultUrl, credential);
 
     this.logger.debug(`Created Azure Key Vault client for vault: ${vaultName}`);
     return client;
@@ -455,7 +455,7 @@ export class AzureKeyVaultProvider implements SecretProvider {
  */
 export class GCPSecretManagerProvider implements SecretProvider {
   name = 'gcp';
-  private secretManagerClients: Map<string, any> = new Map();
+  private secretManagerClients: Map<string, InstanceType<typeof import('@google-cloud/secret-manager').SecretManagerServiceClient>> = new Map();
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -497,7 +497,7 @@ export class GCPSecretManagerProvider implements SecretProvider {
       }
 
       // Convert the secret data to string
-      const secretValue = response.payload.data.toString('utf8');
+      const secretValue = response.payload.data.toString();
       return secretValue;
       
     } catch (error) {
@@ -506,13 +506,13 @@ export class GCPSecretManagerProvider implements SecretProvider {
     }
   }
 
-  private createSecretManagerClient(): any {
+  private createSecretManagerClient(): InstanceType<typeof import('@google-cloud/secret-manager').SecretManagerServiceClient> {
     // Create client using Application Default Credentials (ADC) which tries:
     // 1. GOOGLE_APPLICATION_CREDENTIALS environment variable (service account key file)
     // 2. gcloud user credentials (gcloud auth application-default login)
     // 3. Google Cloud metadata server (if running on GCP)
     // 4. Service account attached to the resource (Compute Engine, App Engine, etc.)
-    const client = new SecretManagerServiceClient();
+    const client = new SecretManagerServiceClient!();
 
     this.logger.debug('Created Google Cloud Secret Manager client');
     return client;

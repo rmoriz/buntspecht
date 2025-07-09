@@ -382,16 +382,16 @@ export class SecretRotationDetector {
       }
 
       // Also check direct values that might be environment variable references
-      const directValue = (account as any)[field];
-      if (directValue && this.isExternalSecretSource(directValue)) {
+      const directValue = (account as unknown as Record<string, unknown>)[field];
+      if (directValue && typeof directValue === 'string' && this.isExternalSecretSource(directValue)) {
         try {
-          const initialValue = await this.secretResolver.resolveSecret(directValue);
+          const initialValue = await this.secretResolver.resolveSecret(directValue as string);
           
           const key = `${account.name}.${field}`;
           const metadata: SecretMetadata = {
             accountName: account.name,
             fieldName: field,
-            source: directValue,
+            source: directValue as string,
             lastValue: initialValue,
             lastChecked: new Date(),
             checkCount: 0
