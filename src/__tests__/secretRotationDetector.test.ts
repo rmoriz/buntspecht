@@ -3,6 +3,16 @@ import { SocialMediaClient } from '../services/socialMediaClient';
 import { Logger } from '../utils/logger';
 import { BotConfig } from '../types/config';
 
+interface SecretMetadata {
+  accountName: string;
+  fieldName: string;
+  source: string;
+  lastValue: string;
+  lastChecked: Date;
+  checkCount: number;
+  lastRotationDetected?: Date;
+}
+
 // Mock dependencies
 jest.mock('../services/socialMediaClient');
 jest.mock('../utils/logger');
@@ -154,27 +164,27 @@ describe('SecretRotationDetector', () => {
     });
 
     it('should identify azure:// sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('azure://vault/secret');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('azure://vault/secret');
       expect(isExternal).toBe(true);
     });
 
     it('should identify gcp:// sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('gcp://project/secret');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('gcp://project/secret');
       expect(isExternal).toBe(true);
     });
 
     it('should identify file:// sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('file:///path/to/secret');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('file:///path/to/secret');
       expect(isExternal).toBe(true);
     });
 
     it('should identify environment variable sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('${ENV_VAR}');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('${ENV_VAR}');
       expect(isExternal).toBe(true);
     });
 
     it('should not identify direct values as external sources', () => {
-      const isExternal = (detector as any).isExternalSecretSource('direct-token-value');
+      const isExternal = (detector as unknown as { isExternalSecretSource: (source: string) => boolean }).isExternalSecretSource('direct-token-value');
       expect(isExternal).toBe(false);
     });
   });
@@ -186,7 +196,7 @@ describe('SecretRotationDetector', () => {
         resolveSecret: jest.fn()
           .mockResolvedValue('initial-value'),
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
       await detector.initialize();
     });
 
@@ -195,7 +205,7 @@ describe('SecretRotationDetector', () => {
         resolveSecret: jest.fn()
           .mockResolvedValueOnce('new-rotated-value'), // Different from initial value
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
 
       // Mock the metadata to have an initial value
       const metadata = {
@@ -208,7 +218,7 @@ describe('SecretRotationDetector', () => {
         lastRotationDetected: undefined as Date | undefined,
       };
 
-      const hasRotated = await (detector as any).checkSecretRotation(metadata);
+      const hasRotated = await (detector as unknown as { checkSecretRotation: (metadata: SecretMetadata) => Promise<boolean> }).checkSecretRotation(metadata);
       expect(hasRotated).toBe(true);
       expect(metadata.lastValue).toBe('new-rotated-value');
       expect(metadata.lastRotationDetected).toBeDefined();
@@ -219,7 +229,7 @@ describe('SecretRotationDetector', () => {
         resolveSecret: jest.fn()
           .mockResolvedValueOnce('initial-value'), // Same as initial value
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
 
       const metadata = {
         accountName: 'test-account',
@@ -231,7 +241,7 @@ describe('SecretRotationDetector', () => {
         lastRotationDetected: undefined as Date | undefined,
       };
 
-      const hasRotated = await (detector as any).checkSecretRotation(metadata);
+      const hasRotated = await (detector as unknown as { checkSecretRotation: (metadata: SecretMetadata) => Promise<boolean> }).checkSecretRotation(metadata);
       expect(hasRotated).toBe(false);
       expect(metadata.lastRotationDetected).toBeUndefined();
     });
@@ -241,7 +251,7 @@ describe('SecretRotationDetector', () => {
         resolveSecret: jest.fn()
           .mockRejectedValueOnce(new Error('Secret not accessible')),
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
 
       const metadata = {
         accountName: 'test-account',
@@ -252,7 +262,7 @@ describe('SecretRotationDetector', () => {
         checkCount: 0,
       };
 
-      await expect((detector as any).checkSecretRotation(metadata))
+      await expect((detector as unknown as { checkSecretRotation: (metadata: SecretMetadata) => Promise<boolean> }).checkSecretRotation(metadata))
         .rejects.toThrow('Secret not accessible');
     });
   });
@@ -272,7 +282,7 @@ describe('SecretRotationDetector', () => {
       (mockSocialMediaClient.reinitializeAccount as jest.Mock).mockResolvedValueOnce(undefined);
       (mockSocialMediaClient.verifyAccountConnection as jest.Mock).mockResolvedValueOnce(true);
 
-      await (detector as any).handleSecretRotation(metadata);
+      await (detector as unknown as { handleSecretRotation: (metadata: SecretMetadata) => Promise<void> }).handleSecretRotation(metadata);
 
       expect(mockSocialMediaClient.reinitializeAccount).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -305,7 +315,7 @@ describe('SecretRotationDetector', () => {
       (mockSocialMediaClient.reinitializeAccount as jest.Mock)
         .mockRejectedValueOnce(new Error('Reinitialization failed'));
 
-      await expect((detector as any).handleSecretRotation(metadata))
+      await expect((detector as unknown as { handleSecretRotation: (metadata: SecretMetadata) => Promise<void> }).handleSecretRotation(metadata))
         .rejects.toThrow('Reinitialization failed');
 
       expect(mockTelemetry.incrementCounter).toHaveBeenCalledWith(
@@ -339,7 +349,7 @@ describe('SecretRotationDetector', () => {
         resolveSecret: jest.fn()
           .mockResolvedValue('initial-value'),
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
       await detector.initialize();
 
       const monitoredSecrets = detector.getMonitoredSecrets();
@@ -376,7 +386,7 @@ describe('SecretRotationDetector', () => {
       const mockSecretResolver = {
         resolveSecret: jest.fn().mockResolvedValue('initial-value'),
       };
-      (detector as any).secretResolver = mockSecretResolver;
+      (detector as unknown as { secretResolver: typeof mockSecretResolver }).secretResolver = mockSecretResolver;
       await detector.initialize();
 
       detector.start();

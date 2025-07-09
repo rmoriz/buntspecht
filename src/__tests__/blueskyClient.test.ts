@@ -127,7 +127,7 @@ describe('BlueskyClient', () => {
         ]
       };
 
-      const mastodonClient = new BlueskyClient(mastodonConfig, logger, telemetry);
+      new BlueskyClient(mastodonConfig, logger, telemetry);
       
       // Wait for async initialization to complete
       await new Promise(resolve => setTimeout(resolve, 0));
