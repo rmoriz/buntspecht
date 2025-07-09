@@ -117,24 +117,45 @@ instance = "https://mastodon.social"
 accessToken = "your-mastodon-access-token-here"
 
 [[accounts]]
+name = "mastodon-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-access-token"  # Traditional hardcoded token
+
+[[accounts]]
 name = "bluesky-account"
 type = "bluesky"  # Account type for Bluesky
 instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
 identifier = "yourhandle.bsky.social"  # Your Bluesky handle or DID
-password = "your-app-password"  # App password from Bluesky settings
+password = "your-app-password"  # Traditional hardcoded app password from Bluesky settings
 
-# Example with external secret sources (monitored for automatic rotation)
+# Examples with external secret sources (monitored for automatic rotation)
 [[accounts]]
 name = "secure-mastodon"
 type = "mastodon"
 instance = "https://mastodon.social"
 accessTokenSource = "vault://secret/buntspecht/mastodon-token"  # HashiCorp Vault
-# Alternative secret sources:
+# Alternative approaches:
+# accessToken = "your-mastodon-access-token"                     # Traditional hardcoded token
 # accessTokenSource = "aws://my-secret?key=token&region=us-east-1"  # AWS Secrets Manager
 # accessTokenSource = "azure://my-vault/my-secret"                  # Azure Key Vault
 # accessTokenSource = "gcp://my-project/my-secret"                 # Google Cloud Secret Manager
 # accessTokenSource = "file:///path/to/token.txt"                 # File-based secret
 # accessToken = "${MASTODON_TOKEN}"                               # Environment variable
+
+[[accounts]]
+name = "secure-bluesky"
+type = "bluesky"
+instance = "https://bsky.social"
+identifier = "yourhandle.bsky.social"
+passwordSource = "vault://secret/buntspecht/bluesky-password"    # HashiCorp Vault
+# Alternative approaches:
+# password = "your-app-password"                                  # Traditional hardcoded password
+# passwordSource = "aws://my-secret?key=password&region=us-east-1" # AWS Secrets Manager
+# passwordSource = "azure://my-vault/bluesky-secret"              # Azure Key Vault
+# passwordSource = "gcp://my-project/bluesky-secret"              # Google Cloud Secret Manager
+# passwordSource = "file:///path/to/password.txt"                # File-based secret
+# password = "${BLUESKY_PASSWORD}"                                # Environment variable
 
 [bot]
 # Multi-Provider Configuration
