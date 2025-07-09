@@ -4,7 +4,9 @@ import { Logger } from '../utils/logger';
 import { BotConfig } from '../types/config';
 
 // Mock @atproto/api
-jest.mock('@atproto/api');
+jest.mock('@atproto/api', () => ({
+  BskyAgent: jest.fn(),
+}));
 
 interface MockBskyAgent {
   login: jest.Mock;
@@ -25,7 +27,7 @@ describe('BlueskyClient', () => {
   let telemetry: TelemetryService;
   let client: BlueskyClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Create mock Bluesky agent
     mockBskyAgent = {
       login: jest.fn(),
@@ -36,6 +38,9 @@ describe('BlueskyClient', () => {
     // Mock the BskyAgent constructor
     const { BskyAgent } = require('@atproto/api');
     BskyAgent.mockImplementation(() => mockBskyAgent);
+
+    // Mock successful login by default
+    mockBskyAgent.login.mockResolvedValue({});
 
     config = {
       accounts: [
@@ -76,8 +81,7 @@ describe('BlueskyClient', () => {
       shutdown: jest.fn()
     } as unknown as jest.Mocked<TelemetryService>;
 
-    // Mock successful login
-    mockBskyAgent.login.mockResolvedValue({});
+    // Set up mock session
     mockBskyAgent.session = {
       accessJwt: 'mock-jwt',
       refreshJwt: 'mock-refresh',
@@ -86,6 +90,9 @@ describe('BlueskyClient', () => {
     };
 
     client = new BlueskyClient(config, logger, telemetry);
+    
+    // Wait for async initialization to complete
+    await new Promise(resolve => setTimeout(resolve, 0));
   });
 
   afterEach(() => {
@@ -104,7 +111,7 @@ describe('BlueskyClient', () => {
       });
     });
 
-    it('should skip non-bluesky accounts', () => {
+    it('should skip non-bluesky accounts', async () => {
       // Clear previous calls
       jest.clearAllMocks();
       
@@ -120,17 +127,23 @@ describe('BlueskyClient', () => {
         ]
       };
 
-      new BlueskyClient(mastodonConfig, logger, telemetry);
+      const mastodonClient = new BlueskyClient(mastodonConfig, logger, telemetry);
+      
+      // Wait for async initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       // Should not create any Bluesky agents for mastodon accounts
       expect(mockBskyAgent.login).not.toHaveBeenCalled();
     });
 
-    it('should handle login errors gracefully', () => {
+    it('should handle login errors gracefully', async () => {
       mockBskyAgent.login.mockRejectedValue(new Error('Login failed'));
       
       // Should not throw during construction
       expect(() => new BlueskyClient(config, logger, telemetry)).not.toThrow();
+      
+      // Wait for async initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
   });
 
@@ -529,6 +542,9 @@ And this continues on next line`,
     it('should return true when no Bluesky accounts configured', async () => {
       const emptyConfig = { ...config, accounts: [] };
       const emptyClient = new BlueskyClient(emptyConfig, logger, telemetry);
+      
+      // Wait for async initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       const result = await emptyClient.verifyConnection();
 
