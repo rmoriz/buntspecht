@@ -82,6 +82,7 @@ describe('MastodonPingBot', () => {
 
     // Mock ConfigLoader
     (MockConfigLoader.loadConfig as jest.Mock).mockReturnValue(mockConfig);
+    (MockConfigLoader.loadConfigWithSecrets as jest.Mock).mockResolvedValue(mockConfig);
 
     // Mock Logger
     mockLogger = {
@@ -280,13 +281,15 @@ describe('MastodonPingBot', () => {
   });
 
   describe('getConfig', () => {
-    it('should return config', () => {
+    it('should return config', async () => {
+      await bot.initialize();
       expect(bot.getConfig()).toBe(mockConfig);
     });
   });
 
   describe('getLogger', () => {
-    it('should return logger', () => {
+    it('should return logger', async () => {
+      await bot.initialize();
       expect(bot.getLogger()).toBe(mockLogger);
     });
   });

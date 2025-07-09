@@ -10,7 +10,7 @@ process.env.BUNTSPECHT_FORCE_STUB = 'true';
 import { main } from './index';
 
 // Run the main function directly for binary builds
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error('Unhandled error:', error);
   process.exit(1);
 });
