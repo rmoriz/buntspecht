@@ -2,28 +2,34 @@ import { ConfigLoader } from './config/configLoader';
 import { SocialMediaClient } from './services/socialMediaClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
 import { WebhookServer } from './services/webhookServer';
+import { SecretRotationDetector } from './services/secretRotationDetector';
 import { createTelemetryService } from './services/telemetryFactory';
 import { Logger } from './utils/logger';
 import { BotConfig, CliOptions } from './types/config';
 
 export class MastodonPingBot {
-  private config: BotConfig;
-  private logger: Logger;
+  private config!: BotConfig; // Will be set in initialize()
+  private logger!: Logger; // Will be set in initialize()
   private telemetry: any; // Will be set in initialize()
   private socialMediaClient!: SocialMediaClient; // Initialized in initialize()
   private scheduler!: MultiProviderScheduler; // Initialized in initialize()
   private webhookServer?: WebhookServer; // Optional webhook server
+  private secretRotationDetector?: SecretRotationDetector; // Optional secret rotation detector
+  private cliOptions: CliOptions;
 
   constructor(cliOptions: CliOptions) {
-    this.config = ConfigLoader.loadConfig(cliOptions);
-    this.logger = new Logger(this.config.logging.level);
-    // Telemetry will be initialized in initialize() method
+    this.cliOptions = cliOptions;
+    // Config and logger will be initialized in initialize() method after secret resolution
   }
 
   /**
    * Initializes the bot and verifies the connection
    */
   public async initialize(): Promise<void> {
+    // Load configuration with secret resolution
+    this.config = await ConfigLoader.loadConfigWithSecrets(this.cliOptions);
+    this.logger = new Logger(this.config.logging.level);
+    
     this.logger.info('Initializing Buntspecht...');
     
     // Initialize telemetry first
@@ -37,6 +43,18 @@ export class MastodonPingBot {
     // Initialize webhook server if configured
     if (this.config.webhook?.enabled) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
+    }
+
+    // Initialize secret rotation detector if configured
+    if (this.config.secretRotation?.enabled !== false) { // Default to enabled
+      this.secretRotationDetector = new SecretRotationDetector(
+        this.config,
+        this.socialMediaClient,
+        this.logger,
+        this.telemetry,
+        this.config.secretRotation
+      );
+      await this.secretRotationDetector.initialize();
     }
     
     const isConnected = await this.socialMediaClient.verifyConnection();
@@ -61,6 +79,11 @@ export class MastodonPingBot {
     if (this.webhookServer) {
       await this.webhookServer.start();
     }
+
+    // Start secret rotation detector if configured
+    if (this.secretRotationDetector) {
+      this.secretRotationDetector.start();
+    }
   }
 
   /**
@@ -73,6 +96,11 @@ export class MastodonPingBot {
     // Stop webhook server if running
     if (this.webhookServer) {
       await this.webhookServer.stop();
+    }
+
+    // Stop secret rotation detector if running
+    if (this.secretRotationDetector) {
+      this.secretRotationDetector.stop();
     }
     
     await this.telemetry.shutdown();
@@ -247,5 +275,50 @@ export class MastodonPingBot {
    */
   public getPushProviderRateLimit(providerName: string): { messages: number; windowSeconds: number; currentCount: number; timeUntilReset: number } | null {
     return this.scheduler.getPushProviderRateLimit(providerName);
+  }
+
+  /**
+   * Gets secret rotation detector status
+   */
+  public getSecretRotationStatus(): {
+    enabled: boolean;
+    running: boolean;
+    secretsMonitored: number;
+    lastCheck?: Date;
+    totalRotationsDetected: number;
+    checkInterval: string;
+  } | null {
+    return this.secretRotationDetector?.getStatus() || null;
+  }
+
+  /**
+   * Gets detailed information about monitored secrets
+   */
+  public getMonitoredSecrets(): Array<{
+    accountName: string;
+    fieldName: string;
+    source: string;
+    lastChecked: Date;
+    checkCount: number;
+    lastRotationDetected?: Date;
+  }> {
+    return this.secretRotationDetector?.getMonitoredSecrets() || [];
+  }
+
+  /**
+   * Manually trigger a check for secret rotations
+   */
+  public async checkSecretRotations(): Promise<void> {
+    if (!this.secretRotationDetector) {
+      throw new Error('Secret rotation detector is not enabled');
+    }
+    await this.secretRotationDetector.checkForSecretRotations();
+  }
+
+  /**
+   * Check if secret rotation detection is enabled
+   */
+  public isSecretRotationEnabled(): boolean {
+    return !!this.secretRotationDetector;
   }
 }

@@ -150,4 +150,35 @@ export class SocialMediaClient {
   public getBlueskyClient(): BlueskyClient {
     return this.blueskyClient;
   }
+
+  /**
+   * Reinitialize a specific account after secret rotation
+   */
+  public async reinitializeAccount(account: any): Promise<void> { // eslint-disable-line @typescript-eslint/no-explicit-any
+    this.logger.info(`Reinitializing account: ${account.name}`);
+    
+    if (account.type === 'bluesky') {
+      await this.blueskyClient.reinitializeAccount(account);
+    } else {
+      await this.mastodonClient.reinitializeAccount(account);
+    }
+    
+    this.logger.info(`Successfully reinitialized account: ${account.name}`);
+  }
+
+  /**
+   * Verify connection for a specific account
+   */
+  public async verifyAccountConnection(account: any): Promise<boolean> { // eslint-disable-line @typescript-eslint/no-explicit-any
+    try {
+      if (account.type === 'bluesky') {
+        return await this.blueskyClient.verifyAccountConnection(account);
+      } else {
+        return await this.mastodonClient.verifyAccountConnection(account);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to verify connection for account ${account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
 }

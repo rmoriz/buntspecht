@@ -41,6 +41,10 @@
   "license": "MIT",
   "dependencies": {
     "@atproto/api": "^0.15.23",
+    "@aws-sdk/client-secrets-manager": "^3.840.0",
+    "@azure/identity": "^4.10.2",
+    "@azure/keyvault-secrets": "^4.10.0",
+    "@google-cloud/secret-manager": "^6.0.1",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.1",
     "@opentelemetry/exporter-jaeger": "^2.0.1",
@@ -51,6 +55,7 @@
     "commander": "^11.1.0",
     "masto": "^6.8.0",
     "node-cron": "^3.0.3",
+    "node-vault": "^0.10.5",
     "toml": "^3.0.0"
   },
   "devDependencies": {

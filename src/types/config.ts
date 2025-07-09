@@ -7,6 +7,12 @@ export interface AccountConfig {
   // Bluesky-specific fields
   identifier?: string; // Bluesky handle or DID
   password?: string; // Bluesky app password
+  
+  // External secret source fields
+  accessTokenSource?: string; // External source for accessToken (vault://, aws://, file://, etc.)
+  identifierSource?: string; // External source for identifier
+  passwordSource?: string; // External source for password
+  instanceSource?: string; // External source for instance (if needed)
 }
 
 export interface ProviderConfig {
@@ -51,6 +57,16 @@ export interface WebhookConfig {
   timeout?: number;
 }
 
+export interface SecretRotationConfig {
+  enabled: boolean;
+  checkInterval?: string; // Cron expression, default: "0 */15 * * * *" (every 15 minutes)
+  retryOnFailure?: boolean;
+  retryDelay?: number; // seconds
+  maxRetries?: number;
+  notifyOnRotation?: boolean;
+  testConnectionOnRotation?: boolean;
+}
+
 export interface BotConfig {
   accounts: AccountConfig[];
   bot: {
@@ -61,6 +77,7 @@ export interface BotConfig {
   };
   telemetry?: TelemetryConfig;
   webhook?: WebhookConfig;
+  secretRotation?: SecretRotationConfig;
 }
 
 export interface CliOptions {
@@ -69,10 +86,14 @@ export interface CliOptions {
   testProvider?: string;
   listProviders?: boolean;
   verify?: boolean;
+  verifySecrets?: boolean;
   about?: boolean;
   triggerPush?: string;
   triggerPushMessage?: string;
   listPushProviders?: boolean;
   pushProviderStatus?: string;
   webhookStatus?: boolean;
+  secretRotationStatus?: boolean;
+  checkSecretRotations?: boolean;
+  listMonitoredSecrets?: boolean;
 }

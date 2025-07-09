@@ -15,7 +15,7 @@ jest.mock('../services/telemetry');
 jest.mock('../services/telemetryFactory');
 jest.mock('../utils/logger');
 
-const MockConfigLoader = ConfigLoader as jest.MockedClass<typeof ConfigLoader>;
+const MockConfigLoader = ConfigLoader as jest.Mocked<typeof ConfigLoader>;
 const MockSocialMediaClient = SocialMediaClient as jest.MockedClass<typeof SocialMediaClient>;
 const MockMultiProviderScheduler = MultiProviderScheduler as jest.MockedClass<typeof MultiProviderScheduler>;
 const MockLogger = Logger as jest.MockedClass<typeof Logger>;
@@ -161,10 +161,11 @@ describe('MastodonPingBot', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize config and logger', () => {
-      expect(MockConfigLoader.loadConfig).toHaveBeenCalledWith(cliOptions);
-      expect(MockLogger).toHaveBeenCalledWith('info');
-      // Other services are now initialized in initialize() method
+    it('should create bot instance without loading config', () => {
+      // Constructor now only stores CLI options, config loading happens in initialize()
+      expect(MockConfigLoader.loadConfig).not.toHaveBeenCalled();
+      expect(MockConfigLoader.loadConfigWithSecrets).not.toHaveBeenCalled();
+      expect(MockLogger).not.toHaveBeenCalled();
     });
   });
 
@@ -172,6 +173,8 @@ describe('MastodonPingBot', () => {
     it('should initialize successfully', async () => {
       await bot.initialize();
 
+      expect(MockConfigLoader.loadConfigWithSecrets).toHaveBeenCalledWith(cliOptions);
+      expect(MockLogger).toHaveBeenCalledWith('info');
       expect(mockLogger.info).toHaveBeenCalledWith('Initializing Buntspecht...');
       
       // Check that telemetry factory was called

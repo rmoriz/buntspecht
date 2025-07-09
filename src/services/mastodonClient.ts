@@ -206,4 +206,50 @@ export class MastodonClient {
   public hasAccount(accountName: string): boolean {
     return this.clients.has(accountName);
   }
+
+  /**
+   * Reinitialize a specific account after secret rotation
+   */
+  public async reinitializeAccount(account: AccountConfig): Promise<void> {
+    this.logger.info(`Reinitializing Mastodon account: ${account.name}`);
+
+    if (!account.instance || !account.accessToken) {
+      throw new Error(`Mastodon account "${account.name}" missing required instance or accessToken`);
+    }
+
+    // Create new client with updated credentials
+    const client = createRestAPIClient({
+      url: account.instance,
+      accessToken: account.accessToken,
+    });
+
+    // Update the stored client
+    this.clients.set(account.name, {
+      name: account.name,
+      config: account,
+      client,
+    });
+
+    this.logger.info(`Successfully reinitialized Mastodon account: ${account.name}`);
+  }
+
+  /**
+   * Verify connection for a specific account
+   */
+  public async verifyAccountConnection(account: AccountConfig): Promise<boolean> {
+    try {
+      const accountClient = this.clients.get(account.name);
+      if (!accountClient) {
+        this.logger.error(`Account "${account.name}" not found in clients`);
+        return false;
+      }
+
+      const accountInfo = await accountClient.client.v1.accounts.verifyCredentials();
+      this.logger.debug(`Successfully verified connection for Mastodon account: ${account.name} (@${accountInfo.username})`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to verify connection for Mastodon account ${account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
 }

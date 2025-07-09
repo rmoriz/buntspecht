@@ -507,4 +507,66 @@ export class BlueskyClient {
   public hasAccount(accountName: string): boolean {
     return this.clients.has(accountName);
   }
+
+  /**
+   * Reinitialize a specific Bluesky account after secret rotation
+   */
+  public async reinitializeAccount(account: AccountConfig): Promise<void> {
+    this.logger.info(`Reinitializing Bluesky account: ${account.name}`);
+
+    try {
+      const agent = new BskyAgent({
+        service: account.instance || 'https://bsky.social',
+      });
+
+      // Authenticate with Bluesky using updated credentials
+      if (account.identifier && account.password) {
+        await agent.login({
+          identifier: account.identifier,
+          password: account.password,
+        });
+      } else if (account.accessToken) {
+        // Use access token if available (for future OAuth support)
+        this.logger.warn(`Access token authentication not yet implemented for Bluesky account "${account.name}". Please use identifier+password.`);
+        throw new Error(`Access token authentication not yet implemented for Bluesky account "${account.name}"`);
+      } else {
+        throw new Error(`Bluesky account "${account.name}" requires either identifier+password or accessToken`);
+      }
+
+      // Update the stored client
+      this.clients.set(account.name, {
+        name: account.name,
+        config: account,
+        agent,
+      });
+
+      this.logger.info(`Successfully reinitialized Bluesky account: ${account.name}`);
+    } catch (error) {
+      this.logger.error(`Failed to reinitialize Bluesky account ${account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify connection for a specific Bluesky account
+   */
+  public async verifyAccountConnection(account: AccountConfig): Promise<boolean> {
+    try {
+      const accountClient = this.clients.get(account.name);
+      if (!accountClient) {
+        this.logger.error(`Bluesky account "${account.name}" not found in clients`);
+        return false;
+      }
+
+      const profile = await accountClient.agent.getProfile({
+        actor: accountClient.agent.session?.handle || accountClient.config.identifier || '',
+      });
+      
+      this.logger.debug(`Successfully verified connection for Bluesky account: ${account.name} (@${profile.data.handle})`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to verify connection for Bluesky account ${account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
 }

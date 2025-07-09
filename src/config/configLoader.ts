@@ -2,7 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as toml from 'toml';
-import { BotConfig, CliOptions, TelemetryConfig } from '../types/config';
+import { BotConfig, CliOptions, TelemetryConfig, AccountConfig } from '../types/config';
+import { SecretResolver } from '../services/secretResolver';
+import { Logger } from '../utils/logger';
 import * as packageJson from '../../package.json';
 
 export class ConfigLoader {
@@ -36,6 +38,83 @@ export class ConfigLoader {
     this.validateCacheFilesWritable(config);
 
     return config;
+  }
+
+  /**
+   * Loads configuration and resolves external secrets
+   * This is an async version that resolves external secret sources
+   */
+  public static async loadConfigWithSecrets(cliOptions: CliOptions): Promise<BotConfig> {
+    const config = this.loadConfig(cliOptions);
+    
+    // Create a temporary logger for secret resolution
+    const logger = new Logger('info');
+    const secretResolver = new SecretResolver(logger);
+    
+    // Resolve secrets for all accounts
+    for (const account of config.accounts) {
+      await this.resolveAccountSecrets(account, secretResolver);
+    }
+    
+    return config;
+  }
+
+  /**
+   * Resolve external secrets for a single account
+   */
+  private static async resolveAccountSecrets(account: AccountConfig, secretResolver: SecretResolver): Promise<void> {
+    try {
+      // Resolve accessToken
+      const resolvedAccessToken = await secretResolver.resolveCredentialField(
+        account.accessToken,
+        account.accessTokenSource,
+        'accessToken',
+        account.name
+      );
+      if (resolvedAccessToken !== undefined) {
+        account.accessToken = resolvedAccessToken;
+        delete account.accessTokenSource; // Remove source after resolution
+      }
+
+      // Resolve identifier
+      const resolvedIdentifier = await secretResolver.resolveCredentialField(
+        account.identifier,
+        account.identifierSource,
+        'identifier',
+        account.name
+      );
+      if (resolvedIdentifier !== undefined) {
+        account.identifier = resolvedIdentifier;
+        delete account.identifierSource; // Remove source after resolution
+      }
+
+      // Resolve password
+      const resolvedPassword = await secretResolver.resolveCredentialField(
+        account.password,
+        account.passwordSource,
+        'password',
+        account.name
+      );
+      if (resolvedPassword !== undefined) {
+        account.password = resolvedPassword;
+        delete account.passwordSource; // Remove source after resolution
+      }
+
+      // Resolve instance (if needed)
+      const resolvedInstance = await secretResolver.resolveCredentialField(
+        account.instance,
+        account.instanceSource,
+        'instance',
+        account.name
+      );
+      if (resolvedInstance !== undefined) {
+        account.instance = resolvedInstance;
+        delete account.instanceSource; // Remove source after resolution
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to resolve secrets for account "${account.name}": ${errorMessage}`);
+    }
   }
 
   private static findConfigPath(cliOptions: CliOptions): string | null {
@@ -108,26 +187,23 @@ export class ConfigLoader {
       const accountType = account.type || 'mastodon';
       
       if (accountType === 'bluesky') {
-        // BlueskyClient requires: identifier and password
-        if (!account.identifier || typeof account.identifier !== 'string') {
-          throw new Error(`Bluesky account "${account.name}": Missing or invalid identifier (handle or DID)`);
-        }
-        if (!account.password || typeof account.password !== 'string') {
-          throw new Error(`Bluesky account "${account.name}": Missing or invalid password (app password)`);
-        }
+        // BlueskyClient requires: identifier and password (or their sources)
+        this.validateCredentialField(account, 'identifier', 'identifierSource');
+        this.validateCredentialField(account, 'password', 'passwordSource');
+        
         // Instance is optional for Bluesky (defaults to https://bsky.social)
         if (account.instance && typeof account.instance !== 'string') {
           throw new Error(`Bluesky account "${account.name}": Invalid instance (must be a string)`);
         }
+        if (account.instanceSource && typeof account.instanceSource !== 'string') {
+          throw new Error(`Bluesky account "${account.name}": Invalid instanceSource (must be a string)`);
+        }
         // Don't enforce accessToken for Bluesky accounts (not used by BlueskyClient)
       } else {
-        // MastodonClient requires: instance and accessToken
-        if (!account.instance || typeof account.instance !== 'string') {
-          throw new Error(`Mastodon account "${account.name}": Missing or invalid instance`);
-        }
-        if (!account.accessToken || typeof account.accessToken !== 'string') {
-          throw new Error(`Mastodon account "${account.name}": Missing or invalid accessToken`);
-        }
+        // MastodonClient requires: instance and accessToken (or their sources)
+        this.validateCredentialField(account, 'instance', 'instanceSource');
+        this.validateCredentialField(account, 'accessToken', 'accessTokenSource');
+        
         // Don't enforce identifier/password for Mastodon accounts (not used by MastodonClient)
       }
     }
@@ -182,6 +258,41 @@ export class ConfigLoader {
 
     // Set defaults
     logging.level = logging.level || 'info';
+  }
+
+  /**
+   * Validates that a credential field has either a direct value or a source, but not both
+   */
+  private static validateCredentialField(
+    account: Record<string, unknown>, 
+    fieldName: string, 
+    sourceFieldName: string
+  ): void {
+    const directValue = account[fieldName];
+    const sourceValue = account[sourceFieldName];
+    
+    // Check if both are provided
+    if (directValue && sourceValue) {
+      throw new Error(
+        `Account "${account.name}": Cannot specify both ${fieldName} and ${sourceFieldName}`
+      );
+    }
+    
+    // Check if neither is provided
+    if (!directValue && !sourceValue) {
+      throw new Error(
+        `Account "${account.name}": Must specify either ${fieldName} or ${sourceFieldName}`
+      );
+    }
+    
+    // Validate types if values are present
+    if (directValue && typeof directValue !== 'string') {
+      throw new Error(`Account "${account.name}": Invalid ${fieldName} (must be a string)`);
+    }
+    
+    if (sourceValue && typeof sourceValue !== 'string') {
+      throw new Error(`Account "${account.name}": Invalid ${sourceFieldName} (must be a string)`);
+    }
   }
 
   private static setDefaults(config: Record<string, unknown>): void {

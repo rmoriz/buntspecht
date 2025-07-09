@@ -18,7 +18,11 @@ export function parseCliArguments(): CliOptions {
     .option('--trigger-push <name>', 'trigger a push provider by name and exit')
     .option('--trigger-push-message <message>', 'custom message for push provider (use with --trigger-push)')
     .option('--webhook-status', 'show webhook server status and configuration')
+    .option('--secret-rotation-status', 'show secret rotation detector status and configuration')
+    .option('--check-secret-rotations', 'manually trigger a check for secret rotations and exit')
+    .option('--list-monitored-secrets', 'list all monitored external secrets and their status')
     .option('--verify', 'verify connection to Mastodon and exit')
+    .option('--verify-secrets', 'verify secret resolution without connecting to social media and exit')
     .option('--about', 'show information about Buntspecht and its automated release system')
     .parse();
 
@@ -34,7 +38,11 @@ export function parseCliArguments(): CliOptions {
     triggerPush: options.triggerPush,
     triggerPushMessage: options.triggerPushMessage,
     webhookStatus: options.webhookStatus,
+    secretRotationStatus: options.secretRotationStatus,
+    checkSecretRotations: options.checkSecretRotations,
+    listMonitoredSecrets: options.listMonitoredSecrets,
     verify: options.verify,
+    verifySecrets: options.verifySecrets,
     about: options.about,
   } as CliOptions;
 }
