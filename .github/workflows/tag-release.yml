@@ -51,7 +51,10 @@ jobs:
         echo "✅ Version consistency verified"
 
     - name: Run tests
-      run: npm test
+      run: |
+        echo "🧪 Running test suite..."
+        npm test
+        echo "✅ Tests completed successfully"
 
     - name: Run linter
       run: bun run lint
