@@ -20,8 +20,8 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 🌐 **Multi-account support**: Multiple accounts across different platforms with their own authentication
 - 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts across platforms
 - 👁️ **Visibility control**: Configurable message visibility (public, unlisted, private, direct) per account, provider, or webhook request
-- 🔐 **Automatic Secret Rotation Detection**: Monitor external secret sources and automatically update credentials when secrets change
 - 🗝️ **External Secret Sources**: Support for HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Google Cloud Secret Manager, files, and environment variables
+- 🔐 **Automatic Secret Rotation Detection**: Monitor external secret sources and automatically update credentials when secrets change
 - 🔗 **Bluesky URL Embedding**: Automatic URL detection with rich metadata embedding (title, description, Open Graph tags)
 - 🏷️ **Bluesky Rich Text**: Automatic hashtag and mention detection with proper facet creation
 - ⚙️ Flexible configuration via TOML files

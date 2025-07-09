@@ -18,8 +18,8 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - 🌐 **Multi-Account-Unterstützung**: Mehrere Accounts über verschiedene Plattformen mit eigener Authentifizierung
 - 📤 **Flexible Account-Zuordnung**: Jeder Provider kann an einen oder mehrere Accounts über Plattformen hinweg posten
 - 👁️ **Sichtbarkeits-Kontrolle**: Konfigurierbare Nachrichtensichtbarkeit (öffentlich, ungelistet, privat, direkt) pro Account, Provider oder Webhook-Anfrage
-- 🔐 **Automatische Secret-Rotation-Erkennung**: Überwacht externe Secret-Quellen und aktualisiert automatisch Zugangsdaten bei Änderungen
 - 🗝️ **Externe Secret-Quellen**: Unterstützung für HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Google Cloud Secret Manager, Dateien und Umgebungsvariablen
+- 🔐 **Automatische Secret-Rotation-Erkennung**: Überwacht externe Secret-Quellen und aktualisiert automatisch Zugangsdaten bei Änderungen
 - 🔗 **Bluesky URL-Einbettung**: Automatische URL-Erkennung mit Rich-Metadata-Einbettung (Titel, Beschreibung, Open Graph Tags)
 - 🏷️ **Bluesky Rich Text**: Automatische Hashtag- und Mention-Erkennung mit korrekter Facet-Erstellung
 - ⚙️ Flexible Konfiguration über TOML-Dateien

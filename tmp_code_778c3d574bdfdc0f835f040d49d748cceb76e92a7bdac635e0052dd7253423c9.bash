@@ -1,0 +1,1 @@
+git commit -m "docs: reorder features - External Secret Sources before Automatic Secret Rotation"
