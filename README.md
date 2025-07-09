@@ -20,10 +20,14 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 🌐 **Multi-account support**: Multiple accounts across different platforms with their own authentication
 - 📤 **Flexible account assignment**: Each provider can post to one or multiple accounts across platforms
 - 👁️ **Visibility control**: Configurable message visibility (public, unlisted, private, direct) per account, provider, or webhook request
+- 🔐 **Automatic Secret Rotation Detection**: Monitor external secret sources and automatically update credentials when secrets change
+- 🗝️ **External Secret Sources**: Support for HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Google Cloud Secret Manager, files, and environment variables
+- 🔗 **Bluesky URL Embedding**: Automatic URL detection with rich metadata embedding (title, description, Open Graph tags)
+- 🏷️ **Bluesky Rich Text**: Automatic hashtag and mention detection with proper facet creation
 - ⚙️ Flexible configuration via TOML files
 - 🔍 Multiple configuration paths with priority order
 - 📝 **Enhanced logging**: Comprehensive logging with message character counts
-- 🧪 Complete test coverage (221+ tests)
+- 🧪 Complete test coverage (300+ tests)
 - 🐳 Docker support for CI/CD
 - 🛡️ TypeScript for type safety
 - 📡 Modern API integration with masto.js (Mastodon) and @atproto/api (Bluesky)
@@ -118,6 +122,19 @@ type = "bluesky"  # Account type for Bluesky
 instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
 identifier = "yourhandle.bsky.social"  # Your Bluesky handle or DID
 password = "your-app-password"  # App password from Bluesky settings
+
+# Example with external secret sources (monitored for automatic rotation)
+[[accounts]]
+name = "secure-mastodon"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessTokenSource = "vault://secret/buntspecht/mastodon-token"  # HashiCorp Vault
+# Alternative secret sources:
+# accessTokenSource = "aws://my-secret?key=token&region=us-east-1"  # AWS Secrets Manager
+# accessTokenSource = "azure://my-vault/my-secret"                  # Azure Key Vault
+# accessTokenSource = "gcp://my-project/my-secret"                 # Google Cloud Secret Manager
+# accessTokenSource = "file:///path/to/token.txt"                 # File-based secret
+# accessToken = "${MASTODON_TOKEN}"                               # Environment variable
 
 [bot]
 # Multi-Provider Configuration
@@ -897,6 +914,76 @@ Buntspecht provides comprehensive logging with detailed information about messag
 - `INFO`: Normal operations and status updates
 - `WARN`: Non-critical issues and warnings
 - `ERROR`: Critical errors and failures
+
+## Automatic Secret Rotation Detection
+
+Buntspecht includes **automatic secret rotation detection** that monitors external secret sources and automatically updates account credentials when secrets change. This ensures the bot continues working seamlessly when secrets are rotated in external systems.
+
+### Supported Secret Sources
+
+- **Environment Variables**: `${VARIABLE_NAME}`
+- **File-based**: `file:///path/to/secret.txt`
+- **HashiCorp Vault**: `vault://secret/path?key=fieldName`
+- **AWS Secrets Manager**: `aws://secret-name?key=fieldName&region=us-east-1`
+- **Azure Key Vault**: `azure://vault-name/secret-name?version=version-id`
+- **Google Cloud Secret Manager**: `gcp://project-id/secret-name?version=version-id`
+
+### Configuration
+
+```toml
+# Enable automatic secret rotation detection
+[secretRotation]
+enabled = true                          # Enable the feature
+checkInterval = "0 */15 * * * *"        # Check every 15 minutes (cron expression)
+retryOnFailure = true                   # Retry failed secret checks
+retryDelay = 60                         # Wait 60 seconds before retrying
+maxRetries = 3                          # Maximum number of retries
+notifyOnRotation = true                 # Log notifications when secrets are rotated
+testConnectionOnRotation = true         # Test account connections after secret rotation
+```
+
+### CLI Commands
+
+```bash
+# Check secret rotation status
+./buntspecht --secret-rotation-status
+
+# List all monitored secrets
+./buntspecht --list-monitored-secrets
+
+# Manually trigger secret rotation check
+./buntspecht --check-secret-rotations
+
+# Verify secret resolution without connecting
+./buntspecht --verify-secrets
+```
+
+## Bluesky Enhanced Features
+
+### Automatic URL Embedding
+
+Buntspecht automatically detects URLs in Bluesky posts and creates rich embeds with metadata:
+
+- **Automatic Detection**: Finds URLs in post text using robust regex patterns
+- **Metadata Fetching**: Retrieves title, description, and Open Graph tags
+- **Rich Embeds**: Creates `app.bsky.embed.external` format embeds
+- **Graceful Fallback**: Handles metadata fetch failures gracefully
+- **URL Removal**: Removes embedded URLs from post text to avoid duplication
+
+### Automatic Hashtag and Mention Detection
+
+Bluesky posts automatically get enhanced with proper facets:
+
+- **Hashtag Detection**: Automatically detects `#hashtag` patterns
+- **Mention Detection**: Automatically detects `@handle.domain` patterns  
+- **Facet Creation**: Creates proper `app.bsky.richtext.facet` structures
+- **UTF-8 Support**: Handles proper byte positioning for international characters
+- **Combined Posts**: Supports posts with URLs, hashtags, and mentions together
+
+Example post: `"Check out https://example.com #awesome @friend.bsky.social"` becomes:
+- URL embedded as rich card
+- `#awesome` tagged as hashtag facet
+- `@friend.bsky.social` tagged as mention facet
 
 ## Usage
 
