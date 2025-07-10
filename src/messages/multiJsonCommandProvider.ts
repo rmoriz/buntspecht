@@ -629,8 +629,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
       const stats = fs.statSync(this.cacheFilePath);
       const currentModTime = stats.mtimeMs;
 
-      // If we don't have a stored mod time or the file has been modified
-      if (!this.lastCacheFileModTime || currentModTime > this.lastCacheFileModTime) {
+      // If we don't have a stored mod time or the file has been modified (mtimeMs has changed)
+      if (!this.lastCacheFileModTime || currentModTime !== this.lastCacheFileModTime) {
         this.logger?.info(`Cache file has been modified externally, reloading: ${this.cacheFilePath}`);
         await this.loadCacheFromFile();
         
