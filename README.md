@@ -40,13 +40,13 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 
 ### Prerequisites
 
-- **Bun**: Version 1.2.17 or higher
+- **Bun**: Version 1.2.18 or higher
 - **Git**: For cloning the repository
 
 ```bash
 # Check Bun version
 bun --version
-# Should show 1.2.17 or higher
+# Should show 1.2.18 or higher
 ```
 
 ### Installation
@@ -1207,6 +1207,268 @@ cronSchedule = "0 9 * * 1"
 # Every 15 minutes between 9-17, Mon-Fri
 cronSchedule = "*/15 9-17 * * 1-5"
 ```
+
+## Media Attachments and Images
+
+Buntspecht supports posting media attachments (images, documents, etc.) alongside text messages. This feature works with both **JSON Command** and **Multi-JSON Command** providers, allowing you to include base64-encoded files in your automated posts.
+
+### Supported Platforms
+
+- **Mastodon**: Supports multiple attachments of various file types (images, videos, audio, documents)
+- **Bluesky**: Supports up to 4 images only (JPEG, PNG, GIF, WebP)
+
+### Basic Attachment Configuration
+
+To enable attachments, configure the `attachmentsKey` in your provider configuration:
+
+```toml
+[[bot.providers]]
+name = "weather-with-charts"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = "curl -s 'https://api.weather.example.com/current' | jq '{...}'"
+template = "🌤️ Weather: {{temperature}}°C - {{condition}}"
+attachmentsKey = "attachments"  # JSON key containing the attachments array
+```
+
+### Attachment Data Format
+
+Your command's JSON output must include an array of attachment objects:
+
+```json
+{
+  "temperature": "22",
+  "condition": "Sunny",
+  "attachments": [
+    {
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+      "mimeType": "image/png",
+      "filename": "weather_chart.png",
+      "description": "24-hour temperature chart"
+    }
+  ]
+}
+```
+
+### Required Fields
+
+Each attachment object must contain:
+
+- **`data`**: Base64-encoded file content (required)
+- **`mimeType`**: MIME type like `image/jpeg`, `image/png`, `application/pdf` (required)
+- **`filename`**: Optional filename for the attachment
+- **`description`**: Optional description/alt text for accessibility
+
+### Advanced Configuration Options
+
+#### Custom Field Names
+
+You can customize the field names used within each attachment object:
+
+```toml
+[bot.providers.config]
+attachmentsKey = "files"                    # Custom key for attachments array
+attachmentDataKey = "content"               # Custom key for base64 data (default: "data")
+attachmentMimeTypeKey = "format"            # Custom key for MIME type (default: "mimeType")
+attachmentFilenameKey = "title"             # Custom key for filename (default: "filename")
+attachmentDescriptionKey = "caption"        # Custom key for description (default: "description")
+```
+
+#### Automatic Field Fallbacks
+
+The system automatically tries fallback field names if the configured ones aren't found:
+
+- **MIME type**: `mimeType` → `type`
+- **Filename**: `filename` → `name`
+- **Description**: `description` → `alt`
+
+#### Nested JSON Keys
+
+Use dot notation for nested attachment data:
+
+```toml
+attachmentsKey = "data.files"  # Accesses data.files array
+```
+
+### Platform-Specific Behavior
+
+#### Mastodon
+- Supports multiple attachments (typically up to 4)
+- Supports various file types: images, videos, audio, documents
+- Preserves original filenames and descriptions
+- Shows descriptions as alt text for accessibility
+
+#### Bluesky
+- **Images only**: Supports JPEG, PNG, GIF, WebP formats
+- **Maximum 4 images** per post
+- **URL embed priority**: If both URL embeds and attachments are present, URL embeds take priority
+- Descriptions become alt text for accessibility
+- Non-image attachments are automatically skipped
+
+### Example Configurations
+
+#### Weather Reports with Charts
+
+```toml
+[[bot.providers]]
+name = "weather-reports"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.weather.example.com/current' | jq '{
+  location: .location.name,
+  temperature: .current.temp_c,
+  condition: .current.condition.text,
+  attachments: [
+    {
+      data: .charts.temperature_chart_base64,
+      mimeType: "image/png",
+      filename: "temperature_chart.png",
+      description: "24-hour temperature chart"
+    }
+  ]
+}'
+"""
+template = "🌤️ {{location}}: {{temperature}}°C - {{condition}}"
+attachmentsKey = "attachments"
+```
+
+#### Multi-JSON with Photo Posts
+
+```toml
+[[bot.providers]]
+name = "photo-posts"
+type = "multijsoncommand"
+cronSchedule = "0 12 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.photos.example.com/daily' | jq '[
+  .photos[] | {
+    id: .id,
+    caption: .caption,
+    attachments: [
+      {
+        data: .image_base64,
+        mimeType: "image/jpeg",
+        filename: (.id + ".jpg"),
+        description: .alt_text
+      }
+    ]
+  }
+]'
+"""
+template = "📸 {{caption}}"
+attachmentsKey = "attachments"
+uniqueKey = "id"
+```
+
+#### Mixed File Types (Mastodon Only)
+
+```toml
+[[bot.providers]]
+name = "weekly-reports"
+type = "jsoncommand"
+cronSchedule = "0 9 * * 1"
+accounts = ["mastodon-account"]  # Mastodon only for PDF support
+
+[bot.providers.config]
+command = """
+./scripts/generate-report.sh | jq '{
+  title: .report.title,
+  summary: .report.summary,
+  attachments: [
+    {
+      data: .report.pdf_base64,
+      mimeType: "application/pdf",
+      filename: "weekly-report.pdf",
+      description: "Weekly performance report"
+    },
+    {
+      data: .report.chart_base64,
+      mimeType: "image/png",
+      filename: "performance-chart.png",
+      description: "Performance metrics visualization"
+    }
+  ]
+}'
+"""
+template = "📊 {{title}}: {{summary}}"
+attachmentsKey = "attachments"
+```
+
+### Error Handling and Validation
+
+#### Automatic Validation
+- **Base64 validation**: Invalid base64 data is automatically skipped
+- **Required fields**: Attachments missing `data` or `mimeType` are skipped
+- **Platform filtering**: Non-image attachments are filtered out for Bluesky
+- **Size limits**: Platform-specific limits are respected
+
+#### Logging
+- Detailed logs for attachment processing
+- Warnings for skipped attachments with reasons
+- Success confirmations with attachment counts
+
+#### Graceful Degradation
+- Individual attachment failures don't stop the post
+- Posts continue even if all attachments fail
+- Clear error messages for troubleshooting
+
+### Performance Considerations
+
+#### File Size and Processing
+- **Base64 overhead**: Base64 encoding increases file size by ~33%
+- **Memory usage**: Large attachments consume more memory during processing
+- **Upload time**: Multiple/large attachments increase posting time
+
+#### Optimization Tips
+- Use appropriate image compression before base64 encoding
+- Consider timeout settings for commands generating attachments
+- Monitor memory usage with large attachment workflows
+- Use caching for Multi-JSON providers to avoid reprocessing
+
+### Troubleshooting
+
+#### Common Issues
+
+1. **"Attachment skipped - invalid base64"**
+   - Verify your base64 encoding is correct
+   - Ensure no line breaks or extra characters in base64 data
+
+2. **"Attachment missing required field"**
+   - Check that `data` and `mimeType` fields are present
+   - Verify field names match your configuration
+
+3. **"Bluesky: Non-image attachment skipped"**
+   - Bluesky only supports images (JPEG, PNG, GIF, WebP)
+   - Use Mastodon-only accounts for other file types
+
+4. **"Upload failed for attachment"**
+   - Check network connectivity
+   - Verify file size limits
+   - Ensure MIME type is supported by the platform
+
+#### Debug Configuration
+
+```toml
+[logging]
+level = "debug"  # Enable detailed attachment processing logs
+```
+
+### Security Considerations
+
+- **Base64 validation**: All base64 data is validated before processing
+- **MIME type verification**: MIME types are checked against platform requirements
+- **File size limits**: Platform limits are enforced to prevent abuse
+- **Error isolation**: Attachment failures don't expose sensitive command output
 
 ## Bluesky Integration
 
