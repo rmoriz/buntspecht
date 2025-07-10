@@ -38,13 +38,13 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 
 ### Voraussetzungen
 
-- **Bun**: Version 1.2.17 oder höher
+- **Bun**: Version 1.2.18 oder höher
 - **Git**: Für das Klonen des Repositories
 
 ```bash
 # Bun-Version prüfen
 bun --version
-# Sollte 1.2.17 oder höher anzeigen
+# Sollte 1.2.18 oder höher anzeigen
 ```
 
 ### Installation
@@ -1048,6 +1048,268 @@ cronSchedule = "0 9 * * 1"
 # Alle 15 Minuten zwischen 9-17 Uhr, Mo-Fr
 cronSchedule = "*/15 9-17 * * 1-5"
 ```
+
+## Media-Anhänge und Bilder
+
+Buntspecht unterstützt das Posten von Media-Anhängen (Bilder, Dokumente, etc.) zusammen mit Textnachrichten. Diese Funktion arbeitet mit **JSON Command** und **Multi-JSON Command** Providern und ermöglicht es, base64-kodierte Dateien in automatisierte Posts einzubinden.
+
+### Unterstützte Plattformen
+
+- **Mastodon**: Unterstützt mehrere Anhänge verschiedener Dateitypen (Bilder, Videos, Audio, Dokumente)
+- **Bluesky**: Unterstützt nur bis zu 4 Bilder (JPEG, PNG, GIF, WebP)
+
+### Grundlegende Anhang-Konfiguration
+
+Um Anhänge zu aktivieren, konfigurieren Sie den `attachmentsKey` in Ihrer Provider-Konfiguration:
+
+```toml
+[[bot.providers]]
+name = "wetter-mit-diagrammen"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = "curl -s 'https://api.weather.example.com/current' | jq '{...}'"
+template = "🌤️ Wetter: {{temperature}}°C - {{condition}}"
+attachmentsKey = "attachments"  # JSON-Schlüssel für das Anhänge-Array
+```
+
+### Anhang-Datenformat
+
+Die JSON-Ausgabe Ihres Kommandos muss ein Array von Anhang-Objekten enthalten:
+
+```json
+{
+  "temperature": "22",
+  "condition": "Sonnig",
+  "attachments": [
+    {
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+      "mimeType": "image/png",
+      "filename": "wetter_diagramm.png",
+      "description": "24-Stunden Temperaturdiagramm"
+    }
+  ]
+}
+```
+
+### Erforderliche Felder
+
+Jedes Anhang-Objekt muss enthalten:
+
+- **`data`**: Base64-kodierter Dateiinhalt (erforderlich)
+- **`mimeType`**: MIME-Typ wie `image/jpeg`, `image/png`, `application/pdf` (erforderlich)
+- **`filename`**: Optionaler Dateiname für den Anhang
+- **`description`**: Optionale Beschreibung/Alt-Text für Barrierefreiheit
+
+### Erweiterte Konfigurationsoptionen
+
+#### Benutzerdefinierte Feldnamen
+
+Sie können die Feldnamen innerhalb jedes Anhang-Objekts anpassen:
+
+```toml
+[bot.providers.config]
+attachmentsKey = "files"                    # Benutzerdefinierter Schlüssel für Anhänge-Array
+attachmentDataKey = "content"               # Benutzerdefinierter Schlüssel für base64-Daten (Standard: "data")
+attachmentMimeTypeKey = "format"            # Benutzerdefinierter Schlüssel für MIME-Typ (Standard: "mimeType")
+attachmentFilenameKey = "title"             # Benutzerdefinierter Schlüssel für Dateiname (Standard: "filename")
+attachmentDescriptionKey = "caption"        # Benutzerdefinierter Schlüssel für Beschreibung (Standard: "description")
+```
+
+#### Automatische Feld-Fallbacks
+
+Das System versucht automatisch Fallback-Feldnamen, wenn die konfigurierten nicht gefunden werden:
+
+- **MIME-Typ**: `mimeType` → `type`
+- **Dateiname**: `filename` → `name`
+- **Beschreibung**: `description` → `alt`
+
+#### Verschachtelte JSON-Schlüssel
+
+Verwenden Sie Punkt-Notation für verschachtelte Anhang-Daten:
+
+```toml
+attachmentsKey = "data.files"  # Greift auf data.files Array zu
+```
+
+### Plattformspezifisches Verhalten
+
+#### Mastodon
+- Unterstützt mehrere Anhänge (typischerweise bis zu 4)
+- Unterstützt verschiedene Dateitypen: Bilder, Videos, Audio, Dokumente
+- Behält ursprüngliche Dateinamen und Beschreibungen bei
+- Zeigt Beschreibungen als Alt-Text für Barrierefreiheit
+
+#### Bluesky
+- **Nur Bilder**: Unterstützt JPEG, PNG, GIF, WebP Formate
+- **Maximal 4 Bilder** pro Post
+- **URL-Embed-Priorität**: Wenn sowohl URL-Embeds als auch Anhänge vorhanden sind, haben URL-Embeds Priorität
+- Beschreibungen werden zu Alt-Text für Barrierefreiheit
+- Nicht-Bild-Anhänge werden automatisch übersprungen
+
+### Beispiel-Konfigurationen
+
+#### Wetterberichte mit Diagrammen
+
+```toml
+[[bot.providers]]
+name = "wetterberichte"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.weather.example.com/current' | jq '{
+  location: .location.name,
+  temperature: .current.temp_c,
+  condition: .current.condition.text,
+  attachments: [
+    {
+      data: .charts.temperature_chart_base64,
+      mimeType: "image/png",
+      filename: "temperatur_diagramm.png",
+      description: "24-Stunden Temperaturdiagramm"
+    }
+  ]
+}'
+"""
+template = "🌤️ {{location}}: {{temperature}}°C - {{condition}}"
+attachmentsKey = "attachments"
+```
+
+#### Multi-JSON mit Foto-Posts
+
+```toml
+[[bot.providers]]
+name = "foto-posts"
+type = "multijsoncommand"
+cronSchedule = "0 12 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.photos.example.com/daily' | jq '[
+  .photos[] | {
+    id: .id,
+    caption: .caption,
+    attachments: [
+      {
+        data: .image_base64,
+        mimeType: "image/jpeg",
+        filename: (.id + ".jpg"),
+        description: .alt_text
+      }
+    ]
+  }
+]'
+"""
+template = "📸 {{caption}}"
+attachmentsKey = "attachments"
+uniqueKey = "id"
+```
+
+#### Gemischte Dateitypen (Nur Mastodon)
+
+```toml
+[[bot.providers]]
+name = "wochenberichte"
+type = "jsoncommand"
+cronSchedule = "0 9 * * 1"
+accounts = ["mastodon-account"]  # Nur Mastodon für PDF-Unterstützung
+
+[bot.providers.config]
+command = """
+./scripts/generate-report.sh | jq '{
+  title: .report.title,
+  summary: .report.summary,
+  attachments: [
+    {
+      data: .report.pdf_base64,
+      mimeType: "application/pdf",
+      filename: "wochenbericht.pdf",
+      description: "Wöchentlicher Leistungsbericht"
+    },
+    {
+      data: .report.chart_base64,
+      mimeType: "image/png",
+      filename: "leistungs-diagramm.png",
+      description: "Leistungsmetriken-Visualisierung"
+    }
+  ]
+}'
+"""
+template = "📊 {{title}}: {{summary}}"
+attachmentsKey = "attachments"
+```
+
+### Fehlerbehandlung und Validierung
+
+#### Automatische Validierung
+- **Base64-Validierung**: Ungültige base64-Daten werden automatisch übersprungen
+- **Erforderliche Felder**: Anhänge ohne `data` oder `mimeType` werden übersprungen
+- **Plattform-Filterung**: Nicht-Bild-Anhänge werden für Bluesky herausgefiltert
+- **Größenlimits**: Plattformspezifische Limits werden respektiert
+
+#### Logging
+- Detaillierte Logs für Anhang-Verarbeitung
+- Warnungen für übersprungene Anhänge mit Begründungen
+- Erfolgsbestätigungen mit Anhang-Anzahl
+
+#### Graceful Degradation
+- Einzelne Anhang-Fehler stoppen den Post nicht
+- Posts werden auch fortgesetzt, wenn alle Anhänge fehlschlagen
+- Klare Fehlermeldungen für Troubleshooting
+
+### Performance-Überlegungen
+
+#### Dateigröße und Verarbeitung
+- **Base64-Overhead**: Base64-Kodierung erhöht Dateigröße um ~33%
+- **Speicherverbrauch**: Große Anhänge verbrauchen mehr Speicher während der Verarbeitung
+- **Upload-Zeit**: Mehrere/große Anhänge erhöhen die Posting-Zeit
+
+#### Optimierungstipps
+- Verwenden Sie angemessene Bildkompression vor base64-Kodierung
+- Berücksichtigen Sie Timeout-Einstellungen für Kommandos, die Anhänge generieren
+- Überwachen Sie Speicherverbrauch bei großen Anhang-Workflows
+- Verwenden Sie Caching für Multi-JSON Provider, um Neuverarbeitung zu vermeiden
+
+### Troubleshooting
+
+#### Häufige Probleme
+
+1. **"Anhang übersprungen - ungültiges base64"**
+   - Überprüfen Sie, dass Ihre base64-Kodierung korrekt ist
+   - Stellen Sie sicher, dass keine Zeilenumbrüche oder zusätzliche Zeichen in base64-Daten vorhanden sind
+
+2. **"Anhang fehlendes erforderliches Feld"**
+   - Prüfen Sie, dass `data` und `mimeType` Felder vorhanden sind
+   - Überprüfen Sie, dass Feldnamen mit Ihrer Konfiguration übereinstimmen
+
+3. **"Bluesky: Nicht-Bild-Anhang übersprungen"**
+   - Bluesky unterstützt nur Bilder (JPEG, PNG, GIF, WebP)
+   - Verwenden Sie Nur-Mastodon-Accounts für andere Dateitypen
+
+4. **"Upload für Anhang fehlgeschlagen"**
+   - Prüfen Sie Netzwerkverbindung
+   - Überprüfen Sie Dateigrößenlimits
+   - Stellen Sie sicher, dass MIME-Typ von der Plattform unterstützt wird
+
+#### Debug-Konfiguration
+
+```toml
+[logging]
+level = "debug"  # Aktiviert detaillierte Anhang-Verarbeitungs-Logs
+```
+
+### Sicherheitsüberlegungen
+
+- **Base64-Validierung**: Alle base64-Daten werden vor der Verarbeitung validiert
+- **MIME-Typ-Überprüfung**: MIME-Typen werden gegen Plattformanforderungen geprüft
+- **Dateigrößenlimits**: Plattformlimits werden durchgesetzt, um Missbrauch zu verhindern
+- **Fehler-Isolation**: Anhang-Fehler geben keine sensible Kommando-Ausgabe preis
 
 ## Bluesky-Integration
 
