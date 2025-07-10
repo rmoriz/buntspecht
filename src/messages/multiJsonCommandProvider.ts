@@ -106,7 +106,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.cacheMaxSize = config.cache?.maxSize || 10000; // 10k entries default
     this.cacheFilePath = config.cache?.filePath || './cache/multijson-cache.json';
     this.cache = new Map<string, CacheEntry>();
-    this.templateProcessor = new JsonTemplateProcessor(this.logger || new Logger());
+    this.templateProcessor = new JsonTemplateProcessor(logger);
   }
 
   /**

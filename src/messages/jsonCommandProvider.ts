@@ -64,7 +64,7 @@ export class JsonCommandProvider implements MessageProvider {
     this.attachmentMimeTypeKey = config.attachmentMimeTypeKey || 'mimeType';
     this.attachmentFilenameKey = config.attachmentFilenameKey || 'filename';
     this.attachmentDescriptionKey = config.attachmentDescriptionKey || 'description';
-    this.templateProcessor = new JsonTemplateProcessor(this.logger || new Logger());
+    this.templateProcessor = new JsonTemplateProcessor(logger);
   }
 
   /**
