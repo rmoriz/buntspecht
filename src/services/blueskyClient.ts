@@ -370,11 +370,11 @@ export class BlueskyClient {
           const facets = this.createFacets(finalText);
           
           // Upload attachments if present and no external embed
-          let imageEmbed: any = undefined;
+          let imageEmbed: { $type: string; images: Array<{ alt: string; image: unknown }> } | undefined = undefined;
           if (messageData.attachments && messageData.attachments.length > 0 && !embedResult) {
             this.logger.info(`Uploading ${messageData.attachments.length} attachments to Bluesky ${accountName}`);
             
-            const images: any[] = [];
+            const images: Array<{ alt: string; image: unknown }> = [];
             for (let i = 0; i < Math.min(messageData.attachments.length, 4); i++) { // Bluesky supports max 4 images
               const attachment = messageData.attachments[i];
               try {
@@ -409,7 +409,7 @@ export class BlueskyClient {
           const postData: {
             text: string;
             createdAt: string;
-            embed?: any;
+            embed?: ExternalEmbed | { $type: string; images: Array<{ alt: string; image: unknown }> };
             facets?: Facet[];
           } = {
             text: finalText,

@@ -66,6 +66,7 @@ describe('SocialMediaClient', () => {
     // Create mocked instances
     mockMastodonClient = {
       postStatus: jest.fn(),
+      postStatusWithAttachments: jest.fn(),
       verifyConnection: jest.fn(),
       getAccountInfo: jest.fn(),
       getAllAccountsInfo: jest.fn(),
@@ -75,6 +76,7 @@ describe('SocialMediaClient', () => {
 
     mockBlueskyClient = {
       postStatus: jest.fn(),
+      postStatusWithAttachments: jest.fn(),
       verifyConnection: jest.fn(),
       getAccountInfo: jest.fn(),
       getAllAccountsInfo: jest.fn(),
@@ -102,57 +104,57 @@ describe('SocialMediaClient', () => {
 
   describe('postStatus', () => {
     it('should route accounts to appropriate platforms', async () => {
-      mockMastodonClient.postStatus.mockResolvedValue();
-      mockBlueskyClient.postStatus.mockResolvedValue();
+      mockMastodonClient.postStatusWithAttachments.mockResolvedValue();
+      mockBlueskyClient.postStatusWithAttachments.mockResolvedValue();
 
       await client.postStatus('Test message', ['mastodon-account', 'bluesky-account'], 'test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith(
-        'Test message',
+      expect(mockMastodonClient.postStatusWithAttachments).toHaveBeenCalledWith(
+        { text: 'Test message' },
         ['mastodon-account'],
         'test-provider',
         undefined
       );
-      expect(mockBlueskyClient.postStatus).toHaveBeenCalledWith(
-        'Test message',
+      expect(mockBlueskyClient.postStatusWithAttachments).toHaveBeenCalledWith(
+        { text: 'Test message' },
         ['bluesky-account'],
         'test-provider'
       );
     });
 
     it('should handle Mastodon-only posting', async () => {
-      mockMastodonClient.postStatus.mockResolvedValue();
+      mockMastodonClient.postStatusWithAttachments.mockResolvedValue();
 
       await client.postStatus('Test message', ['mastodon-account'], 'test-provider');
 
-      expect(mockMastodonClient.postStatus).toHaveBeenCalledWith(
-        'Test message',
+      expect(mockMastodonClient.postStatusWithAttachments).toHaveBeenCalledWith(
+        { text: 'Test message' },
         ['mastodon-account'],
         'test-provider',
         undefined
       );
-      expect(mockBlueskyClient.postStatus).not.toHaveBeenCalled();
+      expect(mockBlueskyClient.postStatusWithAttachments).not.toHaveBeenCalled();
     });
 
     it('should handle Bluesky-only posting', async () => {
-      mockBlueskyClient.postStatus.mockResolvedValue();
+      mockBlueskyClient.postStatusWithAttachments.mockResolvedValue();
 
       await client.postStatus('Test message', ['bluesky-account'], 'test-provider');
 
-      expect(mockBlueskyClient.postStatus).toHaveBeenCalledWith(
-        'Test message',
+      expect(mockBlueskyClient.postStatusWithAttachments).toHaveBeenCalledWith(
+        { text: 'Test message' },
         ['bluesky-account'],
         'test-provider'
       );
-      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
+      expect(mockMastodonClient.postStatusWithAttachments).not.toHaveBeenCalled();
     });
 
     it('should handle unknown accounts gracefully', async () => {
       // Should not throw, just skip unknown accounts
       await client.postStatus('Test message', ['unknown-account'], 'test-provider');
 
-      expect(mockMastodonClient.postStatus).not.toHaveBeenCalled();
-      expect(mockBlueskyClient.postStatus).not.toHaveBeenCalled();
+      expect(mockMastodonClient.postStatusWithAttachments).not.toHaveBeenCalled();
+      expect(mockBlueskyClient.postStatusWithAttachments).not.toHaveBeenCalled();
     });
 
     it('should throw error when no accounts specified', async () => {

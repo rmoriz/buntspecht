@@ -92,7 +92,7 @@ export class MastodonClient {
           this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}' (${messageData.text.length} chars): "${messageData.text}"`);
           
           // Upload attachments if present
-          let mediaIds: string[] = [];
+          const mediaIds: string[] = [];
           if (messageData.attachments && messageData.attachments.length > 0) {
             this.logger.info(`Uploading ${messageData.attachments.length} attachments to ${accountName}`);
             
