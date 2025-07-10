@@ -225,6 +225,43 @@ export class MastodonPingBot {
   }
 
   /**
+   * Triggers a push provider with optional message, visibility, and attachments
+   */
+  public async triggerPushProviderWithVisibilityAndAttachments(
+    providerName: string, 
+    message?: string, 
+    visibility?: 'public' | 'unlisted' | 'private' | 'direct',
+    attachments?: import('./messages/messageProvider').Attachment[]
+  ): Promise<void> {
+    this.logger.info(`Triggering push provider: ${providerName}${message ? ' with custom message' : ''}${visibility ? ` with visibility: ${visibility}` : ''}${attachments ? ` with ${attachments.length} attachments` : ''}`);
+    
+    // Get the push provider and set message with visibility if provided
+    if (visibility || attachments) {
+      const pushProvider = this.scheduler.getPushProvider(providerName);
+      if (pushProvider && typeof pushProvider.setMessage === 'function') {
+        pushProvider.setMessage(message || '', visibility);
+        
+        // If attachments are provided, we need to trigger with attachments
+        if (attachments && attachments.length > 0) {
+          await this.scheduler.triggerPushProviderWithAttachments(providerName, { text: message || '', attachments });
+          return;
+        }
+        
+        // No attachments, use regular trigger
+        await this.scheduler.triggerPushProvider(providerName);
+        return;
+      }
+    }
+    
+    // Fallback to regular trigger if no special handling needed
+    if (attachments && attachments.length > 0) {
+      await this.scheduler.triggerPushProviderWithAttachments(providerName, { text: message || '', attachments });
+    } else {
+      await this.scheduler.triggerPushProvider(providerName, message);
+    }
+  }
+
+  /**
    * Gets all configured push providers
    */
   public getPushProviders(): Array<{name: string, config: any}> {

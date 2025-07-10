@@ -500,6 +500,129 @@ export class MultiProviderScheduler {
   }
 
   /**
+   * Triggers a push provider with message and attachments
+   */
+  public async triggerPushProviderWithAttachments(providerName: string, messageData: import('../messages/messageProvider').MessageWithAttachments): Promise<void> {
+    const scheduledProvider = this.scheduledProviders.find(sp => sp.name === providerName);
+    
+    if (!scheduledProvider) {
+      throw new Error(`Provider "${providerName}" not found`);
+    }
+
+    if (scheduledProvider.provider.getProviderName() !== 'push') {
+      throw new Error(`Provider "${providerName}" is not a push provider`);
+    }
+
+    // Cast to PushProvider to access push-specific methods
+    const pushProvider = scheduledProvider.provider as MessageProvider & PushProviderInterface;
+    
+    // Check rate limiting
+    if (typeof pushProvider.isRateLimited === 'function' && pushProvider.isRateLimited()) {
+      const timeUntilNext = typeof pushProvider.getTimeUntilNextMessage === 'function' 
+        ? pushProvider.getTimeUntilNextMessage() 
+        : 0;
+      
+      const rateLimitInfo = typeof pushProvider.getRateLimitInfo === 'function' 
+        ? pushProvider.getRateLimitInfo() 
+        : { messages: 1, windowSeconds: 60, currentCount: 1, timeUntilReset: timeUntilNext };
+      
+      // Record rate limit hit in telemetry
+      this.telemetry.recordRateLimitHit(providerName, rateLimitInfo.currentCount, rateLimitInfo.messages);
+      
+      this.logger.warn(`Push provider "${providerName}" is rate limited. ` +
+        `Current: ${rateLimitInfo.currentCount}/${rateLimitInfo.messages} messages in ${rateLimitInfo.windowSeconds}s window. ` +
+        `Next message allowed in ${timeUntilNext} seconds.`);
+      
+      throw new Error(`Push provider "${providerName}" is rate limited. Next message allowed in ${timeUntilNext} seconds.`);
+    }
+    
+    if (messageData.text && typeof pushProvider.setMessage === 'function') {
+      pushProvider.setMessage(messageData.text);
+      this.logger.debug(`Set custom message for push provider "${providerName}": "${messageData.text}"`);
+    }
+
+    this.logger.info(`Triggering push provider "${providerName}" with message and ${messageData.attachments?.length || 0} attachments`);
+    
+    // Execute the task with attachments
+    await this.executeProviderTaskWithAttachments(scheduledProvider.name, scheduledProvider.provider, messageData);
+    
+    // Record the message send for rate limiting
+    if (typeof pushProvider.recordMessageSent === 'function') {
+      pushProvider.recordMessageSent();
+      
+      // Update rate limit usage telemetry
+      const rateLimitInfo = typeof pushProvider.getRateLimitInfo === 'function' 
+        ? pushProvider.getRateLimitInfo() 
+        : { messages: 1, windowSeconds: 60, currentCount: 1, timeUntilReset: 0 };
+      
+      this.telemetry.updateRateLimitUsage(providerName, rateLimitInfo.currentCount, rateLimitInfo.messages);
+    }
+  }
+
+  /**
+   * Executes a task for a specific provider with attachments
+   */
+  private async executeProviderTaskWithAttachments(providerName: string, provider: MessageProvider, messageData: import('../messages/messageProvider').MessageWithAttachments): Promise<void> {
+    const startTime = Date.now();
+    const span = this.telemetry.startSpan('provider.execute_task_with_attachments', {
+      'provider.name': providerName,
+      'provider.type': provider.getProviderName(),
+      'provider.message_length': messageData.text.length,
+      'provider.attachments_count': messageData.attachments?.length || 0,
+    });
+
+    try {
+      this.logger.debug(`Executing task with attachments for provider: ${providerName}`);
+      
+      // Find the provider config to get account names
+      const providerConfig = this.getProviderConfigs().find(p => p.name === providerName);
+      if (!providerConfig) {
+        throw new Error(`Provider configuration not found for: ${providerName}`);
+      }
+
+      span?.setAttributes({
+        'provider.accounts_count': providerConfig.accounts.length,
+        'provider.accounts': providerConfig.accounts.join(','),
+      });
+
+      // Check if message is empty - if so, skip posting
+      if (!messageData.text || messageData.text.trim() === '') {
+        this.logger.info(`Provider "${providerName}" has empty message, skipping post`);
+        span?.setStatus({ code: 1 }); // OK
+        return;
+      }
+
+      // Determine visibility: push provider specific > provider config > default (unlisted)
+      let finalVisibility = providerConfig.visibility;
+      if (provider.getProviderName() === 'push') {
+        const pushProvider = provider as MessageProvider & PushProviderInterface;
+        if (typeof pushProvider.getVisibility === 'function') {
+          const pushVisibility = pushProvider.getVisibility();
+          if (pushVisibility) {
+            finalVisibility = pushVisibility;
+          }
+        }
+      }
+
+      await this.socialMediaClient.postStatusWithAttachments(messageData, providerConfig.accounts, providerName, finalVisibility);
+      
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      this.telemetry.recordProviderExecution(providerName, durationSeconds);
+      
+      this.logger.info(`Successfully posted message with attachments from provider: ${providerName}`);
+      span?.setStatus({ code: 1 }); // OK
+    } catch (error) {
+      this.logger.error(`Failed to execute task with attachments for provider "${providerName}":`, error);
+      this.telemetry.recordError('provider_execution_failed', providerName);
+      span?.recordException(error as Error);
+      span?.setStatus({ code: 2, message: (error as Error).message }); // ERROR
+      // Don't throw here to prevent other providers from being affected
+    } finally {
+      span?.end();
+    }
+  }
+
+  /**
    * Gets all push providers
    */
   public getPushProviders(): Array<{name: string, config: unknown}> {
