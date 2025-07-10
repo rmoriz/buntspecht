@@ -1389,7 +1389,7 @@ Each attachment object must contain:
 
 #### Custom Field Names
 
-You can customize the field names used within each attachment object:
+You can customize the field names used within each attachment object to match your API's response format:
 
 ```toml
 [bot.providers.config]
@@ -1400,6 +1400,41 @@ attachmentFilenameKey = "title"             # Custom key for filename (default: 
 attachmentDescriptionKey = "caption"        # Custom key for description (default: "description")
 ```
 
+**Example with custom field names:**
+
+Your API returns this JSON structure:
+```json
+{
+  "message": "Weather update",
+  "files": [
+    {
+      "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+      "format": "image/png",
+      "title": "weather_chart.png",
+      "caption": "Today's temperature chart"
+    }
+  ]
+}
+```
+
+Configure your provider to map these custom fields:
+```toml
+[[bot.providers]]
+name = "custom-api-weather"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = "curl -s 'https://api.custom-weather.com/report'"
+template = "📊 {{message}}"
+attachmentsKey = "files"                    # Points to the "files" array
+attachmentDataKey = "content"               # Maps to "content" field for base64 data
+attachmentMimeTypeKey = "format"            # Maps to "format" field for MIME type
+attachmentFilenameKey = "title"             # Maps to "title" field for filename
+attachmentDescriptionKey = "caption"        # Maps to "caption" field for description
+```
+
 #### Automatic Field Fallbacks
 
 The system automatically tries fallback field names if the configured ones aren't found:
@@ -1408,12 +1443,174 @@ The system automatically tries fallback field names if the configured ones aren'
 - **Filename**: `filename` → `name`
 - **Description**: `description` → `alt`
 
+**Example with mixed field names (automatic fallbacks):**
+
+Your API returns inconsistent field names:
+```json
+{
+  "title": "Mixed API Response",
+  "attachments": [
+    {
+      "data": "base64-image-data-here",
+      "mimeType": "image/jpeg",
+      "filename": "photo1.jpg",
+      "description": "First photo"
+    },
+    {
+      "data": "base64-image-data-here",
+      "type": "image/png",           // Different field name for MIME type
+      "name": "chart.png",           // Different field name for filename
+      "alt": "Performance chart"     // Different field name for description
+    }
+  ]
+}
+```
+
+With default configuration, both attachments work automatically:
+```toml
+[bot.providers.config]
+attachmentsKey = "attachments"
+# Using defaults with automatic fallbacks:
+# - attachmentDataKey = "data" (default)
+# - attachmentMimeTypeKey = "mimeType" (default, with fallback to "type")
+# - attachmentFilenameKey = "filename" (default, with fallback to "name")
+# - attachmentDescriptionKey = "description" (default, with fallback to "alt")
+```
+
 #### Nested JSON Keys
 
 Use dot notation for nested attachment data:
 
 ```toml
 attachmentsKey = "data.files"  # Accesses data.files array
+```
+
+**Example with nested structure:**
+
+Your API returns deeply nested attachment data:
+```json
+{
+  "response": {
+    "status": "success",
+    "data": {
+      "report": {
+        "title": "Sales Report",
+        "media": [
+          {
+            "fileData": "base64-pdf-content-here",
+            "contentType": "application/pdf",
+            "displayName": "Q4-sales.pdf",
+            "altText": "Q4 sales performance report"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Configure with nested keys and custom field mapping:
+```toml
+[bot.providers.config]
+template = "📈 {{response.data.report.title}}"
+attachmentsKey = "response.data.report.media"    # Nested path to attachments
+attachmentDataKey = "fileData"                   # Custom data field
+attachmentMimeTypeKey = "contentType"            # Custom MIME type field
+attachmentFilenameKey = "displayName"            # Custom filename field
+attachmentDescriptionKey = "altText"             # Custom description field
+```
+
+### Real-World API Integration Examples
+
+#### Example 1: GitHub API with Release Assets
+
+```toml
+[[bot.providers]]
+name = "github-releases"
+type = "jsoncommand"
+cronSchedule = "0 9 * * *"
+accounts = ["mastodon-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.github.com/repos/owner/repo/releases/latest' | jq '{
+  name: .name,
+  body: .body,
+  attachments: [.assets[] | {
+    data: (.browser_download_url | @base64),  # You would need to fetch and encode
+    mimeType: .content_type,
+    filename: .name,
+    description: ("Release asset: " + .name)
+  }]
+}'
+"""
+template = "🚀 New release: {{name}}"
+attachmentsKey = "attachments"
+# Using default field names since our jq transforms match them
+```
+
+#### Example 2: WordPress API with Featured Images
+
+```toml
+[[bot.providers]]
+name = "wordpress-posts"
+type = "multijsoncommand"
+cronSchedule = "0 12 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://blog.example.com/wp-json/wp/v2/posts?_embed' | jq '[
+  .[] | {
+    id: .id,
+    title: .title.rendered,
+    excerpt: .excerpt.rendered,
+    media: [._embedded."wp:featuredmedia"[]? | {
+      imageData: .source_url,  # You would fetch and base64 encode this
+      mediaType: .mime_type,
+      fileName: .slug,
+      altDescription: .alt_text
+    }]
+  }
+]'
+"""
+template = "📝 {{title}}"
+attachmentsKey = "media"
+attachmentDataKey = "imageData"
+attachmentMimeTypeKey = "mediaType"
+attachmentFilenameKey = "fileName"
+attachmentDescriptionKey = "altDescription"
+uniqueKey = "id"
+```
+
+#### Example 3: Slack API with File Attachments
+
+```toml
+[[bot.providers]]
+name = "slack-files"
+type = "jsoncommand"
+cronSchedule = "0 14 * * *"
+accounts = ["mastodon-account"]
+
+[bot.providers.config]
+command = """
+curl -s -H "Authorization: Bearer $SLACK_TOKEN" \
+'https://slack.com/api/files.list?channel=C1234567890' | jq '{
+  message: "Recent files from Slack",
+  files: [.files[] | {
+    content: .url_private,  # You would download and base64 encode
+    type: .mimetype,
+    name: .name,
+    alt: .title
+  }]
+}'
+"""
+template = "📎 {{message}}"
+attachmentsKey = "files"
+attachmentDataKey = "content"
+attachmentMimeTypeKey = "type"
+attachmentFilenameKey = "name"
+attachmentDescriptionKey = "alt"
 ```
 
 ### Platform-Specific Behavior

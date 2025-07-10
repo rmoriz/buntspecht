@@ -1227,7 +1227,7 @@ Jedes Anhang-Objekt muss enthalten:
 
 #### Benutzerdefinierte Feldnamen
 
-Sie können die Feldnamen innerhalb jedes Anhang-Objekts anpassen:
+Sie können die Feldnamen innerhalb jedes Anhang-Objekts anpassen, um sie an das Antwortformat Ihrer API anzupassen:
 
 ```toml
 [bot.providers.config]
@@ -1238,6 +1238,41 @@ attachmentFilenameKey = "title"             # Benutzerdefinierter Schlüssel fü
 attachmentDescriptionKey = "caption"        # Benutzerdefinierter Schlüssel für Beschreibung (Standard: "description")
 ```
 
+**Beispiel mit benutzerdefinierten Feldnamen:**
+
+Ihre API gibt diese JSON-Struktur zurück:
+```json
+{
+  "message": "Wetter-Update",
+  "files": [
+    {
+      "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+      "format": "image/png",
+      "title": "wetter_diagramm.png",
+      "caption": "Heutiges Temperaturdiagramm"
+    }
+  ]
+}
+```
+
+Konfigurieren Sie Ihren Provider, um diese benutzerdefinierten Felder zu mappen:
+```toml
+[[bot.providers]]
+name = "custom-api-wetter"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = "curl -s 'https://api.custom-weather.com/report'"
+template = "📊 {{message}}"
+attachmentsKey = "files"                    # Zeigt auf das "files" Array
+attachmentDataKey = "content"               # Mappt auf "content" Feld für base64-Daten
+attachmentMimeTypeKey = "format"            # Mappt auf "format" Feld für MIME-Typ
+attachmentFilenameKey = "title"             # Mappt auf "title" Feld für Dateiname
+attachmentDescriptionKey = "caption"        # Mappt auf "caption" Feld für Beschreibung
+```
+
 #### Automatische Feld-Fallbacks
 
 Das System versucht automatisch Fallback-Feldnamen, wenn die konfigurierten nicht gefunden werden:
@@ -1246,12 +1281,174 @@ Das System versucht automatisch Fallback-Feldnamen, wenn die konfigurierten nich
 - **Dateiname**: `filename` → `name`
 - **Beschreibung**: `description` → `alt`
 
+**Beispiel mit gemischten Feldnamen (automatische Fallbacks):**
+
+Ihre API gibt inkonsistente Feldnamen zurück:
+```json
+{
+  "title": "Gemischte API-Antwort",
+  "attachments": [
+    {
+      "data": "base64-bild-daten-hier",
+      "mimeType": "image/jpeg",
+      "filename": "foto1.jpg",
+      "description": "Erstes Foto"
+    },
+    {
+      "data": "base64-bild-daten-hier",
+      "type": "image/png",           // Anderer Feldname für MIME-Typ
+      "name": "diagramm.png",        // Anderer Feldname für Dateiname
+      "alt": "Leistungsdiagramm"     // Anderer Feldname für Beschreibung
+    }
+  ]
+}
+```
+
+Mit Standard-Konfiguration funktionieren beide Anhänge automatisch:
+```toml
+[bot.providers.config]
+attachmentsKey = "attachments"
+# Verwendung der Standards mit automatischen Fallbacks:
+# - attachmentDataKey = "data" (Standard)
+# - attachmentMimeTypeKey = "mimeType" (Standard, mit Fallback auf "type")
+# - attachmentFilenameKey = "filename" (Standard, mit Fallback auf "name")
+# - attachmentDescriptionKey = "description" (Standard, mit Fallback auf "alt")
+```
+
 #### Verschachtelte JSON-Schlüssel
 
 Verwenden Sie Punkt-Notation für verschachtelte Anhang-Daten:
 
 ```toml
 attachmentsKey = "data.files"  # Greift auf data.files Array zu
+```
+
+**Beispiel mit verschachtelter Struktur:**
+
+Ihre API gibt tief verschachtelte Anhang-Daten zurück:
+```json
+{
+  "response": {
+    "status": "success",
+    "data": {
+      "report": {
+        "title": "Verkaufsbericht",
+        "media": [
+          {
+            "fileData": "base64-pdf-inhalt-hier",
+            "contentType": "application/pdf",
+            "displayName": "Q4-verkauf.pdf",
+            "altText": "Q4 Verkaufsleistungsbericht"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Konfiguration mit verschachtelten Schlüsseln und benutzerdefiniertem Feld-Mapping:
+```toml
+[bot.providers.config]
+template = "📈 {{response.data.report.title}}"
+attachmentsKey = "response.data.report.media"    # Verschachtelter Pfad zu Anhängen
+attachmentDataKey = "fileData"                   # Benutzerdefiniertes Datenfeld
+attachmentMimeTypeKey = "contentType"            # Benutzerdefiniertes MIME-Typ-Feld
+attachmentFilenameKey = "displayName"            # Benutzerdefiniertes Dateiname-Feld
+attachmentDescriptionKey = "altText"             # Benutzerdefiniertes Beschreibungsfeld
+```
+
+### Praxisnahe API-Integrations-Beispiele
+
+#### Beispiel 1: GitHub API mit Release Assets
+
+```toml
+[[bot.providers]]
+name = "github-releases"
+type = "jsoncommand"
+cronSchedule = "0 9 * * *"
+accounts = ["mastodon-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://api.github.com/repos/owner/repo/releases/latest' | jq '{
+  name: .name,
+  body: .body,
+  attachments: [.assets[] | {
+    data: (.browser_download_url | @base64),  # Sie müssten dies herunterladen und kodieren
+    mimeType: .content_type,
+    filename: .name,
+    description: ("Release Asset: " + .name)
+  }]
+}'
+"""
+template = "🚀 Neues Release: {{name}}"
+attachmentsKey = "attachments"
+# Verwendung der Standard-Feldnamen, da unsere jq-Transformation diese verwendet
+```
+
+#### Beispiel 2: WordPress API mit Featured Images
+
+```toml
+[[bot.providers]]
+name = "wordpress-posts"
+type = "multijsoncommand"
+cronSchedule = "0 12 * * *"
+accounts = ["mastodon-account", "bluesky-account"]
+
+[bot.providers.config]
+command = """
+curl -s 'https://blog.example.com/wp-json/wp/v2/posts?_embed' | jq '[
+  .[] | {
+    id: .id,
+    title: .title.rendered,
+    excerpt: .excerpt.rendered,
+    media: [._embedded."wp:featuredmedia"[]? | {
+      imageData: .source_url,  # Sie würden dies herunterladen und base64-kodieren
+      mediaType: .mime_type,
+      fileName: .slug,
+      altDescription: .alt_text
+    }]
+  }
+]'
+"""
+template = "📝 {{title}}"
+attachmentsKey = "media"
+attachmentDataKey = "imageData"
+attachmentMimeTypeKey = "mediaType"
+attachmentFilenameKey = "fileName"
+attachmentDescriptionKey = "altDescription"
+uniqueKey = "id"
+```
+
+#### Beispiel 3: Slack API mit Datei-Anhängen
+
+```toml
+[[bot.providers]]
+name = "slack-files"
+type = "jsoncommand"
+cronSchedule = "0 14 * * *"
+accounts = ["mastodon-account"]
+
+[bot.providers.config]
+command = """
+curl -s -H "Authorization: Bearer $SLACK_TOKEN" \
+'https://slack.com/api/files.list?channel=C1234567890' | jq '{
+  message: "Aktuelle Dateien aus Slack",
+  files: [.files[] | {
+    content: .url_private,  # Sie würden dies herunterladen und base64-kodieren
+    type: .mimetype,
+    name: .name,
+    alt: .title
+  }]
+}'
+"""
+template = "📎 {{message}}"
+attachmentsKey = "files"
+attachmentDataKey = "content"
+attachmentMimeTypeKey = "type"
+attachmentFilenameKey = "name"
+attachmentDescriptionKey = "alt"
 ```
 
 ### Plattformspezifisches Verhalten
