@@ -265,7 +265,7 @@ export class WebhookServer {
       throw new ValidationError('Provider name is required and must be a string');
     }
 
-    // Validate message or json workflow
+    // Basic field type validation
     if (bodyObj.message && typeof bodyObj.message !== 'string') {
       throw new ValidationError('Message must be a string');
     }
@@ -274,19 +274,17 @@ export class WebhookServer {
       throw new ValidationError('Template must be a string');
     }
 
-    // If json is provided, template is required
-    if (bodyObj.json !== undefined && !bodyObj.template) {
-      throw new ValidationError('Template is required when json data is provided');
-    }
+    // JSON workflow validation (only if JSON fields are provided)
+    if (bodyObj.json !== undefined || bodyObj.template) {
+      // If json is provided, template is required
+      if (bodyObj.json !== undefined && !bodyObj.template) {
+        throw new ValidationError('Template is required when json data is provided');
+      }
 
-    // If template is provided, json is required
-    if (bodyObj.template && bodyObj.json === undefined) {
-      throw new ValidationError('JSON data is required when template is provided');
-    }
-
-    // Either message or json+template must be provided (but allow empty message for backward compatibility)
-    if (!bodyObj.message && bodyObj.json === undefined) {
-      throw new ValidationError('Either message or json+template must be provided');
+      // If template is provided, json is required
+      if (bodyObj.template && bodyObj.json === undefined) {
+        throw new ValidationError('JSON data is required when template is provided');
+      }
     }
 
     if (bodyObj.accounts && !Array.isArray(bodyObj.accounts)) {
