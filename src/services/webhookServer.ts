@@ -284,8 +284,8 @@ export class WebhookServer {
       throw new ValidationError('JSON data is required when template is provided');
     }
 
-    // Either message or json+template must be provided
-    if (!bodyObj.message && !bodyObj.json) {
+    // Either message or json+template must be provided (but allow empty message for backward compatibility)
+    if (!bodyObj.message && bodyObj.json === undefined) {
       throw new ValidationError('Either message or json+template must be provided');
     }
 
@@ -365,11 +365,9 @@ export class WebhookServer {
     // Process JSON workflow if provided
     if (request.json && request.template) {
       processedMessages = await this.processJsonWorkflow(request);
-    } else if (request.message) {
-      // Traditional message workflow
-      processedMessages = [{ text: request.message, attachments: undefined }];
     } else {
-      throw new ValidationError('Either message or json+template must be provided');
+      // Traditional message workflow (allow undefined message for backward compatibility)
+      processedMessages = [{ text: request.message || '', attachments: undefined }];
     }
 
     // Process each message (for multi-JSON support)
