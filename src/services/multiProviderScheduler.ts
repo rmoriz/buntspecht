@@ -164,11 +164,6 @@ export class MultiProviderScheduler {
    * Stops all scheduled providers
    */
   public stop(): void {
-    if (!this.isRunning) {
-      this.logger.warn('Multi-provider scheduler is not running');
-      return;
-    }
-
     this.logger.info('Stopping multi-provider scheduler...');
 
     for (const scheduledProvider of this.scheduledProviders) {
@@ -178,8 +173,14 @@ export class MultiProviderScheduler {
       }
     }
 
+    if (this.isRunning) {
+      this.logger.info('Multi-provider scheduler stopped');
+    } else {
+      this.logger.warn('Multi-provider scheduler is not running');
+      this.logger.info('Stopped cron tasks (scheduler was not running)');
+    }
+
     this.isRunning = false;
-    this.logger.info('Multi-provider scheduler stopped');
   }
 
   /**
