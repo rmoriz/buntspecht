@@ -38,18 +38,94 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 
 ### Voraussetzungen
 
-- **Bun**: Version 1.2.18 oder höher
+- **Docker**: Für die empfohlene Docker-Installation
+- **Bun**: Version 1.2.18 oder höher (für Entwicklung/Source-Builds)
 - **Git**: Für das Klonen des Repositories
-
-```bash
-# Bun-Version prüfen
-bun --version
-# Sollte 1.2.18 oder höher anzeigen
-```
 
 ### Installation
 
-#### Option 1: Vorkompilierte Binaries (Empfohlen)
+#### Option 1: Docker (Empfohlen)
+
+Der einfachste und zuverlässigste Weg, Buntspecht zu betreiben, ist die Verwendung des offiziellen Docker-Images aus der GitHub Container Registry:
+
+```bash
+# Neuestes Image herunterladen
+docker pull ghcr.io/rmoriz/buntspecht:latest
+
+# Mit Konfigurationsdatei ausführen
+docker run -d \
+  --name buntspecht \
+  -v /pfad/zu/ihrer/config.toml:/app/config.toml:ro \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Mit umgebungsbasierter Konfiguration ausführen
+docker run -d \
+  --name buntspecht \
+  -e BUNTSPECHT_CONFIG=/app/config.toml \
+  -v /pfad/zu/ihrer/config.toml:/app/config.toml:ro \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Logs überprüfen
+docker logs -f buntspecht
+```
+
+**Docker Compose (Empfohlen für Produktion):**
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  buntspecht:
+    image: ghcr.io/rmoriz/buntspecht:latest
+    container_name: buntspecht
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Für Webhook-Server (falls aktiviert)
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data  # Für Cache-Dateien (optional)
+    environment:
+      - BUNTSPECHT_CONFIG=/app/config.toml
+      - TZ=UTC
+    # Optional: Ressourcenlimits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+```
+
+```bash
+# Mit Docker Compose starten
+docker-compose up -d
+
+# Logs anzeigen
+docker-compose logs -f
+
+# Stoppen
+docker-compose down
+```
+
+**Verfügbare Docker-Tags:**
+- `latest`: Neueste stabile Version
+- `v0.6.5`: Spezifische Versions-Tags
+- `main`: Neuester Entwicklungs-Build (nicht für Produktion empfohlen)
+
+**Docker-Vorteile:**
+- ✅ **Vollständige OpenTelemetry-Unterstützung** (im Gegensatz zu Single Binaries)
+- ✅ **Konsistente Umgebung** auf allen Plattformen
+- ✅ **Einfache Updates** mit `docker pull`
+- ✅ **Ressourcenverwaltung** und Monitoring
+- ✅ **Produktionsbereit** mit ordnungsgemäßer Isolation
+- ✅ **Keine Dependency-Verwaltung** erforderlich
+
+#### Option 2: Vorkompilierte Binaries
 
 Laden Sie die passende Binary für Ihr System von den [GitHub Releases](../../releases) herunter:
 
@@ -878,6 +954,50 @@ bun start --help
 # Verbindung testen
 bun start --verify
 
+# Docker-Verwendung (Empfohlen)
+# Grundlegende Ausführung (Daemon-Modus)
+docker run -d \
+  --name buntspecht \
+  -v /pfad/zu/config.toml:/app/config.toml:ro \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Mit Docker Compose ausführen
+docker-compose up -d
+
+# Sofort eine Test-Nachricht posten (alle Provider)
+docker exec buntspecht bun start --test-post
+
+# Test-Nachricht von spezifischem Provider posten
+docker exec buntspecht bun start --test-provider provider-name
+
+# Alle konfigurierten Provider auflisten
+docker exec buntspecht bun start --list-providers
+
+# Alle Push-Provider auflisten
+docker exec buntspecht bun start --list-push-providers
+
+# Webhook-Server-Status und -Konfiguration anzeigen
+docker exec buntspecht bun start --webhook-status
+
+# Push-Provider mit Standard-Nachricht auslösen
+docker exec buntspecht bun start --trigger-push provider-name
+
+# Push-Provider mit benutzerdefinierter Nachricht auslösen
+docker exec buntspecht bun start --trigger-push provider-name --trigger-push-message "Benutzerdefinierte Nachricht"
+
+# Logs anzeigen
+docker logs -f buntspecht
+
+# Container stoppen
+docker stop buntspecht
+
+# Auf neueste Version aktualisieren
+docker pull ghcr.io/rmoriz/buntspecht:latest
+docker stop buntspecht
+docker rm buntspecht
+# Dann erneut mit denselben Parametern ausführen
+
+# Binary/Source-Verwendung
 # Sofort eine Test-Nachricht posten (alle Provider)
 bun start --test-post
 

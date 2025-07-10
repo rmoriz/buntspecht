@@ -40,18 +40,94 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 
 ### Prerequisites
 
-- **Bun**: Version 1.2.18 or higher
+- **Docker**: For the recommended Docker installation
+- **Bun**: Version 1.2.18 or higher (for development/source builds)
 - **Git**: For cloning the repository
-
-```bash
-# Check Bun version
-bun --version
-# Should show 1.2.18 or higher
-```
 
 ### Installation
 
-#### Option 1: Pre-compiled Binaries (Recommended)
+#### Option 1: Docker (Recommended)
+
+The easiest and most reliable way to run Buntspecht is using the official Docker image from GitHub Container Registry:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/rmoriz/buntspecht:latest
+
+# Run with configuration file
+docker run -d \
+  --name buntspecht \
+  -v /path/to/your/config.toml:/app/config.toml:ro \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Run with environment-based configuration
+docker run -d \
+  --name buntspecht \
+  -e BUNTSPECHT_CONFIG=/app/config.toml \
+  -v /path/to/your/config.toml:/app/config.toml:ro \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Check logs
+docker logs -f buntspecht
+```
+
+**Docker Compose (Recommended for production):**
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  buntspecht:
+    image: ghcr.io/rmoriz/buntspecht:latest
+    container_name: buntspecht
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # For webhook server (if enabled)
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data  # For cache files (optional)
+    environment:
+      - BUNTSPECHT_CONFIG=/app/config.toml
+      - TZ=UTC
+    # Optional: Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+```
+
+```bash
+# Start with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+**Available Docker Tags:**
+- `latest`: Latest stable release
+- `v0.6.5`: Specific version tags
+- `main`: Latest development build (not recommended for production)
+
+**Docker Benefits:**
+- ✅ **Full OpenTelemetry support** (unlike single binaries)
+- ✅ **Consistent environment** across all platforms
+- ✅ **Easy updates** with `docker pull`
+- ✅ **Resource management** and monitoring
+- ✅ **Production-ready** with proper isolation
+- ✅ **No dependency management** required
+
+#### Option 2: Pre-compiled Binaries
 
 Download the appropriate binary for your system from [GitHub Releases](../../releases):
 
@@ -1030,6 +1106,53 @@ bun start --help
 # Test connection
 bun start --verify
 
+# Docker Usage (Recommended)
+# Basic run (daemon mode)
+docker run -d \
+  --name buntspecht \
+  -v /path/to/config.toml:/app/config.toml:ro \
+  ghcr.io/rmoriz/buntspecht:latest
+
+# Run with Docker Compose
+docker-compose up -d
+
+# Post a test message immediately (all providers)
+docker exec buntspecht bun start --test-post
+
+# Post test message from specific provider
+docker exec buntspecht bun start --test-provider provider-name
+
+# List all configured providers
+docker exec buntspecht bun start --list-providers
+
+# List all push providers
+docker exec buntspecht bun start --list-push-providers
+
+# Show rate limit status for a specific push provider
+docker exec buntspecht bun start --push-provider-status provider-name
+
+# Show webhook server status and configuration
+docker exec buntspecht bun start --webhook-status
+
+# Trigger a push provider with default message
+docker exec buntspecht bun start --trigger-push provider-name
+
+# Trigger a push provider with custom message
+docker exec buntspecht bun start --trigger-push provider-name --trigger-push-message "Custom message"
+
+# View logs
+docker logs -f buntspecht
+
+# Stop container
+docker stop buntspecht
+
+# Update to latest version
+docker pull ghcr.io/rmoriz/buntspecht:latest
+docker stop buntspecht
+docker rm buntspecht
+# Then run again with same parameters
+
+# Binary/Source Usage
 # Post a test message immediately (all providers)
 bun start --test-post
 
