@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        bun-version: ["1.2.17"]
+        bun-version: ["1.2.18"]
     
     steps:
     - name: Checkout code
