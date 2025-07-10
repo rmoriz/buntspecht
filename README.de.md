@@ -1023,151 +1023,6 @@ bun start --trigger-push provider-name --trigger-push-message "Benutzerdefiniert
 bun start --config /pfad/zur/config.toml
 ```
 
-## Telemetrie und Monitoring
-
-Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und Metriken. Dies ermöglicht es, die Performance und das Verhalten des Bots zu überwachen und zu analysieren.
-
-> **⚠️ Wichtiger Hinweis für Single Binary Builds**: OpenTelemetry-Dependencies werden bei der Erstellung von Single Binaries mit `bun build --compile` ausgeschlossen (`--external @opentelemetry/*`), da sie zur Laufzeit nicht verfügbar sind. Telemetrie funktioniert nur bei der Ausführung mit `bun run` oder `npm start`, nicht mit den vorkompilierten Binaries. Für Produktionsumgebungen mit Telemetrie verwenden Sie Docker oder führen Sie den Bot direkt mit Bun/Node.js aus.
-
-### Telemetrie-Konfiguration
-
-```toml
-[telemetry]
-# OpenTelemetry aktivieren/deaktivieren
-enabled = true
-serviceName = "buntspecht"
-serviceVersion = "0.6.5"
-
-[telemetry.jaeger]
-# Jaeger für Distributed Tracing
-enabled = true
-endpoint = "http://localhost:14268/api/traces"
-
-[telemetry.prometheus]
-# Prometheus für Metriken
-enabled = true
-port = 9090
-endpoint = "/metrics"
-
-[telemetry.tracing]
-# Tracing aktivieren
-enabled = true
-
-[telemetry.metrics]
-# Metriken aktivieren
-enabled = true
-```
-
-### Verfügbare Metriken
-
-- **`buntspecht_posts_total`**: Anzahl der erfolgreich gesendeten Posts (mit Labels: account, provider)
-- **`buntspecht_errors_total`**: Anzahl der Fehler (mit Labels: error_type, provider, account)
-- **`buntspecht_provider_execution_duration_seconds`**: Ausführungszeit der Provider (mit Label: provider)
-- **`buntspecht_active_connections`**: Anzahl aktiver Mastodon-Verbindungen
-- **`buntspecht_rate_limit_hits_total`**: Anzahl der Rate-Limit-Treffer (mit Labels: provider, current_count, limit)
-- **`buntspecht_rate_limit_resets_total`**: Anzahl der Rate-Limit-Resets (mit Label: provider)
-- **`buntspecht_rate_limit_current_count`**: Aktuelle Rate-Limit-Nutzung (mit Labels: provider, limit, usage_percentage)
-
-### Verfügbare Traces
-
-- **`mastodon.post_status`**: Mastodon-Post-Operationen mit Attributen wie:
-  - `mastodon.accounts_count`: Anzahl der Ziel-Accounts
-  - `mastodon.provider`: Name des Providers
-  - `mastodon.message_length`: Länge der Nachricht
-
-- **`provider.execute_task`**: Provider-Ausführungen mit Attributen wie:
-  - `provider.name`: Name des Providers
-  - `provider.type`: Typ des Providers
-  - `provider.accounts`: Liste der Ziel-Accounts
-
-### Monitoring-Setup
-
-#### Jaeger (Distributed Tracing)
-
-```bash
-# Jaeger mit Docker starten
-docker run -d --name jaeger \
-  -p 16686:16686 \
-  -p 14268:14268 \
-  jaegertracing/all-in-one:latest
-
-# Jaeger UI öffnen
-open http://localhost:16686
-```
-
-#### Prometheus (Metriken)
-
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'buntspecht'
-    static_configs:
-      - targets: ['localhost:9090']
-```
-
-```bash
-# Prometheus mit Docker starten
-docker run -d --name prometheus \
-  -p 9090:9090 \
-  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
-
-# Metriken direkt abrufen
-curl http://localhost:9090/metrics
-```
-
-#### Grafana Dashboard
-
-Beispiel-Queries für Grafana:
-
-```promql
-# Posts pro Minute
-rate(buntspecht_posts_total[1m])
-
-# Fehlerrate
-rate(buntspecht_errors_total[5m])
-
-# 95. Perzentil der Provider-Ausführungszeit
-histogram_quantile(0.95, buntspecht_provider_execution_duration_seconds)
-
-# Aktive Verbindungen
-buntspecht_active_connections
-
-# Rate-Limit-Treffer pro Minute
-rate(buntspecht_rate_limit_hits_total[1m])
-
-# Rate-Limit-Nutzung in Prozent nach Provider
-buntspecht_rate_limit_current_count{usage_percentage}
-
-# Rate-Limit-Resets pro Stunde
-rate(buntspecht_rate_limit_resets_total[1h])
-```
-
-### Telemetrie-Beispielkonfiguration
-
-Für eine vollständige Telemetrie-Konfiguration siehe `config.telemetry.example.toml`.
-
-### Cron-Schedule Beispiele
-
-```toml
-# Jede Stunde
-cronSchedule = "0 * * * *"
-
-# Alle 30 Minuten
-cronSchedule = "*/30 * * * *"
-
-# Täglich um 9:00 Uhr
-cronSchedule = "0 9 * * *"
-
-# Jeden Montag um 9:00 Uhr
-cronSchedule = "0 9 * * 1"
-
-# Alle 15 Minuten zwischen 9-17 Uhr, Mo-Fr
-cronSchedule = "*/15 9-17 * * 1-5"
-```
 
 ## Media-Anhänge und Bilder
 
@@ -1672,6 +1527,127 @@ message = "🤖 Tägliches Update von unserem Bot! #automation #crossplatform"
 ### Bluesky-Konfigurationsbeispiele
 
 Siehe `config.bluesky.example.toml` für umfassende plattformübergreifende Konfigurationsbeispiele.
+
+## Telemetrie und Monitoring
+
+Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und Metriken. Dies ermöglicht es, die Performance und das Verhalten des Bots zu überwachen und zu analysieren.
+
+> **⚠️ Wichtiger Hinweis für Single Binary Builds**: OpenTelemetry-Dependencies werden bei der Erstellung von Single Binaries mit `bun build --compile` ausgeschlossen (`--external @opentelemetry/*`), da sie zur Laufzeit nicht verfügbar sind. Telemetrie funktioniert nur bei der Ausführung mit `bun run` oder `npm start`, nicht mit den vorkompilierten Binaries. Für Produktionsumgebungen mit Telemetrie verwenden Sie Docker oder führen Sie den Bot direkt mit Bun/Node.js aus.
+
+### Telemetrie-Konfiguration
+
+```toml
+[telemetry]
+# OpenTelemetry aktivieren/deaktivieren
+enabled = true
+serviceName = "buntspecht"
+serviceVersion = "0.6.5"
+
+[telemetry.jaeger]
+# Jaeger für Distributed Tracing
+enabled = true
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+# Prometheus für Metriken
+enabled = true
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+# Tracing aktivieren
+enabled = true
+
+[telemetry.metrics]
+# Metriken aktivieren
+enabled = true
+```
+
+### Verfügbare Metriken
+
+- **`buntspecht_posts_total`**: Anzahl der erfolgreich gesendeten Posts (mit Labels: account, provider)
+- **`buntspecht_errors_total`**: Anzahl der Fehler (mit Labels: error_type, provider, account)
+- **`buntspecht_provider_execution_duration_seconds`**: Ausführungszeit der Provider (mit Label: provider)
+- **`buntspecht_active_connections`**: Anzahl aktiver Social Media Verbindungen (Mastodon + Bluesky)
+- **`buntspecht_rate_limit_hits_total`**: Anzahl der Rate-Limit-Treffer (mit Labels: provider, current_count, limit)
+- **`buntspecht_rate_limit_resets_total`**: Anzahl der Rate-Limit-Resets (mit Label: provider)
+- **`buntspecht_rate_limit_current_count`**: Aktuelle Rate-Limit-Nutzung (mit Labels: provider, limit, usage_percentage)
+
+### Verfügbare Traces
+
+- **`mastodon.post_status`**: Mastodon-Post-Operationen mit Attributen wie:
+  - `mastodon.accounts_count`: Anzahl der Ziel-Accounts
+- **`bluesky.post_status`**: Bluesky-Post-Operationen mit Attributen wie:
+  - `bluesky.accounts_count`: Anzahl der Ziel-Accounts
+- **`social_media.post_status`**: Plattformübergreifende Post-Operationen mit Attributen wie:
+  - `social_media.accounts_count`: Gesamtanzahl der Ziel-Accounts
+  - `mastodon.provider`: Name des Providers
+  - `mastodon.message_length`: Länge der Nachricht
+
+- **`provider.execute_task`**: Provider-Ausführungen mit Attributen wie:
+  - `provider.name`: Name des Providers
+  - `provider.type`: Typ des Providers
+  - `provider.accounts`: Liste der Ziel-Accounts
+
+### Monitoring-Setup
+
+#### Jaeger (Distributed Tracing)
+
+```bash
+# Jaeger mit Docker starten
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 14268:14268 \
+  jaegertracing/all-in-one:latest
+
+# Jaeger UI öffnen
+open http://localhost:16686
+```
+
+#### Prometheus (Metriken)
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'buntspecht'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+```bash
+# Prometheus mit Docker starten
+docker run -d --name prometheus \
+  -p 9090:9090 \
+  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+# Metriken direkt abrufen
+curl http://localhost:9090/metrics
+```
+
+#### Grafana Dashboard
+
+Beispiel-Queries für Grafana:
+
+```promql
+# Posts pro Minute
+rate(buntspecht_posts_total[1m])
+
+# Fehlerrate
+rate(buntspecht_errors_total[5m])
+
+# Provider-Ausführungszeit
+buntspecht_provider_execution_duration_seconds
+
+# Aktive Verbindungen
+buntspecht_active_connections
+
+# Rate-Limit-Nutzung in Prozent
+buntspecht_rate_limit_current_count
+```
 
 ## Technologien
 
