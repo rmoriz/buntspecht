@@ -105,8 +105,6 @@ export class SecretRotationDetector {
 
     this.cronJob = cron.schedule(this.rotationConfig.checkInterval, async () => {
       await this.checkForSecretRotations();
-    }, {
-      scheduled: false
     });
 
     this.cronJob.start();

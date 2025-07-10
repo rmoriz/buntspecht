@@ -102,7 +102,6 @@ export class MultiProviderScheduler {
       task = cron.schedule(providerConfig.cronSchedule!, async () => {
         await this.executeProviderTask(providerConfig.name, messageProvider);
       }, {
-        scheduled: false,
         timezone: 'UTC'
       });
     }
