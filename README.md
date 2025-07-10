@@ -1181,59 +1181,6 @@ bun start --trigger-push provider-name --trigger-push-message "Custom message"
 bun start --config /path/to/config.toml
 ```
 
-## Telemetry and Monitoring
-
-Buntspecht supports OpenTelemetry for comprehensive monitoring, tracing, and metrics. This allows monitoring and analyzing the performance and behavior of the bot.
-
-> **⚠️ Important Note for Single Binary Builds**: OpenTelemetry dependencies are excluded when creating single binaries with `bun build --compile` (`--external @opentelemetry/*`) as they are not available at runtime. Telemetry only works when running with `bun run` or `npm start`, not with pre-compiled binaries. For production environments with telemetry, use Docker or run the bot directly with Bun/Node.js.
-
-### Telemetry Configuration
-
-```toml
-[telemetry]
-# Enable/disable OpenTelemetry
-enabled = true
-serviceName = "buntspecht"
-serviceVersion = "0.6.5"
-
-[telemetry.jaeger]
-# Jaeger for Distributed Tracing
-enabled = true
-endpoint = "http://localhost:14268/api/traces"
-
-[telemetry.prometheus]
-# Prometheus for metrics
-enabled = true
-port = 9090
-endpoint = "/metrics"
-
-[telemetry.tracing]
-# Enable tracing
-enabled = true
-
-[telemetry.metrics]
-# Enable metrics
-enabled = true
-```
-
-### Available Metrics
-
-- **`buntspecht_posts_total`**: Number of successfully sent posts (with labels: account, provider)
-- **`buntspecht_errors_total`**: Number of errors (with labels: error_type, provider, account)
-- **`buntspecht_provider_execution_duration_seconds`**: Provider execution time (with label: provider)
-- **`buntspecht_active_connections`**: Number of active social media connections (Mastodon + Bluesky)
-- **`buntspecht_rate_limit_hits_total`**: Number of rate limit hits (with labels: provider, current_count, limit)
-- **`buntspecht_rate_limit_resets_total`**: Number of rate limit resets (with label: provider)
-- **`buntspecht_rate_limit_current_count`**: Current rate limit usage count (with labels: provider, limit, usage_percentage)
-
-### Available Traces
-
-- **`mastodon.post_status`**: Mastodon post operations with attributes like:
-  - `mastodon.accounts_count`: Number of target accounts
-- **`bluesky.post_status`**: Bluesky post operations with attributes like:
-  - `bluesky.accounts_count`: Number of target accounts
-- **`social_media.post_status`**: Cross-platform post operations with attributes like:
-  - `social_media.accounts_count`: Total number of target accounts
   - `mastodon.provider`: Provider name
   - `mastodon.message_length`: Message length
 
@@ -1834,6 +1781,127 @@ message = "🤖 Daily update from our bot! #automation #crossplatform"
 ### Bluesky Configuration Examples
 
 See `config.bluesky.example.toml` for comprehensive cross-platform configuration examples.
+
+## Telemetry and Monitoring
+
+Buntspecht supports OpenTelemetry for comprehensive monitoring, tracing, and metrics. This allows monitoring and analyzing the performance and behavior of the bot.
+
+> **⚠️ Important Note for Single Binary Builds**: OpenTelemetry dependencies are excluded when creating single binaries with `bun build --compile` (`--external @opentelemetry/*`) as they are not available at runtime. Telemetry only works when running with `bun run` or `npm start`, not with pre-compiled binaries. For production environments with telemetry, use Docker or run the bot directly with Bun/Node.js.
+
+### Telemetry Configuration
+
+```toml
+[telemetry]
+# Enable/disable OpenTelemetry
+enabled = true
+serviceName = "buntspecht"
+serviceVersion = "0.6.5"
+
+[telemetry.jaeger]
+# Jaeger for Distributed Tracing
+enabled = true
+endpoint = "http://localhost:14268/api/traces"
+
+[telemetry.prometheus]
+# Prometheus for metrics
+enabled = true
+port = 9090
+endpoint = "/metrics"
+
+[telemetry.tracing]
+# Enable tracing
+enabled = true
+
+[telemetry.metrics]
+# Enable metrics
+enabled = true
+```
+
+### Available Metrics
+
+- **`buntspecht_posts_total`**: Number of successfully sent posts (with labels: account, provider)
+- **`buntspecht_errors_total`**: Number of errors (with labels: error_type, provider, account)
+- **`buntspecht_provider_execution_duration_seconds`**: Provider execution time (with label: provider)
+- **`buntspecht_active_connections`**: Number of active social media connections (Mastodon + Bluesky)
+- **`buntspecht_rate_limit_hits_total`**: Number of rate limit hits (with labels: provider, current_count, limit)
+- **`buntspecht_rate_limit_resets_total`**: Number of rate limit resets (with label: provider)
+- **`buntspecht_rate_limit_current_count`**: Current rate limit usage count (with labels: provider, limit, usage_percentage)
+
+### Available Traces
+
+- **`mastodon.post_status`**: Mastodon post operations with attributes like:
+  - `mastodon.accounts_count`: Number of target accounts
+- **`bluesky.post_status`**: Bluesky post operations with attributes like:
+  - `bluesky.accounts_count`: Number of target accounts
+- **`social_media.post_status`**: Cross-platform post operations with attributes like:
+  - `social_media.accounts_count`: Total number of target accounts
+  - `mastodon.provider`: Provider name
+  - `mastodon.message_length`: Message length
+
+- **`provider.execute_task`**: Provider executions with attributes like:
+  - `provider.name`: Provider name
+  - `provider.type`: Provider type
+  - `provider.accounts`: List of target accounts
+
+### Monitoring Setup
+
+#### Jaeger (Distributed Tracing)
+
+```bash
+# Start Jaeger with Docker
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 14268:14268 \
+  jaegertracing/all-in-one:latest
+
+# Open Jaeger UI
+open http://localhost:16686
+```
+
+#### Prometheus (Metrics)
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'buntspecht'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+```bash
+# Start Prometheus with Docker
+docker run -d --name prometheus \
+  -p 9090:9090 \
+  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+# Fetch metrics directly
+curl http://localhost:9090/metrics
+```
+
+#### Grafana Dashboard
+
+Example queries for Grafana:
+
+```promql
+# Posts per minute
+rate(buntspecht_posts_total[1m])
+
+# Error rate
+rate(buntspecht_errors_total[5m])
+
+# Provider execution time
+buntspecht_provider_execution_duration_seconds
+
+# Active connections
+buntspecht_active_connections
+
+# Rate limit usage percentage
+buntspecht_rate_limit_current_count
+```
 
 ## Technologies
 
