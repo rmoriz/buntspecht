@@ -51,6 +51,7 @@ curl -s 'https://api.weather.example.com/current' | jq '{
 """
 template = "🌤️ Weather in {{location}}: {{temperature}}°C, {{condition}}"
 attachmentsKey = "attachments"  # JSON key containing the attachments array
+attachmentDataKey = "data"  # JSON key for base64 data within each attachment (default: "data")
 timeout = 15000
 
 # Example 2: Multi JSON Command Provider with Attachments
@@ -83,6 +84,7 @@ curl -s 'https://api.photos.example.com/daily' | jq '[
 """
 template = "📸 {{caption}}{{#if location}} at {{location}}{{/if}}"
 attachmentsKey = "attachments"  # JSON key containing the attachments array
+attachmentDataKey = "data"  # JSON key for base64 data within each attachment (default: "data")
 uniqueKey = "id"
 timeout = 30000
 
@@ -123,6 +125,49 @@ command = """
 """
 template = "📊 {{title}}: {{summary}}"
 attachmentsKey = "attachments"
+attachmentDataKey = "data"  # JSON key for base64 data within each attachment (default: "data")
+timeout = 60000
+
+# Example 4: Custom Data Key Configuration
+# This example shows how to use different field names for attachment data
+[[bot.providers]]
+name = "custom-format-reports"
+type = "jsoncommand"
+cronSchedule = "0 10 * * 2"  # Every Tuesday at 10:00 AM
+enabled = false  # Disabled by default
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Command that returns JSON with custom field names for attachment data
+command = """
+./scripts/generate-custom-report.sh | jq '{
+  title: .report.title,
+  summary: .report.summary,
+  files: [
+    {
+      content: .report.pdf_base64,
+      type: "application/pdf",
+      name: "weekly-report.pdf",
+      alt: "Weekly performance report"
+    },
+    {
+      content: .report.chart_base64,
+      type: "image/png",
+      name: "performance-chart.png", 
+      alt: "Performance metrics visualization"
+    }
+  ]
+}'
+"""
+template = "📈 {{title}}: {{summary}}"
+attachmentsKey = "files"  # Custom key for attachments array
+attachmentDataKey = "content"  # Custom key for base64 data (instead of "data")
+# Note: The provider will look for:
+# - "files" array containing attachments
+# - "content" field within each attachment for base64 data
+# - "type" field for mimeType (standard)
+# - "name" field for filename (standard)
+# - "alt" field for description (standard)
 timeout = 60000
 
 [logging]
@@ -132,7 +177,7 @@ level = "info"
 #
 # 1. Attachment Format:
 #    Each attachment must be an object with:
-#    - data: Base64-encoded file content (required)
+#    - Base64-encoded file content (field name configurable via attachmentDataKey, default: "data")
 #    - mimeType: MIME type like "image/jpeg", "image/png", "application/pdf" (required)
 #    - filename: Optional filename for the attachment
 #    - description: Optional description/alt text for accessibility
@@ -144,15 +189,23 @@ level = "info"
 #
 # 3. Configuration:
 #    - attachmentsKey: Specifies the JSON key containing the attachments array
+#    - attachmentDataKey: Specifies the JSON key for base64 data within each attachment (default: "data")
 #    - Can use dot notation for nested keys (e.g., "data.attachments")
 #    - If attachmentsKey is not specified, no attachments will be processed
 #
-# 4. Error Handling:
+# 4. Field Mapping:
+#    Standard field names within each attachment object:
+#    - Base64 data: configurable via attachmentDataKey (default: "data")
+#    - MIME type: "mimeType" or "type" (both supported)
+#    - Filename: "filename" or "name" (both supported)  
+#    - Description: "description" or "alt" (both supported)
+#
+# 5. Error Handling:
 #    - Invalid base64 data will be skipped with a warning
-#    - Missing required fields (data, mimeType) will be skipped
+#    - Missing required fields (base64 data, mimeType) will be skipped
 #    - Upload failures for individual attachments won't stop the post
 #
-# 5. Performance Considerations:
+# 6. Performance Considerations:
 #    - Large attachments will increase processing time
 #    - Consider timeout settings for commands that generate attachments
 #    - Base64 encoding increases data size by ~33%

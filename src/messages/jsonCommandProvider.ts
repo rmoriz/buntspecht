@@ -17,6 +17,7 @@ export interface JsonCommandProviderConfig extends MessageProviderConfig {
   env?: Record<string, string>; // Environment variables
   maxBuffer?: number; // Maximum buffer size for stdout/stderr (default: 1024 * 1024)
   attachmentsKey?: string; // JSON key containing base64 attachments array (optional)
+  attachmentDataKey?: string; // JSON key for base64 data within each attachment (default: "data")
 }
 
 /**
@@ -32,6 +33,7 @@ export class JsonCommandProvider implements MessageProvider {
   private env?: Record<string, string>;
   private maxBuffer: number;
   private attachmentsKey?: string;
+  private attachmentDataKey: string;
   private logger?: Logger;
 
   constructor(config: JsonCommandProviderConfig) {
@@ -50,6 +52,7 @@ export class JsonCommandProvider implements MessageProvider {
     this.env = config.env;
     this.maxBuffer = config.maxBuffer || 1024 * 1024; // 1MB default
     this.attachmentsKey = config.attachmentsKey;
+    this.attachmentDataKey = config.attachmentDataKey || 'data';
   }
 
   /**
@@ -280,28 +283,35 @@ export class JsonCommandProvider implements MessageProvider {
       const attachmentObj = item as Record<string, unknown>;
       
       // Validate required fields
-      if (typeof attachmentObj.data !== 'string') {
-        this.logger?.warn(`Attachment at index ${i} missing or invalid 'data' field`);
+      if (typeof attachmentObj[this.attachmentDataKey] !== 'string') {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid '${this.attachmentDataKey}' field`);
         continue;
       }
       
-      if (typeof attachmentObj.mimeType !== 'string') {
-        this.logger?.warn(`Attachment at index ${i} missing or invalid 'mimeType' field`);
+      // Check for mimeType field (support both "mimeType" and "type")
+      const mimeType = (typeof attachmentObj.mimeType === 'string' ? attachmentObj.mimeType : null) || 
+                       (typeof attachmentObj.type === 'string' ? attachmentObj.type : null);
+      if (!mimeType) {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid 'mimeType' or 'type' field`);
         continue;
       }
       
       // Validate base64 data
-      const base64Data = attachmentObj.data;
+      const base64Data = attachmentObj[this.attachmentDataKey] as string;
       if (!this.isValidBase64(base64Data)) {
-        this.logger?.warn(`Attachment at index ${i} has invalid base64 data`);
+        this.logger?.warn(`Attachment at index ${i} has invalid base64 data in '${this.attachmentDataKey}' field`);
         continue;
       }
       
       const attachment: Attachment = {
         data: base64Data,
-        mimeType: attachmentObj.mimeType,
-        filename: typeof attachmentObj.filename === 'string' ? attachmentObj.filename : undefined,
-        description: typeof attachmentObj.description === 'string' ? attachmentObj.description : undefined,
+        mimeType: mimeType,
+        filename: (typeof attachmentObj.filename === 'string' ? attachmentObj.filename : null) || 
+                  (typeof attachmentObj.name === 'string' ? attachmentObj.name : null) || 
+                  undefined,
+        description: (typeof attachmentObj.description === 'string' ? attachmentObj.description : null) || 
+                     (typeof attachmentObj.alt === 'string' ? attachmentObj.alt : null) || 
+                     undefined,
       };
       
       attachments.push(attachment);
