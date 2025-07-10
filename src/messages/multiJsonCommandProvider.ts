@@ -1,4 +1,4 @@
-import { MessageProvider, MessageProviderConfig, MessageWithAttachments, Attachment } from './messageProvider';
+import { MessageProvider, MessageProviderConfig, MessageWithAttachments } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { JsonTemplateProcessor, AttachmentConfig } from '../utils/jsonTemplateProcessor';
