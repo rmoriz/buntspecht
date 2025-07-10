@@ -322,10 +322,18 @@ export class BlueskyClient {
    * Posts a status message to specified Bluesky accounts
    */
   public async postStatus(message: string, accountNames: string[], provider?: string): Promise<void> {
+    return this.postStatusWithAttachments({ text: message }, accountNames, provider);
+  }
+
+  /**
+   * Posts a status message with attachments to specified Bluesky accounts
+   */
+  public async postStatusWithAttachments(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string): Promise<void> {
     const span = this.telemetry.startSpan('bluesky.post_status', {
       'bluesky.accounts_count': accountNames.length,
       'bluesky.provider': provider || 'unknown',
-      'bluesky.message_length': message.length,
+      'bluesky.message_length': messageData.text.length,
+      'bluesky.attachments_count': messageData.attachments?.length || 0,
     });
 
     try {
@@ -346,25 +354,62 @@ export class BlueskyClient {
         }
 
         try {
-          this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}) (${message.length} chars): "${message}"`);
+          this.logger.info(`Posting status to Bluesky ${accountName} (${accountClient.config.instance || 'https://bsky.social'}) (${messageData.text.length} chars): "${messageData.text}"`);
           
           // Check for URLs and create external embed if found
-          const embedResult = await this.createExternalEmbed(message);
+          const embedResult = await this.createExternalEmbed(messageData.text);
           
           // Determine the final text to use (with URL removed if embed was created)
-          let finalText = message;
+          let finalText = messageData.text;
           if (embedResult) {
-            finalText = this.removeUrlFromText(message, embedResult.urlToRemove);
+            finalText = this.removeUrlFromText(messageData.text, embedResult.urlToRemove);
             this.logger.debug(`Removed URL from text: "${embedResult.urlToRemove}"`);
           }
           
           // Create facets for hashtags and mentions using the final text
           const facets = this.createFacets(finalText);
           
+          // Upload attachments if present and no external embed
+          let imageEmbed: any = undefined;
+          if (messageData.attachments && messageData.attachments.length > 0 && !embedResult) {
+            this.logger.info(`Uploading ${messageData.attachments.length} attachments to Bluesky ${accountName}`);
+            
+            const images: any[] = [];
+            for (let i = 0; i < Math.min(messageData.attachments.length, 4); i++) { // Bluesky supports max 4 images
+              const attachment = messageData.attachments[i];
+              try {
+                // Convert base64 to buffer
+                const buffer = Buffer.from(attachment.data, 'base64');
+                
+                // Upload blob to Bluesky
+                const blobResponse = await accountClient.agent.uploadBlob(buffer, {
+                  encoding: attachment.mimeType,
+                });
+                
+                images.push({
+                  alt: attachment.description || '',
+                  image: blobResponse.data.blob,
+                });
+                
+                this.logger.debug(`Uploaded attachment ${i + 1} to Bluesky ${accountName}`);
+              } catch (uploadError) {
+                this.logger.error(`Failed to upload attachment ${i + 1} to Bluesky ${accountName}:`, uploadError);
+                // Continue with other attachments
+              }
+            }
+            
+            if (images.length > 0) {
+              imageEmbed = {
+                $type: 'app.bsky.embed.images',
+                images,
+              };
+            }
+          }
+          
           const postData: {
             text: string;
             createdAt: string;
-            embed?: ExternalEmbed;
+            embed?: any;
             facets?: Facet[];
           } = {
             text: finalText,
@@ -374,6 +419,9 @@ export class BlueskyClient {
           if (embedResult) {
             postData.embed = embedResult.embed;
             this.logger.debug(`Adding external embed for URL: ${embedResult.embed.external.uri}`);
+          } else if (imageEmbed) {
+            postData.embed = imageEmbed;
+            this.logger.debug(`Adding image embed with ${imageEmbed.images.length} images`);
           }
 
           if (facets.length > 0) {
@@ -383,7 +431,7 @@ export class BlueskyClient {
 
           const response = await accountClient.agent.post(postData);
 
-          this.logger.info(`Status posted successfully to Bluesky ${accountName}. URI: ${response.uri}`);
+          this.logger.info(`Status posted successfully to Bluesky ${accountName}. URI: ${response.uri}${imageEmbed ? ` with ${imageEmbed.images.length} images` : ''}`);
           this.telemetry.recordPost(accountName, provider || 'unknown');
           results.push({ account: accountName, success: true });
         } catch (error) {

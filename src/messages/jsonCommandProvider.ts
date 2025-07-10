@@ -1,4 +1,4 @@
-import { MessageProvider, MessageProviderConfig } from './messageProvider';
+import { MessageProvider, MessageProviderConfig, MessageWithAttachments, Attachment } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -16,6 +16,7 @@ export interface JsonCommandProviderConfig extends MessageProviderConfig {
   cwd?: string; // Working directory for the command
   env?: Record<string, string>; // Environment variables
   maxBuffer?: number; // Maximum buffer size for stdout/stderr (default: 1024 * 1024)
+  attachmentsKey?: string; // JSON key containing base64 attachments array (optional)
 }
 
 /**
@@ -30,6 +31,7 @@ export class JsonCommandProvider implements MessageProvider {
   private cwd?: string;
   private env?: Record<string, string>;
   private maxBuffer: number;
+  private attachmentsKey?: string;
   private logger?: Logger;
 
   constructor(config: JsonCommandProviderConfig) {
@@ -47,6 +49,7 @@ export class JsonCommandProvider implements MessageProvider {
     this.cwd = config.cwd;
     this.env = config.env;
     this.maxBuffer = config.maxBuffer || 1024 * 1024; // 1MB default
+    this.attachmentsKey = config.attachmentsKey;
   }
 
   /**
@@ -54,6 +57,15 @@ export class JsonCommandProvider implements MessageProvider {
    * and applying the template
    */
   public async generateMessage(): Promise<string> {
+    const result = await this.generateMessageWithAttachments();
+    return result.text;
+  }
+
+  /**
+   * Generates the message with attachments by executing the configured command, parsing JSON output,
+   * and applying the template
+   */
+  public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
     this.logger?.debug(`Executing command: "${this.command}"`);
     
     try {
@@ -90,8 +102,18 @@ export class JsonCommandProvider implements MessageProvider {
       // Apply template with JSON variables
       const message = this.applyTemplate(this.template, jsonData);
       
+      // Extract attachments if configured
+      const attachments = this.extractAttachments(jsonData);
+      
       this.logger?.debug(`Generated message: "${message}"`);
-      return message;
+      if (attachments.length > 0) {
+        this.logger?.debug(`Found ${attachments.length} attachments`);
+      }
+      
+      return {
+        text: message,
+        attachments: attachments.length > 0 ? attachments : undefined
+      };
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -226,6 +248,89 @@ export class JsonCommandProvider implements MessageProvider {
       }
       return undefined;
     }, obj);
+  }
+
+  /**
+   * Extracts attachments from JSON data if attachmentsKey is configured
+   */
+  private extractAttachments(jsonData: Record<string, unknown>): Attachment[] {
+    if (!this.attachmentsKey) {
+      return [];
+    }
+
+    const attachmentsData = this.getNestedProperty(jsonData, this.attachmentsKey);
+    
+    if (!Array.isArray(attachmentsData)) {
+      if (attachmentsData !== undefined && attachmentsData !== null) {
+        this.logger?.warn(`Attachments key "${this.attachmentsKey}" exists but is not an array`);
+      }
+      return [];
+    }
+
+    const attachments: Attachment[] = [];
+    
+    for (let i = 0; i < attachmentsData.length; i++) {
+      const item = attachmentsData[i];
+      
+      if (typeof item !== 'object' || item === null) {
+        this.logger?.warn(`Attachment at index ${i} is not an object`);
+        continue;
+      }
+      
+      const attachmentObj = item as Record<string, unknown>;
+      
+      // Validate required fields
+      if (typeof attachmentObj.data !== 'string') {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid 'data' field`);
+        continue;
+      }
+      
+      if (typeof attachmentObj.mimeType !== 'string') {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid 'mimeType' field`);
+        continue;
+      }
+      
+      // Validate base64 data
+      const base64Data = attachmentObj.data;
+      if (!this.isValidBase64(base64Data)) {
+        this.logger?.warn(`Attachment at index ${i} has invalid base64 data`);
+        continue;
+      }
+      
+      const attachment: Attachment = {
+        data: base64Data,
+        mimeType: attachmentObj.mimeType,
+        filename: typeof attachmentObj.filename === 'string' ? attachmentObj.filename : undefined,
+        description: typeof attachmentObj.description === 'string' ? attachmentObj.description : undefined,
+      };
+      
+      attachments.push(attachment);
+      this.logger?.debug(`Added attachment ${i + 1}: ${attachment.mimeType}${attachment.filename ? ` (${attachment.filename})` : ''}`);
+    }
+    
+    return attachments;
+  }
+
+  /**
+   * Validates if a string is valid base64
+   */
+  private isValidBase64(str: string): boolean {
+    try {
+      // Check if string matches base64 pattern
+      const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+      if (!base64Regex.test(str)) {
+        return false;
+      }
+      
+      // Try to decode to verify it's valid base64
+      const decoded = Buffer.from(str, 'base64');
+      const reencoded = decoded.toString('base64');
+      
+      // Check if re-encoding gives the same result (handles padding)
+      return str === reencoded || str === reencoded.replace(/=+$/, '');
+    } catch {
+      return false;
+    }
   }
 
   /**

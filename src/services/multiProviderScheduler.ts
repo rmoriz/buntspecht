@@ -207,9 +207,37 @@ export class MultiProviderScheduler {
         'provider.accounts': providerConfig.accounts.join(','),
       });
 
-      // Handle MultiJsonCommandProvider differently - generate messages per account for proper caching
+      // Handle MultiJsonCommandProvider and JsonCommandProvider with attachment support
       if (provider.getProviderName() === 'multijsoncommand') {
         await this.executeMultiJsonProviderPerAccount(provider, providerConfig, providerName, span);
+      } else if (provider.getProviderName() === 'jsoncommand' && typeof provider.generateMessageWithAttachments === 'function') {
+        // JsonCommandProvider with attachment support
+        const messageData = await provider.generateMessageWithAttachments();
+        span?.setAttributes({
+          'provider.message_length': messageData.text.length,
+          'provider.attachments_count': messageData.attachments?.length || 0,
+        });
+
+        // Check if message is empty - if so, skip posting
+        if (!messageData.text || messageData.text.trim() === '') {
+          this.logger.info(`Provider "${providerName}" generated empty message, skipping post`);
+          span?.setStatus({ code: 1 }); // OK
+          return;
+        }
+
+        // Determine visibility: push provider specific > provider config > default (unlisted)
+        let finalVisibility = providerConfig.visibility;
+        if (provider.getProviderName() === 'push') {
+          const pushProvider = provider as MessageProvider & PushProviderInterface;
+          if (typeof pushProvider.getVisibility === 'function') {
+            const pushVisibility = pushProvider.getVisibility();
+            if (pushVisibility) {
+              finalVisibility = pushVisibility;
+            }
+          }
+        }
+
+        await this.socialMediaClient.postStatusWithAttachments(messageData, providerConfig.accounts, providerName, finalVisibility);
       } else {
         // Standard behavior for other providers - generate once, post to all accounts
         const message = await provider.generateMessage();
@@ -266,23 +294,43 @@ export class MultiProviderScheduler {
   ): Promise<void> {
     this.logger.debug(`Executing MultiJsonCommandProvider "${providerName}" per account for proper cache isolation`);
     
-    const accountMessages: Array<{ account: string; message: string }> = [];
+    const accountMessages: Array<{ account: string; message: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }> = [];
     let totalMessageLength = 0;
+    let totalAttachments = 0;
 
     // Generate message for each account independently
     for (const accountName of providerConfig.accounts) {
       try {
         this.logger.debug(`Generating message for account "${accountName}" from provider "${providerName}"`);
         
-        // Generate message with account-aware caching
-        const message = await provider.generateMessage(accountName);
-        
-        if (message && message.trim() !== '') {
-          accountMessages.push({ account: accountName, message });
-          totalMessageLength += message.length;
-          this.logger.debug(`Generated message for account "${accountName}": "${message}"`);
+        // Check if provider supports attachments
+        if (typeof provider.generateMessageWithAttachments === 'function') {
+          // Generate message with attachments and account-aware caching
+          const messageData = await provider.generateMessageWithAttachments(accountName);
+          
+          if (messageData.text && messageData.text.trim() !== '') {
+            accountMessages.push({ 
+              account: accountName, 
+              message: messageData.text,
+              attachments: messageData.attachments
+            });
+            totalMessageLength += messageData.text.length;
+            totalAttachments += messageData.attachments?.length || 0;
+            this.logger.debug(`Generated message for account "${accountName}": "${messageData.text}"${messageData.attachments ? ` with ${messageData.attachments.length} attachments` : ''}`);
+          } else {
+            this.logger.debug(`Provider "${providerName}" generated empty message for account "${accountName}", skipping`);
+          }
         } else {
-          this.logger.debug(`Provider "${providerName}" generated empty message for account "${accountName}", skipping`);
+          // Fallback to regular message generation
+          const message = await provider.generateMessage(accountName);
+          
+          if (message && message.trim() !== '') {
+            accountMessages.push({ account: accountName, message });
+            totalMessageLength += message.length;
+            this.logger.debug(`Generated message for account "${accountName}": "${message}"`);
+          } else {
+            this.logger.debug(`Provider "${providerName}" generated empty message for account "${accountName}", skipping`);
+          }
         }
       } catch (error) {
         this.logger.error(`Failed to generate message for account "${accountName}" from provider "${providerName}":`, error);
@@ -297,6 +345,7 @@ export class MultiProviderScheduler {
         'provider.accounts_with_messages': accountMessages.length,
         'provider.total_message_length': totalMessageLength,
         'provider.average_message_length': accountMessages.length > 0 ? Math.round(totalMessageLength / accountMessages.length) : 0,
+        'provider.total_attachments': totalAttachments,
       });
     }
 
@@ -313,10 +362,22 @@ export class MultiProviderScheduler {
     const finalVisibility = providerConfig.visibility;
 
     // Post messages to their respective accounts
-    for (const { account, message } of accountMessages) {
+    for (const { account, message, attachments } of accountMessages) {
       try {
-        await this.socialMediaClient.postStatus(message, [account], providerName, finalVisibility);
-        this.logger.info(`Successfully posted message from provider "${providerName}" to account "${account}"`);
+        if (attachments && attachments.length > 0) {
+          // Post with attachments
+          await this.socialMediaClient.postStatusWithAttachments(
+            { text: message, attachments }, 
+            [account], 
+            providerName, 
+            finalVisibility
+          );
+          this.logger.info(`Successfully posted message from provider "${providerName}" to account "${account}" with ${attachments.length} attachments`);
+        } else {
+          // Post without attachments
+          await this.socialMediaClient.postStatus(message, [account], providerName, finalVisibility);
+          this.logger.info(`Successfully posted message from provider "${providerName}" to account "${account}"`);
+        }
       } catch (error) {
         this.logger.error(`Failed to post message from provider "${providerName}" to account "${account}":`, error);
         // Continue with other accounts even if one fails

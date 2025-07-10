@@ -1,0 +1,158 @@
+# Buntspecht Configuration with Attachment Support
+# This example demonstrates how to use the new attachment feature with JSON and MultiJSON providers
+
+# Fediverse/Mastodon Accounts
+[[accounts]]
+name = "main-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-access-token-here"
+
+# Bluesky Account
+[[accounts]]
+name = "bluesky-account"
+type = "bluesky"
+identifier = "your-handle.bsky.social"
+password = "your-app-password"
+
+[bot]
+
+# Example 1: JSON Command Provider with Attachments
+# This provider executes a command that returns JSON with base64-encoded attachments
+[[bot.providers]]
+name = "weather-with-charts"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"  # Every day at 8:00 AM
+enabled = true
+accounts = ["main-account", "bluesky-account"]
+
+[bot.providers.config]
+# Command that returns JSON with weather data and chart images
+command = """
+curl -s 'https://api.weather.example.com/current' | jq '{
+  location: .location.name,
+  temperature: .current.temp_c,
+  condition: .current.condition.text,
+  attachments: [
+    {
+      data: .charts.temperature_chart_base64,
+      mimeType: "image/png",
+      filename: "temperature_chart.png",
+      description: "24-hour temperature chart"
+    },
+    {
+      data: .charts.forecast_chart_base64,
+      mimeType: "image/png", 
+      filename: "forecast_chart.png",
+      description: "7-day weather forecast"
+    }
+  ]
+}'
+"""
+template = "🌤️ Weather in {{location}}: {{temperature}}°C, {{condition}}"
+attachmentsKey = "attachments"  # JSON key containing the attachments array
+timeout = 15000
+
+# Example 2: Multi JSON Command Provider with Attachments
+# This provider processes multiple items, each potentially with attachments
+[[bot.providers]]
+name = "daily-photos"
+type = "multijsoncommand"
+cronSchedule = "0 18 * * *"  # Every day at 6:00 PM
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Command that returns an array of photo posts with base64 images
+command = """
+curl -s 'https://api.photos.example.com/daily' | jq '[
+  .photos[] | {
+    id: .id,
+    caption: .caption,
+    location: .location,
+    attachments: [
+      {
+        data: .image_base64,
+        mimeType: "image/jpeg",
+        filename: (.filename // "photo.jpg"),
+        description: (.alt_text // .caption)
+      }
+    ]
+  }
+]'
+"""
+template = "📸 {{caption}}{{#if location}} at {{location}}{{/if}}"
+attachmentsKey = "attachments"  # JSON key containing the attachments array
+uniqueKey = "id"
+timeout = 30000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 86400000  # 24 hours
+maxSize = 1000
+
+# Example 3: JSON Command with Multiple Attachment Types
+[[bot.providers]]
+name = "report-generator"
+type = "jsoncommand"
+cronSchedule = "0 9 * * 1"  # Every Monday at 9:00 AM
+enabled = false  # Disabled by default
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Command that generates a report with multiple file types
+command = """
+./scripts/generate-weekly-report.sh | jq '{
+  title: .report.title,
+  summary: .report.summary,
+  attachments: [
+    {
+      data: .report.pdf_base64,
+      mimeType: "application/pdf",
+      filename: "weekly-report.pdf",
+      description: "Weekly performance report"
+    },
+    {
+      data: .report.chart_base64,
+      mimeType: "image/png",
+      filename: "performance-chart.png", 
+      description: "Performance metrics visualization"
+    }
+  ]
+}'
+"""
+template = "📊 {{title}}: {{summary}}"
+attachmentsKey = "attachments"
+timeout = 60000
+
+[logging]
+level = "info"
+
+# Notes on Attachment Support:
+#
+# 1. Attachment Format:
+#    Each attachment must be an object with:
+#    - data: Base64-encoded file content (required)
+#    - mimeType: MIME type like "image/jpeg", "image/png", "application/pdf" (required)
+#    - filename: Optional filename for the attachment
+#    - description: Optional description/alt text for accessibility
+#
+# 2. Platform Limitations:
+#    - Mastodon: Supports multiple attachments, various file types
+#    - Bluesky: Supports up to 4 images only, no other file types
+#    - If both URL embeds and attachments are present, URL embeds take priority on Bluesky
+#
+# 3. Configuration:
+#    - attachmentsKey: Specifies the JSON key containing the attachments array
+#    - Can use dot notation for nested keys (e.g., "data.attachments")
+#    - If attachmentsKey is not specified, no attachments will be processed
+#
+# 4. Error Handling:
+#    - Invalid base64 data will be skipped with a warning
+#    - Missing required fields (data, mimeType) will be skipped
+#    - Upload failures for individual attachments won't stop the post
+#
+# 5. Performance Considerations:
+#    - Large attachments will increase processing time
+#    - Consider timeout settings for commands that generate attachments
+#    - Base64 encoding increases data size by ~33%

@@ -27,10 +27,18 @@ export class SocialMediaClient {
    * Posts a status message to specified accounts across all platforms
    */
   public async postStatus(message: string, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
+    return this.postStatusWithAttachments({ text: message }, accountNames, provider, visibility);
+  }
+
+  /**
+   * Posts a status message with attachments to specified accounts across all platforms
+   */
+  public async postStatusWithAttachments(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
     const span = this.telemetry.startSpan('social_media.post_status', {
       'social_media.accounts_count': accountNames.length,
       'social_media.provider': provider || 'unknown',
-      'social_media.message_length': message.length,
+      'social_media.message_length': messageData.text.length,
+      'social_media.attachments_count': messageData.attachments?.length || 0,
     });
 
     try {
@@ -61,12 +69,12 @@ export class SocialMediaClient {
 
       // Post to Mastodon accounts
       if (mastodonAccounts.length > 0) {
-        promises.push(this.mastodonClient.postStatus(message, mastodonAccounts, provider, visibility));
+        promises.push(this.mastodonClient.postStatusWithAttachments(messageData, mastodonAccounts, provider, visibility));
       }
 
       // Post to Bluesky accounts
       if (blueskyAccounts.length > 0) {
-        promises.push(this.blueskyClient.postStatus(message, blueskyAccounts, provider));
+        promises.push(this.blueskyClient.postStatusWithAttachments(messageData, blueskyAccounts, provider));
       }
 
       // Wait for all posts to complete

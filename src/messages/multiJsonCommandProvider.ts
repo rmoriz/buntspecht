@@ -1,4 +1,4 @@
-import { MessageProvider, MessageProviderConfig } from './messageProvider';
+import { MessageProvider, MessageProviderConfig, MessageWithAttachments, Attachment } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -29,6 +29,7 @@ export interface MultiJsonCommandProviderConfig extends MessageProviderConfig {
   maxBuffer?: number; // Maximum buffer size for stdout/stderr (default: 1024 * 1024)
   uniqueKey?: string; // Unique key field name (default: "id")
   throttleDelay?: number; // DEPRECATED: Use cron schedule instead for timing between messages
+  attachmentsKey?: string; // JSON key containing base64 attachments array (optional)
   cache?: {
     enabled?: boolean; // Enable caching (default: true)
     ttl?: number; // Time to live in milliseconds (default: 1209600000 = 14 days)
@@ -51,6 +52,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private maxBuffer: number;
   private uniqueKey: string;
   private throttleDelay: number;
+  private attachmentsKey?: string;
   private logger?: Logger;
   private telemetry?: TelemetryService;
   
@@ -82,6 +84,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.maxBuffer = config.maxBuffer || 1024 * 1024; // 1MB default
     this.uniqueKey = config.uniqueKey || 'id';
     this.throttleDelay = config.throttleDelay || 1000; // 1 second default
+    this.attachmentsKey = config.attachmentsKey;
     
     // Initialize cache configuration
     this.cacheEnabled = config.cache?.enabled !== false; // Default to true
@@ -97,6 +100,16 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * @param accountName Optional account name for account-aware caching
    */
   public async generateMessage(accountName?: string): Promise<string> {
+    const result = await this.generateMessageWithAttachments(accountName);
+    return result.text;
+  }
+
+  /**
+   * Generates a single message with attachments by executing the configured command, parsing JSON array output,
+   * and returning the next unprocessed object as a message with attachments
+   * @param accountName Optional account name for account-aware caching
+   */
+  public async generateMessageWithAttachments(accountName?: string): Promise<MessageWithAttachments> {
     // Check if cache file has been modified externally and reload if necessary
     await this.checkAndReloadCacheIfModified();
     
@@ -140,7 +153,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
       if (jsonData.length === 0) {
         this.logger?.info('Command returned empty array, no messages to send');
-        return '';
+        return { text: '', attachments: undefined };
       }
 
       // Validate that all items are objects
@@ -163,13 +176,13 @@ export class MultiJsonCommandProvider implements MessageProvider {
       
       if (!nextObject) {
         this.logger?.info(`All objects have been processed (cached) for account "${accountName || 'default'}", no new messages to send`);
-        return '';
+        return { text: '', attachments: undefined };
       }
       
       // Process the single object for this account
-      const message = await this.processSingleObject(nextObject, accountName);
+      const result = await this.processSingleObjectWithAttachments(nextObject, accountName);
       
-      return message;
+      return result;
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -229,13 +242,27 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * Processes a single object and generates a message for a specific account
    */
   private async processSingleObject(obj: Record<string, unknown>, accountName?: string): Promise<string> {
+    const result = await this.processSingleObjectWithAttachments(obj, accountName);
+    return result.text;
+  }
+
+  /**
+   * Processes a single object and generates a message with attachments for a specific account
+   */
+  private async processSingleObjectWithAttachments(obj: Record<string, unknown>, accountName?: string): Promise<MessageWithAttachments> {
     try {
       const uniqueId = String(obj[this.uniqueKey]);
       
       // Apply template with JSON variables
       const message = this.applyTemplate(this.template, obj);
       
+      // Extract attachments if configured
+      const attachments = this.extractAttachments(obj);
+      
       this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}" (account: ${accountName || 'default'}): "${message}"`);
+      if (attachments.length > 0) {
+        this.logger?.debug(`Found ${attachments.length} attachments for ${this.uniqueKey}="${uniqueId}"`);
+      }
       
       // Add to cache after successful message generation
       await this.addToCache(uniqueId, accountName);
@@ -248,7 +275,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
         });
       }
       
-      return message;
+      return {
+        text: message,
+        attachments: attachments.length > 0 ? attachments : undefined
+      };
       
     } catch (error) {
       const uniqueId = obj[this.uniqueKey];
@@ -413,6 +443,89 @@ export class MultiJsonCommandProvider implements MessageProvider {
       }
       return undefined;
     }, obj);
+  }
+
+  /**
+   * Extracts attachments from JSON data if attachmentsKey is configured
+   */
+  private extractAttachments(jsonData: Record<string, unknown>): Attachment[] {
+    if (!this.attachmentsKey) {
+      return [];
+    }
+
+    const attachmentsData = this.getNestedProperty(jsonData, this.attachmentsKey);
+    
+    if (!Array.isArray(attachmentsData)) {
+      if (attachmentsData !== undefined && attachmentsData !== null) {
+        this.logger?.warn(`Attachments key "${this.attachmentsKey}" exists but is not an array`);
+      }
+      return [];
+    }
+
+    const attachments: Attachment[] = [];
+    
+    for (let i = 0; i < attachmentsData.length; i++) {
+      const item = attachmentsData[i];
+      
+      if (typeof item !== 'object' || item === null) {
+        this.logger?.warn(`Attachment at index ${i} is not an object`);
+        continue;
+      }
+      
+      const attachmentObj = item as Record<string, unknown>;
+      
+      // Validate required fields
+      if (typeof attachmentObj.data !== 'string') {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid 'data' field`);
+        continue;
+      }
+      
+      if (typeof attachmentObj.mimeType !== 'string') {
+        this.logger?.warn(`Attachment at index ${i} missing or invalid 'mimeType' field`);
+        continue;
+      }
+      
+      // Validate base64 data
+      const base64Data = attachmentObj.data;
+      if (!this.isValidBase64(base64Data)) {
+        this.logger?.warn(`Attachment at index ${i} has invalid base64 data`);
+        continue;
+      }
+      
+      const attachment: Attachment = {
+        data: base64Data,
+        mimeType: attachmentObj.mimeType,
+        filename: typeof attachmentObj.filename === 'string' ? attachmentObj.filename : undefined,
+        description: typeof attachmentObj.description === 'string' ? attachmentObj.description : undefined,
+      };
+      
+      attachments.push(attachment);
+      this.logger?.debug(`Added attachment ${i + 1}: ${attachment.mimeType}${attachment.filename ? ` (${attachment.filename})` : ''}`);
+    }
+    
+    return attachments;
+  }
+
+  /**
+   * Validates if a string is valid base64
+   */
+  private isValidBase64(str: string): boolean {
+    try {
+      // Check if string matches base64 pattern
+      const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+      if (!base64Regex.test(str)) {
+        return false;
+      }
+      
+      // Try to decode to verify it's valid base64
+      const decoded = Buffer.from(str, 'base64');
+      const reencoded = decoded.toString('base64');
+      
+      // Check if re-encoding gives the same result (handles padding)
+      return str === reencoded || str === reencoded.replace(/=+$/, '');
+    } catch {
+      return false;
+    }
   }
 
 

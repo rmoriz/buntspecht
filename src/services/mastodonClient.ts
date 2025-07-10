@@ -54,10 +54,18 @@ export class MastodonClient {
    * Posts a status message to specified accounts
    */
   public async postStatus(message: string, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
+    return this.postStatusWithAttachments({ text: message }, accountNames, provider, visibility);
+  }
+
+  /**
+   * Posts a status message with attachments to specified accounts
+   */
+  public async postStatusWithAttachments(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
     const span = this.telemetry.startSpan('mastodon.post_status', {
       'mastodon.accounts_count': accountNames.length,
       'mastodon.provider': provider || 'unknown',
-      'mastodon.message_length': message.length,
+      'mastodon.message_length': messageData.text.length,
+      'mastodon.attachments_count': messageData.attachments?.length || 0,
     });
 
     try {
@@ -81,14 +89,45 @@ export class MastodonClient {
           // Determine visibility: parameter > account default > global default (unlisted)
           const finalVisibility = visibility || accountClient.config.defaultVisibility || 'unlisted';
           
-          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}' (${message.length} chars): "${message}"`);
+          this.logger.info(`Posting status to ${accountName} (${accountClient.config.instance || 'unknown'}) with visibility '${finalVisibility}' (${messageData.text.length} chars): "${messageData.text}"`);
+          
+          // Upload attachments if present
+          let mediaIds: string[] = [];
+          if (messageData.attachments && messageData.attachments.length > 0) {
+            this.logger.info(`Uploading ${messageData.attachments.length} attachments to ${accountName}`);
+            
+            for (let i = 0; i < messageData.attachments.length; i++) {
+              const attachment = messageData.attachments[i];
+              try {
+                // Convert base64 to buffer
+                const buffer = Buffer.from(attachment.data, 'base64');
+                
+                // Create a File-like object for the upload
+                const file = new File([buffer], attachment.filename || `attachment_${i + 1}`, {
+                  type: attachment.mimeType,
+                });
+                
+                const mediaAttachment = await accountClient.client.v2.media.create({
+                  file,
+                  description: attachment.description,
+                });
+                
+                mediaIds.push(mediaAttachment.id);
+                this.logger.debug(`Uploaded attachment ${i + 1} to ${accountName}: ${mediaAttachment.id}`);
+              } catch (uploadError) {
+                this.logger.error(`Failed to upload attachment ${i + 1} to ${accountName}:`, uploadError);
+                // Continue with other attachments
+              }
+            }
+          }
           
           const status = await accountClient.client.v1.statuses.create({
-            status: message,
+            status: messageData.text,
             visibility: finalVisibility,
+            mediaIds: mediaIds.length > 0 ? mediaIds : undefined,
           });
 
-          this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}`);
+          this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}${mediaIds.length > 0 ? ` with ${mediaIds.length} attachments` : ''}`);
           this.telemetry.recordPost(accountName, provider || 'unknown');
           results.push({ account: accountName, success: true });
         } catch (error) {
