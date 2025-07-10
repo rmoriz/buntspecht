@@ -476,8 +476,9 @@ describe('MultiJsonCommandProvider', () => {
       const emptyCacheData = {};
       fs.writeFileSync(cacheFilePath, JSON.stringify(emptyCacheData, null, 2), 'utf-8');
       
-      // Wait a bit to ensure file modification time is different
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Force update mtime to simulate external modification
+      const now = new Date();
+      fs.utimesSync(cacheFilePath, now, now);
 
       // Third run - should detect cache file modification and reload
       // Since cache is now empty, it should process the first item again
