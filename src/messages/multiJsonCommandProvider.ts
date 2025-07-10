@@ -1,6 +1,7 @@
 import { MessageProvider, MessageProviderConfig, MessageWithAttachments, Attachment } from './messageProvider';
 import { Logger } from '../utils/logger';
 import { exec } from 'child_process';
+import { JsonTemplateProcessor, AttachmentConfig } from '../utils/jsonTemplateProcessor';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -62,6 +63,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private attachmentFilenameKey: string;
   private attachmentDescriptionKey: string;
   private logger?: Logger;
+  private templateProcessor: JsonTemplateProcessor;
   private telemetry?: TelemetryService;
   
   // Cache properties
@@ -104,6 +106,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.cacheMaxSize = config.cache?.maxSize || 10000; // 10k entries default
     this.cacheFilePath = config.cache?.filePath || './cache/multijson-cache.json';
     this.cache = new Map<string, CacheEntry>();
+    this.templateProcessor = new JsonTemplateProcessor(this.logger || new Logger());
   }
 
   /**
@@ -266,10 +269,17 @@ export class MultiJsonCommandProvider implements MessageProvider {
       const uniqueId = String(obj[this.uniqueKey]);
       
       // Apply template with JSON variables
-      const message = this.applyTemplate(this.template, obj);
+      const message = this.templateProcessor.applyTemplate(this.template, obj);
       
       // Extract attachments if configured
-      const attachments = this.extractAttachments(obj);
+      const attachmentConfig: AttachmentConfig = {
+        attachmentsKey: this.attachmentsKey,
+        attachmentDataKey: this.attachmentDataKey,
+        attachmentMimeTypeKey: this.attachmentMimeTypeKey,
+        attachmentFilenameKey: this.attachmentFilenameKey,
+        attachmentDescriptionKey: this.attachmentDescriptionKey
+      };
+      const attachments = this.templateProcessor.extractAttachments(obj, attachmentConfig);
       
       this.logger?.debug(`Generated message for ${this.uniqueKey}="${uniqueId}" (account: ${accountName || 'default'}): "${message}"`);
       if (attachments.length > 0) {
