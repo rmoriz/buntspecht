@@ -376,7 +376,7 @@ export class ConfigLoader {
   private static validateConfigFileReadable(configPath: string): void {
     try {
       fs.accessSync(configPath, fs.constants.R_OK);
-    } catch (error) {
+    } catch {
       throw new Error(`Configuration file is not readable: ${configPath}. Please check file permissions.`);
     }
   }
@@ -418,7 +418,7 @@ export class ConfigLoader {
       if (!fs.existsSync(cacheDir)) {
         fs.mkdirSync(cacheDir, { recursive: true });
       }
-    } catch (error) {
+    } catch {
       throw new Error(`Cannot create cache directory: ${cacheDir}. Please check directory permissions.`);
     }
 
@@ -426,14 +426,14 @@ export class ConfigLoader {
     if (fs.existsSync(resolvedPath)) {
       try {
         fs.accessSync(resolvedPath, fs.constants.W_OK);
-      } catch (error) {
+      } catch {
         throw new Error(`Cache file is not writable: ${resolvedPath}. Please check file permissions.`);
       }
     } else {
       // File doesn't exist, check if we can write to the directory
       try {
         fs.accessSync(cacheDir, fs.constants.W_OK);
-      } catch (error) {
+      } catch {
         throw new Error(`Cache directory is not writable: ${cacheDir}. Please check directory permissions.`);
       }
       
@@ -442,7 +442,7 @@ export class ConfigLoader {
       try {
         fs.writeFileSync(testFile, '');
         fs.unlinkSync(testFile);
-      } catch (error) {
+      } catch {
         throw new Error(`Cannot write to cache directory: ${cacheDir}. Please check directory permissions.`);
       }
     }

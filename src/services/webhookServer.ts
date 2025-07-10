@@ -229,7 +229,7 @@ export class WebhookServer {
         try {
           const parsed = JSON.parse(body);
           resolve(parsed);
-        } catch (error) {
+        } catch {
           reject(new ValidationError('Invalid JSON payload'));
         }
       });

@@ -310,32 +310,32 @@ export class TelemetryService implements ITelemetryService {
   }
 
   // Additional methods to implement the interface
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   endSpan(_span: unknown): void {
     // No-op - spans handle their own lifecycle
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   addSpanEvent(_span: unknown, _name: string, _attributes?: Record<string, string | number | boolean>): void {
     // No-op - not used in current implementation
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   recordException(_span: unknown, _exception: Error): void {
     // No-op - spans handle their own exceptions
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   incrementCounter(_name: string, _value: number = 1, _attributes?: Record<string, string | number | boolean>): void {
     // No-op - use specific metric methods instead
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   recordHistogram(_name: string, _value: number, _attributes?: Record<string, string | number | boolean>): void {
     // No-op - use specific metric methods instead
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+   
   setGauge(_name: string, _value: number, _attributes?: Record<string, string | number | boolean>): void {
     // No-op - use specific metric methods instead
   }

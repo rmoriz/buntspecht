@@ -12,7 +12,7 @@ let SecretManagerServiceClient: typeof import('@google-cloud/secret-manager').Se
 
 try {
   nodeVault = require('node-vault');
-} catch (error) {
+} catch {
   // node-vault not installed
 }
 
@@ -20,7 +20,7 @@ try {
   const awsSdk = require('@aws-sdk/client-secrets-manager');
   SecretsManagerClient = awsSdk.SecretsManagerClient;
   GetSecretValueCommand = awsSdk.GetSecretValueCommand;
-} catch (error) {
+} catch {
   // @aws-sdk/client-secrets-manager not installed
 }
 
@@ -29,14 +29,14 @@ try {
   const azureIdentity = require('@azure/identity');
   SecretClient = azureKeyVault.SecretClient;
   DefaultAzureCredential = azureIdentity.DefaultAzureCredential;
-} catch (error) {
+} catch {
   // @azure/keyvault-secrets or @azure/identity not installed
 }
 
 try {
   const gcpSecretManager = require('@google-cloud/secret-manager');
   SecretManagerServiceClient = gcpSecretManager.SecretManagerServiceClient;
-} catch (error) {
+} catch {
   // @google-cloud/secret-manager not installed
 }
 
@@ -265,7 +265,7 @@ export class AWSSecretsProvider implements SecretProvider {
       let secretData: Record<string, unknown>;
       try {
         secretData = JSON.parse(response.SecretString);
-      } catch (error) {
+      } catch {
         // If it's not JSON, treat it as a plain string
         if (key) {
           throw new Error(`Secret "${secretName}" is not JSON but key "${key}" was specified. Plain text secrets don't support key extraction.`);
@@ -564,25 +564,25 @@ export class SecretResolver {
     // Register external providers only if dependencies are available
     try {
       this.registerProvider(new VaultSecretProvider(logger));
-    } catch (error) {
+    } catch {
       this.logger.debug('Vault provider not available: node-vault package not installed');
     }
     
     try {
       this.registerProvider(new AWSSecretsProvider(logger));
-    } catch (error) {
+    } catch {
       this.logger.debug('AWS Secrets Manager provider not available: @aws-sdk/client-secrets-manager package not installed');
     }
     
     try {
       this.registerProvider(new AzureKeyVaultProvider(logger));
-    } catch (error) {
+    } catch {
       this.logger.debug('Azure Key Vault provider not available: @azure/keyvault-secrets and @azure/identity packages not installed');
     }
     
     try {
       this.registerProvider(new GCPSecretManagerProvider(logger));
-    } catch (error) {
+    } catch {
       this.logger.debug('Google Cloud Secret Manager provider not available: @google-cloud/secret-manager package not installed');
     }
   }
