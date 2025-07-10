@@ -18,6 +18,9 @@ export interface JsonCommandProviderConfig extends MessageProviderConfig {
   maxBuffer?: number; // Maximum buffer size for stdout/stderr (default: 1024 * 1024)
   attachmentsKey?: string; // JSON key containing base64 attachments array (optional)
   attachmentDataKey?: string; // JSON key for base64 data within each attachment (default: "data")
+  attachmentMimeTypeKey?: string; // JSON key for MIME type within each attachment (default: "mimeType", fallback: "type")
+  attachmentFilenameKey?: string; // JSON key for filename within each attachment (default: "filename", fallback: "name")
+  attachmentDescriptionKey?: string; // JSON key for description within each attachment (default: "description", fallback: "alt")
 }
 
 /**
@@ -34,6 +37,9 @@ export class JsonCommandProvider implements MessageProvider {
   private maxBuffer: number;
   private attachmentsKey?: string;
   private attachmentDataKey: string;
+  private attachmentMimeTypeKey: string;
+  private attachmentFilenameKey: string;
+  private attachmentDescriptionKey: string;
   private logger?: Logger;
 
   constructor(config: JsonCommandProviderConfig) {
@@ -53,6 +59,9 @@ export class JsonCommandProvider implements MessageProvider {
     this.maxBuffer = config.maxBuffer || 1024 * 1024; // 1MB default
     this.attachmentsKey = config.attachmentsKey;
     this.attachmentDataKey = config.attachmentDataKey || 'data';
+    this.attachmentMimeTypeKey = config.attachmentMimeTypeKey || 'mimeType';
+    this.attachmentFilenameKey = config.attachmentFilenameKey || 'filename';
+    this.attachmentDescriptionKey = config.attachmentDescriptionKey || 'description';
   }
 
   /**
@@ -288,11 +297,12 @@ export class JsonCommandProvider implements MessageProvider {
         continue;
       }
       
-      // Check for mimeType field (support both "mimeType" and "type")
-      const mimeType = (typeof attachmentObj.mimeType === 'string' ? attachmentObj.mimeType : null) || 
-                       (typeof attachmentObj.type === 'string' ? attachmentObj.type : null);
+      // Check for mimeType field (configurable with fallback)
+      const mimeType = (typeof attachmentObj[this.attachmentMimeTypeKey] === 'string' ? attachmentObj[this.attachmentMimeTypeKey] as string : null) || 
+                       (typeof attachmentObj.type === 'string' ? attachmentObj.type as string : null) ||
+                       (typeof attachmentObj.mimeType === 'string' ? attachmentObj.mimeType as string : null);
       if (!mimeType) {
-        this.logger?.warn(`Attachment at index ${i} missing or invalid 'mimeType' or 'type' field`);
+        this.logger?.warn(`Attachment at index ${i} missing or invalid '${this.attachmentMimeTypeKey}' field (also checked 'type' and 'mimeType' as fallbacks)`);
         continue;
       }
       
@@ -306,11 +316,13 @@ export class JsonCommandProvider implements MessageProvider {
       const attachment: Attachment = {
         data: base64Data,
         mimeType: mimeType,
-        filename: (typeof attachmentObj.filename === 'string' ? attachmentObj.filename : null) || 
-                  (typeof attachmentObj.name === 'string' ? attachmentObj.name : null) || 
+        filename: (typeof attachmentObj[this.attachmentFilenameKey] === 'string' ? attachmentObj[this.attachmentFilenameKey] as string : null) || 
+                  (typeof attachmentObj.name === 'string' ? attachmentObj.name as string : null) ||
+                  (typeof attachmentObj.filename === 'string' ? attachmentObj.filename as string : null) || 
                   undefined,
-        description: (typeof attachmentObj.description === 'string' ? attachmentObj.description : null) || 
-                     (typeof attachmentObj.alt === 'string' ? attachmentObj.alt : null) || 
+        description: (typeof attachmentObj[this.attachmentDescriptionKey] === 'string' ? attachmentObj[this.attachmentDescriptionKey] as string : null) || 
+                     (typeof attachmentObj.alt === 'string' ? attachmentObj.alt as string : null) ||
+                     (typeof attachmentObj.description === 'string' ? attachmentObj.description as string : null) || 
                      undefined,
       };
       

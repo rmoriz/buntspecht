@@ -128,8 +128,8 @@ attachmentsKey = "attachments"
 attachmentDataKey = "data"  # JSON key for base64 data within each attachment (default: "data")
 timeout = 60000
 
-# Example 4: Custom Data Key Configuration
-# This example shows how to use different field names for attachment data
+# Example 4: Custom Field Names Configuration
+# This example shows how to use completely different field names for all attachment fields
 [[bot.providers]]
 name = "custom-format-reports"
 type = "jsoncommand"
@@ -146,29 +146,65 @@ command = """
   files: [
     {
       content: .report.pdf_base64,
-      type: "application/pdf",
-      name: "weekly-report.pdf",
-      alt: "Weekly performance report"
+      format: "application/pdf",
+      title: "weekly-report.pdf",
+      caption: "Weekly performance report"
     },
     {
       content: .report.chart_base64,
-      type: "image/png",
-      name: "performance-chart.png", 
-      alt: "Performance metrics visualization"
+      format: "image/png",
+      title: "performance-chart.png", 
+      caption: "Performance metrics visualization"
     }
   ]
 }'
 """
 template = "📈 {{title}}: {{summary}}"
-attachmentsKey = "files"  # Custom key for attachments array
-attachmentDataKey = "content"  # Custom key for base64 data (instead of "data")
-# Note: The provider will look for:
-# - "files" array containing attachments
-# - "content" field within each attachment for base64 data
-# - "type" field for mimeType (standard)
-# - "name" field for filename (standard)
-# - "alt" field for description (standard)
+attachmentsKey = "files"                    # Custom key for attachments array
+attachmentDataKey = "content"               # Custom key for base64 data (instead of "data")
+attachmentMimeTypeKey = "format"            # Custom key for MIME type (instead of "mimeType")
+attachmentFilenameKey = "title"             # Custom key for filename (instead of "filename")
+attachmentDescriptionKey = "caption"        # Custom key for description (instead of "description")
 timeout = 60000
+
+# Example 5: Mixed Field Names with Fallbacks
+# This example shows how the system handles mixed field names with automatic fallbacks
+[[bot.providers]]
+name = "mixed-api-format"
+type = "jsoncommand"
+cronSchedule = "0 11 * * 3"  # Every Wednesday at 11:00 AM
+enabled = false  # Disabled by default
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Command that returns JSON with mixed field naming conventions
+command = """
+curl -s 'https://api.mixed-format.example.com/data' | jq '{
+  message: .content,
+  attachments: [
+    {
+      data: .files[0].base64_content,
+      mimeType: .files[0].content_type,
+      filename: .files[0].file_name,
+      description: .files[0].alt_text
+    },
+    {
+      data: .files[1].base64_content,
+      type: .files[1].mime,           # Different field name for MIME type
+      name: .files[1].display_name,   # Different field name for filename
+      alt: .files[1].accessibility    # Different field name for description
+    }
+  ]
+}'
+"""
+template = "📄 {{message}}"
+attachmentsKey = "attachments"
+# Using defaults with automatic fallbacks:
+# - attachmentDataKey = "data" (default)
+# - attachmentMimeTypeKey = "mimeType" (default, with fallback to "type")
+# - attachmentFilenameKey = "filename" (default, with fallback to "name")
+# - attachmentDescriptionKey = "description" (default, with fallback to "alt")
+timeout = 30000
 
 [logging]
 level = "info"
@@ -187,18 +223,21 @@ level = "info"
 #    - Bluesky: Supports up to 4 images only, no other file types
 #    - If both URL embeds and attachments are present, URL embeds take priority on Bluesky
 #
-# 3. Configuration:
+# 3. Configuration Options:
 #    - attachmentsKey: Specifies the JSON key containing the attachments array
 #    - attachmentDataKey: Specifies the JSON key for base64 data within each attachment (default: "data")
+#    - attachmentMimeTypeKey: Specifies the JSON key for MIME type within each attachment (default: "mimeType")
+#    - attachmentFilenameKey: Specifies the JSON key for filename within each attachment (default: "filename")
+#    - attachmentDescriptionKey: Specifies the JSON key for description within each attachment (default: "description")
 #    - Can use dot notation for nested keys (e.g., "data.attachments")
 #    - If attachmentsKey is not specified, no attachments will be processed
 #
-# 4. Field Mapping:
-#    Standard field names within each attachment object:
+# 4. Field Mapping with Fallbacks:
+#    Configurable field names within each attachment object with automatic fallbacks:
 #    - Base64 data: configurable via attachmentDataKey (default: "data")
-#    - MIME type: "mimeType" or "type" (both supported)
-#    - Filename: "filename" or "name" (both supported)  
-#    - Description: "description" or "alt" (both supported)
+#    - MIME type: configurable via attachmentMimeTypeKey (default: "mimeType", fallback: "type")
+#    - Filename: configurable via attachmentFilenameKey (default: "filename", fallback: "name")
+#    - Description: configurable via attachmentDescriptionKey (default: "description", fallback: "alt")
 #
 # 5. Error Handling:
 #    - Invalid base64 data will be skipped with a warning
