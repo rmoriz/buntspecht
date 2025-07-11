@@ -36,7 +36,7 @@ level = "debug"  # Debug level for detailed telemetry logs
 # OpenTelemetry configuration for monitoring and observability
 enabled = true  # Telemetry enabled
 serviceName = "buntspecht"
-serviceVersion = "0.6.5"
+serviceVersion = "0.7.0"
 
 [telemetry.jaeger]
 # Jaeger for distributed tracing

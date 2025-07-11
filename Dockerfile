@@ -65,4 +65,4 @@ CMD ["bun", "run", "dist/index.js"]
 # Labels for metadata
 LABEL maintainer="your-email@example.com"
 LABEL description="Buntspecht - A reliable Fediverse bot for automated messages with flexible sources"
-LABEL version="0.6.5"
+LABEL version="0.7.0"
