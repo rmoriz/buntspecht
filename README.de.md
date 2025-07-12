@@ -114,7 +114,7 @@ docker-compose down
 
 **Verfügbare Docker-Tags:**
 - `latest`: Neueste stabile Version
-- `v0.7.0`: Spezifische Versions-Tags
+- `v0.8.0`: Spezifische Versions-Tags
 - `main`: Neuester Entwicklungs-Build (nicht für Produktion empfohlen)
 
 **Docker-Vorteile:**
@@ -1541,7 +1541,7 @@ Buntspecht unterstützt OpenTelemetry für umfassendes Monitoring, Tracing und M
 # OpenTelemetry aktivieren/deaktivieren
 enabled = true
 serviceName = "buntspecht"
-serviceVersion = "0.7.0"
+serviceVersion = "0.8.0"
 
 [telemetry.jaeger]
 # Jaeger für Distributed Tracing
