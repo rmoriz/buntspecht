@@ -167,7 +167,7 @@ describe('WebhookServer', () => {
       expect(result.provider).toBe('test-provider');
       
       expect(mockBot.isPushProvider).toHaveBeenCalledWith('test-provider');
-      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+      expect(mockBot.triggerPushProviderWithVisibilityAndAttachments).toHaveBeenCalledWith('test-provider', 'Test message', undefined, undefined);
     });
 
     it('should reject request with invalid secret', async () => {
@@ -458,7 +458,7 @@ describe('WebhookServer', () => {
       
       const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
-      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+      expect(mockBot.triggerPushProviderWithVisibilityAndAttachments).toHaveBeenCalledWith('test-provider', 'Test message', undefined, undefined);
     });
   });
 
@@ -512,7 +512,7 @@ describe('WebhookServer', () => {
       
       const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
-      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+      expect(mockBot.triggerPushProviderWithVisibilityAndAttachments).toHaveBeenCalledWith('test-provider', 'Test message', undefined, undefined);
     });
 
     it('should reject request with invalid HMAC signature', async () => {
@@ -591,7 +591,7 @@ describe('WebhookServer', () => {
       
       const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
-      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+      expect(mockBot.triggerPushProviderWithVisibilityAndAttachments).toHaveBeenCalledWith('test-provider', 'Test message', undefined, undefined);
     });
 
     it('should support sha1 algorithm', async () => {
@@ -645,7 +645,7 @@ describe('WebhookServer', () => {
 
       // Setup bot mocks
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
-      (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.triggerPushProviderWithVisibilityAndAttachments as jest.Mock).mockResolvedValue(undefined);
     });
 
     it('should return 429 when push provider is rate limited', async () => {
@@ -655,8 +655,8 @@ describe('WebhookServer', () => {
       };
       (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
       
-      // Mock triggerPushProvider to throw rate limit error
-      (mockBot.triggerPushProvider as jest.Mock).mockRejectedValue(
+      // Mock triggerPushProviderWithVisibilityAndAttachments to throw rate limit error
+      (mockBot.triggerPushProviderWithVisibilityAndAttachments as jest.Mock).mockRejectedValue(
         new Error('Push provider "test-provider" is rate limited. Next message allowed in 45 seconds.')
       );
 
@@ -710,7 +710,7 @@ describe('WebhookServer', () => {
       
       const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(true);
-      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+      expect(mockBot.triggerPushProviderWithVisibilityAndAttachments).toHaveBeenCalledWith('test-provider', 'Test message', undefined, undefined);
     });
   });
 
