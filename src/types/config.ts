@@ -52,6 +52,9 @@ export interface WebhookConfig {
   host?: string;
   path?: string;
   secret?: string;
+  hmacSecret?: string;
+  hmacAlgorithm?: 'sha1' | 'sha256' | 'sha512';
+  hmacHeader?: string;
   allowedIPs?: string[];
   maxPayloadSize?: number;
   timeout?: number;

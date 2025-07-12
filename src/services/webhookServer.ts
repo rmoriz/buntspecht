@@ -1,5 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { URL } from 'url';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Logger } from '../utils/logger';
 import { MastodonPingBot } from '../bot';
 import type { TelemetryService } from './telemetryInterface';
@@ -12,6 +13,9 @@ export interface WebhookConfig {
   host?: string;
   path?: string;
   secret?: string;
+  hmacSecret?: string;
+  hmacAlgorithm?: 'sha1' | 'sha256' | 'sha512';
+  hmacHeader?: string;
   allowedIPs?: string[];
   maxPayloadSize?: number;
   timeout?: number;
@@ -59,6 +63,8 @@ export class WebhookServer {
       path: '/webhook',
       maxPayloadSize: 1024 * 1024, // 1MB
       timeout: 30000, // 30 seconds
+      hmacAlgorithm: 'sha256', // Default HMAC algorithm
+      hmacHeader: 'X-Hub-Signature-256', // Default HMAC header
       ...config
     };
     this.bot = bot;
@@ -143,7 +149,7 @@ export class WebhookServer {
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Webhook-Secret');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Webhook-Secret, X-Hub-Signature, X-Hub-Signature-256, X-Hub-Signature-512');
 
       // Handle preflight requests
       if (req.method === 'OPTIONS') {
@@ -175,14 +181,13 @@ export class WebhookServer {
         }
       }
 
-      // Parse request body
-      const body = await this.parseRequestBody(req);
+      // Parse request body and get raw body for HMAC validation
+      const { body, rawBody } = await this.parseRequestBody(req);
       const webhookRequest = this.validateWebhookRequest(body);
 
-      // Verify secret (provider-specific or global)
-      const providedSecret = req.headers['x-webhook-secret'] as string;
-      if (!this.validateWebhookSecret(webhookRequest.provider, providedSecret)) {
-        this.logger.warn(`Webhook request with invalid secret for provider: ${webhookRequest.provider}`);
+      // Verify authentication (HMAC signature or simple secret)
+      if (!this.validateWebhookAuth(webhookRequest.provider, req, rawBody)) {
+        this.logger.warn(`Webhook request with invalid authentication for provider: ${webhookRequest.provider}`);
         this.sendErrorResponse(res, 401, 'Unauthorized');
         return;
       }
@@ -224,9 +229,9 @@ export class WebhookServer {
   }
 
   /**
-   * Parses the request body
+   * Parses the request body and returns both parsed JSON and raw body
    */
-  private async parseRequestBody(req: IncomingMessage): Promise<unknown> {
+  private async parseRequestBody(req: IncomingMessage): Promise<{ body: unknown; rawBody: string }> {
     return new Promise((resolve, reject) => {
       let body = '';
       let size = 0;
@@ -243,7 +248,7 @@ export class WebhookServer {
       req.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          resolve(parsed);
+          resolve({ body: parsed, rawBody: body });
         } catch {
           reject(new ValidationError('Invalid JSON payload'));
         }
@@ -455,27 +460,88 @@ export class WebhookServer {
   }
 
   /**
-   * Validates webhook secret for a specific provider
+   * Validates webhook authentication (HMAC signature or simple secret) for a specific provider
    */
-  private validateWebhookSecret(providerName: string, providedSecret: string | undefined): boolean {
-    // Get provider-specific secret first
+  private validateWebhookAuth(providerName: string, req: IncomingMessage, rawBody: string): boolean {
     const pushProvider = this.bot.getPushProvider(providerName);
+    
+    // Try provider-specific HMAC first
+    if (pushProvider && typeof pushProvider.getHmacSecret === 'function') {
+      const providerHmacSecret = pushProvider.getHmacSecret();
+      if (providerHmacSecret) {
+        const algorithm = (typeof pushProvider.getHmacAlgorithm === 'function' ? pushProvider.getHmacAlgorithm() : undefined) || this.config.hmacAlgorithm || 'sha256';
+        const headerName = (typeof pushProvider.getHmacHeader === 'function' ? pushProvider.getHmacHeader() : undefined) || this.config.hmacHeader || 'X-Hub-Signature-256';
+        return this.validateHmacSignature(rawBody, providerHmacSecret, algorithm, headerName, req);
+      }
+    }
+
+    // Try global HMAC
+    if (this.config.hmacSecret) {
+      const algorithm = this.config.hmacAlgorithm || 'sha256';
+      const headerName = this.config.hmacHeader || 'X-Hub-Signature-256';
+      return this.validateHmacSignature(rawBody, this.config.hmacSecret, algorithm, headerName, req);
+    }
+
+    // Try provider-specific simple secret
     if (pushProvider && typeof pushProvider.getWebhookSecret === 'function') {
       const providerSecret = pushProvider.getWebhookSecret();
       if (providerSecret) {
-        // Provider has its own secret, use it
+        const providedSecret = req.headers['x-webhook-secret'] as string;
         return providedSecret === providerSecret;
       }
     }
 
-    // Fall back to global webhook secret (required when webhook is enabled)
+    // Try global simple secret
     if (this.config.secret) {
+      const providedSecret = req.headers['x-webhook-secret'] as string;
       return providedSecret === this.config.secret;
     }
 
-    // This should never happen due to config validation, but fail securely
-    this.logger.error('No webhook secret configured (neither provider-specific nor global). This is a configuration error.');
-    return false;
+    // No authentication configured - allow request (webhook password is now optional)
+    this.logger.debug('No webhook authentication configured, allowing request');
+    return true;
+  }
+
+  /**
+   * Validates HMAC signature
+   */
+  private validateHmacSignature(
+    payload: string, 
+    secret: string, 
+    algorithm: 'sha1' | 'sha256' | 'sha512', 
+    headerName: string, 
+    req: IncomingMessage
+  ): boolean {
+    const providedSignature = req.headers[headerName.toLowerCase()] as string;
+    if (!providedSignature) {
+      this.logger.debug(`No HMAC signature found in header: ${headerName}`);
+      return false;
+    }
+
+    try {
+      // Create expected signature
+      const hmac = createHmac(algorithm, secret);
+      hmac.update(payload, 'utf8');
+      const expectedSignature = `${algorithm}=${hmac.digest('hex')}`;
+
+      // Use timing-safe comparison
+      const providedBuffer = Buffer.from(providedSignature, 'utf8');
+      const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+
+      if (providedBuffer.length !== expectedBuffer.length) {
+        this.logger.debug('HMAC signature length mismatch');
+        return false;
+      }
+
+      const isValid = timingSafeEqual(providedBuffer, expectedBuffer);
+      if (!isValid) {
+        this.logger.debug('HMAC signature validation failed');
+      }
+      return isValid;
+    } catch (error) {
+      this.logger.error('HMAC signature validation error:', error);
+      return false;
+    }
   }
 
   /**

@@ -42,7 +42,12 @@ accounts = ["main-account"]
 defaultMessage = "System notification"
 allowExternalMessages = true
 maxMessageLength = 280
-webhookSecret = "system-specific-secret-123"
+# Provider-specific authentication (overrides global settings)
+webhookSecret = "system-specific-secret-123"  # Simple secret for this provider
+# OR use HMAC for this provider:
+# hmacSecret = "system-hmac-secret-123"
+# hmacAlgorithm = "sha256"  # Optional: defaults to global or sha256
+# hmacHeader = "X-Hub-Signature-256"  # Optional: defaults to global or X-Hub-Signature-256
 rateLimitMessages = 3  # Allow 3 messages per 5 minutes
 rateLimitWindowSeconds = 300
 
@@ -81,8 +86,16 @@ port = 3000
 host = "0.0.0.0"  # Listen on all interfaces
 path = "/webhook"  # Webhook endpoint path
 
-# Security settings
-secret = "global-webhook-secret-here"  # Required: Global webhook secret (mandatory when webhook is enabled)
+# Security settings (all optional - choose one authentication method)
+# Option 1: Simple secret authentication (legacy method)
+secret = "global-webhook-secret-here"  # Optional: Global webhook secret
+
+# Option 2: HMAC signature authentication (recommended for better security)
+hmacSecret = "global-hmac-secret-here"  # Optional: Global HMAC secret
+hmacAlgorithm = "sha256"  # Optional: HMAC algorithm (sha1, sha256, sha512) - default: sha256
+hmacHeader = "X-Hub-Signature-256"  # Optional: HMAC header name - default: X-Hub-Signature-256
+
+# IP whitelist (optional)
 allowedIPs = [  # Optional: IP whitelist (remove for no restrictions)
   "127.0.0.1",
   "::1",
@@ -123,13 +136,21 @@ enabled = false
 
 # Webhook Usage Examples:
 #
-# 1. Basic webhook call using global secret (for webhook-alerts provider):
+# 1. Basic webhook call using global simple secret (for webhook-alerts provider):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
 #   -H "X-Webhook-Secret: global-webhook-secret-here" \
 #   -d '{"provider": "webhook-alerts"}'
 #
-# 2. Webhook call using provider-specific secret (for system-notifications):
+# 2. Webhook call using global HMAC authentication:
+# payload='{"provider": "webhook-alerts", "message": "Test message"}'
+# signature=$(echo -n "$payload" | openssl dgst -sha256 -hmac "global-hmac-secret-here" | sed 's/^.* //')
+# curl -X POST http://localhost:3000/webhook \
+#   -H "Content-Type: application/json" \
+#   -H "X-Hub-Signature-256: sha256=$signature" \
+#   -d "$payload"
+#
+# 3. Webhook call using provider-specific secret (for system-notifications):
 # curl -X POST http://localhost:3000/webhook \
 #   -H "Content-Type: application/json" \
 #   -H "X-Webhook-Secret: system-specific-secret-123" \
@@ -178,14 +199,29 @@ enabled = false
 #     "visibility": "direct"
 #   }'
 #
-# Provider-Specific Webhook Secrets:
-# - Each push provider can have its own webhookSecret in the config
-# - If a provider has a webhookSecret, it overrides the global webhook secret
-# - If no provider-specific secret is set, the global webhook.secret is used
-# - This allows different systems to use different secrets for security isolation
+# Authentication Methods:
+#
+# 1. Simple Secret Authentication (X-Webhook-Secret header):
+# - Legacy method using a shared secret in the X-Webhook-Secret header
+# - Each provider can have its own webhookSecret that overrides global settings
+# - If no authentication is configured, requests are allowed (optional security)
+#
+# 2. HMAC Signature Authentication (recommended):
+# - More secure method using HMAC signatures
+# - Supports sha1, sha256 (default), and sha512 algorithms
+# - Each provider can have its own HMAC settings that override global settings
+# - Default header: X-Hub-Signature-256 (GitHub/GitLab style)
+# - Signature format: "algorithm=hexdigest" (e.g., "sha256=abc123...")
+#
+# Provider-Specific Authentication:
+# - Each push provider can have its own authentication settings
+# - Provider settings override global webhook settings
+# - Allows different systems to use different authentication methods
+# - Better security isolation and easier secret rotation
 #
 # Security Benefits:
-# - Different external systems can use different secrets
+# - HMAC prevents replay attacks and tampering
+# - Different external systems can use different secrets/methods
 # - Compromised secret only affects one provider, not all
 # - Easier to rotate secrets for specific integrations
 # - Better audit trail for webhook sources

@@ -27,6 +27,12 @@ export interface PushProviderConfig extends MessageProviderConfig {
   maxMessageLength?: number;
   // Optional webhook secret for this specific provider (overrides global webhook secret)
   webhookSecret?: string;
+  // Optional HMAC secret for this specific provider (overrides global HMAC secret)
+  hmacSecret?: string;
+  // HMAC algorithm for this provider (overrides global setting)
+  hmacAlgorithm?: 'sha1' | 'sha256' | 'sha512';
+  // HMAC header name for this provider (overrides global setting)
+  hmacHeader?: string;
   // Rate limiting configuration
   rateLimitMessages?: number; // Number of messages allowed per time window (default: 1)
   rateLimitWindowSeconds?: number; // Time window in seconds (default: 60)
@@ -44,6 +50,9 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
   private allowExternalMessages: boolean;
   private maxMessageLength: number;
   private webhookSecret?: string;
+  private hmacSecret?: string;
+  private hmacAlgorithm?: 'sha1' | 'sha256' | 'sha512';
+  private hmacHeader?: string;
   private rateLimitMessages: number;
   private rateLimitWindowSeconds: number;
   private defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
@@ -58,6 +67,9 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
     this.allowExternalMessages = config.allowExternalMessages !== false; // Default to true
     this.maxMessageLength = config.maxMessageLength || 500; // Default 500 chars
     this.webhookSecret = config.webhookSecret;
+    this.hmacSecret = config.hmacSecret;
+    this.hmacAlgorithm = config.hmacAlgorithm;
+    this.hmacHeader = config.hmacHeader;
     this.rateLimitMessages = config.rateLimitMessages || 1; // Default: 1 message
     this.rateLimitWindowSeconds = config.rateLimitWindowSeconds || 60; // Default: 60 seconds
     this.defaultVisibility = config.defaultVisibility;
@@ -147,6 +159,9 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
       allowExternalMessages: this.allowExternalMessages,
       maxMessageLength: this.maxMessageLength,
       webhookSecret: this.webhookSecret,
+      hmacSecret: this.hmacSecret,
+      hmacAlgorithm: this.hmacAlgorithm,
+      hmacHeader: this.hmacHeader,
       rateLimitMessages: this.rateLimitMessages,
       rateLimitWindowSeconds: this.rateLimitWindowSeconds
     };
@@ -157,6 +172,27 @@ export class PushProvider implements MessageProvider, PushProviderInterface {
    */
   public getWebhookSecret(): string | undefined {
     return this.webhookSecret;
+  }
+
+  /**
+   * Gets the HMAC secret for this provider
+   */
+  public getHmacSecret(): string | undefined {
+    return this.hmacSecret;
+  }
+
+  /**
+   * Gets the HMAC algorithm for this provider
+   */
+  public getHmacAlgorithm(): 'sha1' | 'sha256' | 'sha512' | undefined {
+    return this.hmacAlgorithm;
+  }
+
+  /**
+   * Gets the HMAC header name for this provider
+   */
+  public getHmacHeader(): string | undefined {
+    return this.hmacHeader;
   }
 
   /**

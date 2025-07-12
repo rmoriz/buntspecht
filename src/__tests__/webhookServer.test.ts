@@ -9,11 +9,14 @@ interface WebhookTestResponse {
 import { MastodonPingBot } from '../bot';
 import { Logger } from '../utils/logger';
 import { TelemetryService } from '../services/telemetryStub';
+import { createHmac } from 'crypto';
 
 // Mock the bot
 const mockBot = {
   isPushProvider: jest.fn(),
   triggerPushProvider: jest.fn(),
+  triggerPushProviderWithVisibility: jest.fn(),
+  triggerPushProviderWithVisibilityAndAttachments: jest.fn(),
   getPushProviders: jest.fn(),
   getProviderInfo: jest.fn(),
   getPushProvider: jest.fn()
@@ -418,35 +421,113 @@ describe('WebhookServer', () => {
       expect(mockPushProvider.getWebhookSecret).toHaveBeenCalled();
     });
 
-    it('should reject request when no secrets are configured', async () => {
-      // Create webhook server without global secret
+    it('should allow request when no authentication is configured (optional auth)', async () => {
+      // Create webhook server without any authentication
       await webhookServer.stop();
       const config = {
         enabled: true,
         port: 0
-        // No secret configured
+        // No secret or HMAC configured
       };
 
       webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
       await webhookServer.start();
 
-      // Mock provider without specific secret
+      // Mock provider without specific authentication
       const mockPushProvider = {
-        getWebhookSecret: jest.fn().mockReturnValue(undefined)
+        getWebhookSecret: jest.fn().mockReturnValue(undefined),
+        getHmacSecret: jest.fn().mockReturnValue(undefined)
       };
       (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
 
       const payload = {
-        provider: 'test-provider'
+        provider: 'test-provider',
+        message: 'Test message'
       };
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-          // No secret header
+          // No authentication headers
         },
         body: JSON.stringify(payload)
+      });
+
+      expect(response.status).toBe(200);
+      
+      const result = await response.json() as WebhookTestResponse;
+      expect(result.success).toBe(true);
+      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+    });
+  });
+
+  describe('HMAC authentication', () => {
+    beforeEach(async () => {
+      if (webhookServer) {
+        await webhookServer.stop();
+      }
+      const config = {
+        enabled: true,
+        port: 0,
+        hmacSecret: 'test-hmac-secret',
+        hmacAlgorithm: 'sha256' as const,
+        hmacHeader: 'X-Hub-Signature-256'
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+
+      // Mock provider without specific HMAC settings (uses global)
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined),
+        getHmacSecret: jest.fn().mockReturnValue(undefined),
+        getHmacAlgorithm: jest.fn().mockReturnValue(undefined),
+        getHmacHeader: jest.fn().mockReturnValue(undefined)
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+      (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
+    });
+
+    it('should accept request with valid HMAC signature', async () => {
+      const payload = JSON.stringify({
+        provider: 'test-provider',
+        message: 'Test message'
+      });
+
+      const signature = createHmac('sha256', 'test-hmac-secret')
+        .update(payload, 'utf8')
+        .digest('hex');
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hub-Signature-256': `sha256=${signature}`
+        },
+        body: payload
+      });
+
+      expect(response.status).toBe(200);
+      
+      const result = await response.json() as WebhookTestResponse;
+      expect(result.success).toBe(true);
+      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+    });
+
+    it('should reject request with invalid HMAC signature', async () => {
+      const payload = JSON.stringify({
+        provider: 'test-provider',
+        message: 'Test message'
+      });
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hub-Signature-256': 'sha256=invalid-signature'
+        },
+        body: payload
       });
 
       expect(response.status).toBe(401);
@@ -454,6 +535,100 @@ describe('WebhookServer', () => {
       const result = await response.json() as WebhookTestResponse;
       expect(result.success).toBe(false);
       expect(result.error).toBe('Unauthorized');
+    });
+
+    it('should reject request with missing HMAC signature', async () => {
+      const payload = JSON.stringify({
+        provider: 'test-provider',
+        message: 'Test message'
+      });
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+          // No HMAC signature header
+        },
+        body: payload
+      });
+
+      expect(response.status).toBe(401);
+      
+      const result = await response.json() as WebhookTestResponse;
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unauthorized');
+    });
+
+    it('should use provider-specific HMAC settings when available', async () => {
+      // Mock provider with specific HMAC settings
+      const mockPushProvider = {
+        getWebhookSecret: jest.fn().mockReturnValue(undefined),
+        getHmacSecret: jest.fn().mockReturnValue('provider-hmac-secret'),
+        getHmacAlgorithm: jest.fn().mockReturnValue('sha512'),
+        getHmacHeader: jest.fn().mockReturnValue('X-Custom-Signature')
+      };
+      (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
+
+      const payload = JSON.stringify({
+        provider: 'test-provider',
+        message: 'Test message'
+      });
+
+      const signature = createHmac('sha512', 'provider-hmac-secret')
+        .update(payload, 'utf8')
+        .digest('hex');
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Signature': `sha512=${signature}`
+        },
+        body: payload
+      });
+
+      expect(response.status).toBe(200);
+      
+      const result = await response.json() as WebhookTestResponse;
+      expect(result.success).toBe(true);
+      expect(mockBot.triggerPushProvider).toHaveBeenCalledWith('test-provider', 'Test message');
+    });
+
+    it('should support sha1 algorithm', async () => {
+      await webhookServer.stop();
+      const config = {
+        enabled: true,
+        port: 0,
+        hmacSecret: 'test-hmac-secret',
+        hmacAlgorithm: 'sha1' as const,
+        hmacHeader: 'X-Hub-Signature'
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+
+      const payload = JSON.stringify({
+        provider: 'test-provider',
+        message: 'Test message'
+      });
+
+      const signature = createHmac('sha1', 'test-hmac-secret')
+        .update(payload, 'utf8')
+        .digest('hex');
+
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hub-Signature': `sha1=${signature}`
+        },
+        body: payload
+      });
+
+      expect(response.status).toBe(200);
+      
+      const result = await response.json() as WebhookTestResponse;
+      expect(result.success).toBe(true);
     });
   });
 
