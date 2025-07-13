@@ -78,10 +78,10 @@ export class AwsSecretProvider extends BaseSecretProvider {
       }
       
       // AWS Secrets Manager can return either SecretString or SecretBinary
-      if (response.SecretString) {
+      if ((response as any).SecretString) {
         // Try to parse as JSON first
         try {
-          const secretData = JSON.parse(response.SecretString);
+          const secretData = JSON.parse((response as any).SecretString);
           
           // If it's a JSON object, look for common secret field names
           if (typeof secretData === 'object' && secretData !== null) {
@@ -104,15 +104,15 @@ export class AwsSecretProvider extends BaseSecretProvider {
           }
         } catch (parseError) {
           // Not JSON, return the string directly
-          return response.SecretString;
+          return (response as any).SecretString;
         }
         
-        return response.SecretString;
+        return (response as any).SecretString;
       }
       
-      if (response.SecretBinary) {
+      if ((response as any).SecretBinary) {
         // Convert binary to string
-        const buffer = Buffer.from(response.SecretBinary);
+        const buffer = Buffer.from((response as any).SecretBinary);
         return buffer.toString('utf-8');
       }
       

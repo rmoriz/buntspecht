@@ -30,7 +30,7 @@ export class VaultSecretProvider extends BaseSecretProvider {
     const vaultConfig = {
       endpoint: this.config.endpoint || 'http://localhost:8200',
       token: this.config.token || process.env.VAULT_TOKEN,
-      ...this.config.vaultOptions
+      ...(this.config.vaultOptions || {})
     };
 
     if (!vaultConfig.token) {
