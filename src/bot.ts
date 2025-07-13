@@ -43,6 +43,8 @@ export class MastodonPingBot {
     // Initialize webhook server if configured
     if (this.config.webhook?.enabled) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
+      // Start webhook server immediately - it should work independently of social media verification
+      await this.webhookServer.start();
     }
 
     // Initialize secret rotation detector if configured
@@ -69,16 +71,15 @@ export class MastodonPingBot {
   }
 
   /**
-   * Starts the bot scheduler and webhook server
+   * Starts the bot scheduler and secret rotation detector
+   * Note: Webhook server is started during initialize() to work independently of social media verification
    */
   public async start(): Promise<void> {
     this.logger.info('Starting Buntspecht...');
     await this.scheduler.start();
     
-    // Start webhook server if configured
-    if (this.webhookServer) {
-      await this.webhookServer.start();
-    }
+    // Webhook server is already started in initialize() method
+    // This ensures it works even if social media verification fails
 
     // Start secret rotation detector if configured
     if (this.secretRotationDetector) {
