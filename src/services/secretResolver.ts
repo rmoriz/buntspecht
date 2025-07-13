@@ -134,10 +134,10 @@ export class VaultSecretProvider implements SecretProvider {
       this.logger.debug(`Reading secret from Vault path: ${secretPath}${key ? ` (key: ${key})` : ''}`);
       
       // Read secret from Vault
-      const response = await this.vault?.read(secretPath);
       if (!this.vault) {
         throw new Error('Vault client not initialized');
       }
+      const response = await this.vault.read(secretPath);
       
       if (!response || !response.data) {
         throw new Error(`No data found at Vault path: ${secretPath}`);
@@ -181,6 +181,10 @@ export class VaultSecretProvider implements SecretProvider {
       throw new Error('VAULT_TOKEN environment variable is required for Vault authentication');
     }
 
+    if (!nodeVault) {
+      throw new Error('node-vault module not available');
+    }
+    
     this.vault = nodeVault({
       apiVersion: 'v1',
       endpoint: vaultAddr,
