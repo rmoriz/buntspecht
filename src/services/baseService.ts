@@ -19,7 +19,7 @@ export abstract class BaseService {
  * Base class for services that also need configuration.
  * Generic type T allows for type-safe configuration injection.
  */
-export abstract class BaseConfigurableService<T = any> extends BaseService {
+export abstract class BaseConfigurableService<T = Record<string, unknown>> extends BaseService {
   protected readonly config: T;
 
   constructor(config: T, logger: Logger, telemetry: TelemetryService) {

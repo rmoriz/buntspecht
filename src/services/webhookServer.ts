@@ -427,7 +427,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     if (errors.length > 0) {
-      (response as any).warnings = errors;
+      (response as { warnings?: string[] }).warnings = errors;
     }
 
     this.logger.info(`Webhook processed successfully for provider: ${request.provider} (${successCount}/${processedMessages.length} messages)`);

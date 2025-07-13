@@ -65,7 +65,7 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
 
     // Validate cron schedule for non-push providers
     if (!isPushProvider) {
-      if (!cron.validate(providerConfig.cronSchedule!)) {
+      if (!cron.validate(providerConfig.cronSchedule as string)) {
         throw new Error(`Invalid cron schedule for provider "${providerConfig.name}": ${providerConfig.cronSchedule}`);
       }
     }
@@ -95,7 +95,7 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
 
     // Create scheduled task only for non-push providers
     if (!isPushProvider) {
-      task = cron.schedule(providerConfig.cronSchedule!, async () => {
+      task = cron.schedule(providerConfig.cronSchedule as string, async () => {
         await this.executeProviderTask(providerConfig.name, messageProvider);
       }, {
         timezone: 'UTC'

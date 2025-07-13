@@ -9,7 +9,7 @@ export interface SecretProviderConfig {
   timeout?: number; // milliseconds
   retryAttempts?: number;
   retryDelay?: number; // milliseconds
-  [key: string]: any; // Provider-specific configuration
+  [key: string]: unknown; // Provider-specific configuration
 }
 
 /**

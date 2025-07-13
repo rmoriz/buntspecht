@@ -5,7 +5,8 @@ import {
   SecretProvider, 
   SecretResult, 
   SecretMetadata, 
-  SecretManagerConfig
+  SecretManagerConfig,
+  SecretCacheConfig
 } from './types';
 import { SecretCache, CacheStats } from './SecretCache';
 import { RotationDetector, RotationStats } from './RotationDetector';
@@ -32,7 +33,7 @@ export class SecretManager extends BaseService {
   private initialized = false;
 
   constructor(config: SecretManagerConfig, logger: Logger, telemetry?: TelemetryService) {
-    super(logger, telemetry!);
+    super(logger, telemetry as TelemetryService);
     
     this.config = {
       cache: {
@@ -56,7 +57,7 @@ export class SecretManager extends BaseService {
     };
 
     // Initialize cache
-    this.cache = new SecretCache(this.config.cache!, this.logger);
+    this.cache = new SecretCache(this.config.cache as SecretCacheConfig, this.logger);
   }
 
   /**
