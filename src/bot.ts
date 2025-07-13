@@ -49,17 +49,7 @@ export class MastodonPingBot {
       this.logger.info(`Webhook server listening on ${config.host}:${config.port}${config.path}`);
     }
 
-    // Initialize secret rotation detector if configured
-    if (this.config.secretRotation?.enabled !== false) { // Default to enabled
-      this.secretRotationDetector = new SecretRotationDetector(
-        this.config,
-        this.socialMediaClient,
-        this.logger,
-        this.telemetry,
-        this.config.secretRotation
-      );
-      await this.secretRotationDetector.initialize();
-    }
+    // Secret rotation detection is now handled by SecretManager
     
     const isConnected = await this.socialMediaClient.verifyConnection();
     if (!isConnected) {
