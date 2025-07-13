@@ -45,6 +45,8 @@ export class MastodonPingBot {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
       // Start webhook server immediately - it should work independently of social media verification
       await this.webhookServer.start();
+      const config = this.webhookServer.getConfig();
+      this.logger.info(`Webhook server listening on ${config.host}:${config.port}${config.path}`);
     }
 
     // Initialize secret rotation detector if configured
