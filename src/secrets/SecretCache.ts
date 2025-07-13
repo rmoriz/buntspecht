@@ -1,3 +1,4 @@
+import { setInterval } from 'timers';
 import { Logger } from '../utils/logger';
 import { SecretResult, SecretCacheConfig } from './types';
 

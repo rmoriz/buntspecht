@@ -32,7 +32,7 @@ export class SecretManager extends BaseService {
   private initialized = false;
 
   constructor(config: SecretManagerConfig, logger: Logger, telemetry?: TelemetryService) {
-    super(logger, telemetry);
+    super(logger, telemetry!);
     
     this.config = {
       cache: {

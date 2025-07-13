@@ -1,4 +1,5 @@
 import * as cron from 'node-cron';
+import { setTimeout } from 'timers';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';
 import { SecretRotationConfig, SecretRotationEvent } from './types';
@@ -48,7 +49,7 @@ export class RotationDetector {
           this.logger.error('Error during rotation check:', error);
         });
       }, {
-        scheduled: false // Don't start immediately
+        // Don't start immediately
       });
 
       this.cronJob.start();
@@ -180,7 +181,7 @@ export class RotationDetector {
         this.logger.error(`Failed to check rotation for secret ${this.maskSource(source)}:`, error);
         
         // Handle retry logic
-        if (this.config.retryOnFailure && tracked.retryCount < this.config.maxRetries) {
+        if (this.config.retryOnFailure && (tracked.retryCount || 0) < this.config.maxRetries) {
           tracked.retryCount = (tracked.retryCount || 0) + 1;
           this.logger.debug(`Will retry checking secret ${this.maskSource(source)} (attempt ${tracked.retryCount}/${this.config.maxRetries})`);
           
@@ -259,8 +260,8 @@ export class RotationDetector {
     const span = this.telemetry?.startSpan('secret.rotation_detected', {
       'rotation.source': this.maskSource(event.source),
       'rotation.provider': event.provider,
-      'rotation.account_name': event.accountName,
-      'rotation.field_name': event.fieldName,
+      'rotation.account_name': event.accountName || 'unknown',
+      'rotation.field_name': event.fieldName || 'unknown',
     });
 
     try {
