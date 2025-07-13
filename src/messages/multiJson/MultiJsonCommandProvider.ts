@@ -118,7 +118,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   public getProviderName(): string {
-    return 'multijson';
+    return 'multijsoncommand';
   }
 
   /**
@@ -175,6 +175,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
       // Process the first unprocessed item
       const item = unprocessed[0];
+      this.logger.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items`);
       const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
 
       // Create attachment configuration
