@@ -2,7 +2,7 @@ import { MessageProvider, MessageProviderConfig } from './messageProvider';
 import { PingProvider, PingProviderConfig } from './pingProvider';
 import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
-import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from './multiJsonCommandProvider';
+import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from './multiJson/index';
 import { PushProvider, PushProviderConfig } from './pushProvider';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';

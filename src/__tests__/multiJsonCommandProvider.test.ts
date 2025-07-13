@@ -1,4 +1,4 @@
-import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from '../messages/multiJsonCommandProvider';
+import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from '../messages/multiJson/index';
 import { Logger } from '../utils/logger';
 import * as fs from 'fs';
 

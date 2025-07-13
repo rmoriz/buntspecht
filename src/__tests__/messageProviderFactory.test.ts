@@ -2,7 +2,7 @@ import { MessageProviderFactory } from '../messages/messageProviderFactory';
 import { PingProvider } from '../messages/pingProvider';
 import { CommandProvider } from '../messages/commandProvider';
 import { JsonCommandProvider } from '../messages/jsonCommandProvider';
-import { MultiJsonCommandProvider } from '../messages/multiJsonCommandProvider';
+import { MultiJsonCommandProvider } from '../messages/multiJson/index';
 import { PushProvider } from '../messages/pushProvider';
 import { Logger } from '../utils/logger';
 
