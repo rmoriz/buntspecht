@@ -114,7 +114,7 @@ docker-compose down
 
 **Verfügbare Docker-Tags:**
 - `latest`: Neueste stabile Version
-- `v0.8.1`: Spezifische Versions-Tags
+- `v0.9.0`: Spezifische Versions-Tags
 - `main`: Neuester Entwicklungs-Build (nicht für Produktion empfohlen)
 
 **Docker-Vorteile:**
