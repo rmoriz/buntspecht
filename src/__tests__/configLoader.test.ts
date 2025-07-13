@@ -339,7 +339,7 @@ level = "debug"
       expect(() => ConfigLoader.loadConfig(cliOptions)).not.toThrow();
     });
 
-    it('should reject webhook configuration without secret when enabled', () => {
+    it('should accept webhook configuration without secret when enabled', () => {
       const configWithoutSecret = `
 [[accounts]]
 name = "test-account"
@@ -369,9 +369,7 @@ level = "debug"
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(configWithoutSecret);
 
-      expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
-        'Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.'
-      );
+      expect(() => ConfigLoader.loadConfig(cliOptions)).not.toThrow();
     });
 
     it('should reject webhook configuration with empty secret when enabled', () => {
@@ -406,7 +404,7 @@ level = "debug"
       mockFs.readFileSync.mockReturnValue(configWithEmptySecret);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
-        'Webhook is enabled but no global webhook secret is configured. Please set webhook.secret in your configuration for security.'
+        'Webhook secret must be a non-empty string if provided.'
       );
     });
 

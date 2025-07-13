@@ -88,7 +88,7 @@ path = "/webhook"  # Webhook endpoint path
 
 # Security settings (all optional - choose one authentication method)
 # Option 1: Simple secret authentication (legacy method)
-secret = "global-webhook-secret-here"  # Optional: Global webhook secret
+secret = "global-webhook-secret-here"  # Optional: Global webhook secret (recommended for security)
 
 # Option 2: HMAC signature authentication (recommended for better security)
 hmacSecret = "global-hmac-secret-here"  # Optional: Global HMAC secret
