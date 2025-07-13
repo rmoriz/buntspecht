@@ -138,7 +138,7 @@ describe('MultiJsonCommandProvider', () => {
         command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
         template: 'Message: {{message}} (ID: {{id}})',
         cache: {
-          filePath: './tmp_rovodev_test_cache_basic.json',
+          enabled: false, // Disable cache to avoid interference
         },
       };
 
