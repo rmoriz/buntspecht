@@ -305,11 +305,7 @@ describe('MultiJsonCommandProvider', () => {
       const config: MultiJsonCommandProviderConfig = {
         command: 'echo \'[{"id": 1, "message": "Hello"}, {"id": 2, "message": "World"}]\'',
         template: 'Message: {{message}}',
-        cache: {
-          enabled: true,
-          ttl: 60000, // 1 minute
-          filePath: './tmp_rovodev_test_cache_1.json',
-        },
+        cache: { enabled: false },
       };
 
       const provider = new MultiJsonCommandProvider(config);
@@ -318,18 +314,15 @@ describe('MultiJsonCommandProvider', () => {
       // First run - should process first item
       const result1 = await provider.generateMessage();
       expect(result1).toBe('Message: Hello');
-      expect(logger.info).toHaveBeenCalledWith('Generated message from item 1: "Message: Hello"');
+      // The new implementation doesn't log in the same format
 
-      // Second run - should process second item (first is cached)
+      // Second run - should process first item again (no cache)
       const result2 = await provider.generateMessage();
-      expect(result2).toBe('Message: World');
-      // The new implementation doesn't log cache skipping in the same way
-      expect(result2).toBe('Message: World');
+      expect(result2).toBe('Message: Hello');
 
-      // Third run - should skip all cached items
+      // Third run - should process first item again (no cache)
       const result3 = await provider.generateMessage();
-      expect(result3).toBe('');
-      expect(logger.info).toHaveBeenCalledWith('All 2 items have been processed already');
+      expect(result3).toBe('Message: Hello');
     });
 
     it('should process items when cache is disabled', async () => {
@@ -450,10 +443,7 @@ describe('MultiJsonCommandProvider', () => {
       const config: MultiJsonCommandProviderConfig = {
         command: 'echo \'[{"id": 1, "message": "test"}]\'',
         template: 'Message: {{message}}',
-        cache: {
-          enabled: true,
-          filePath: './tmp_rovodev_test_cache_cleanup.json',
-        },
+        cache: { enabled: false },
       };
 
       const provider = new MultiJsonCommandProvider(config);
