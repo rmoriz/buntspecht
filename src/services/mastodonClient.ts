@@ -2,6 +2,7 @@ import { createRestAPIClient, type mastodon } from 'masto';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from './telemetryInterface';
+import { BaseConfigurableService } from './baseService';
 
 interface AccountClient {
   name: string;
@@ -9,16 +10,11 @@ interface AccountClient {
   client: mastodon.rest.Client;
 }
 
-export class MastodonClient {
+export class MastodonClient extends BaseConfigurableService<BotConfig> {
   private clients: Map<string, AccountClient> = new Map();
-  private config: BotConfig;
-  private logger: Logger;
-  private telemetry: TelemetryService;
 
   constructor(config: BotConfig, logger: Logger, telemetry: TelemetryService) {
-    this.config = config;
-    this.logger = logger;
-    this.telemetry = telemetry;
+    super(config, logger, telemetry);
     this.initializeClients();
   }
 

@@ -2,6 +2,7 @@ import { BskyAgent } from '@atproto/api';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from './telemetryInterface';
+import { BaseConfigurableService } from './baseService';
 
 interface BlueskyAccountClient {
   name: string;
@@ -56,16 +57,11 @@ interface MentionMatch {
   end: number;
 }
 
-export class BlueskyClient {
+export class BlueskyClient extends BaseConfigurableService<BotConfig> {
   private clients: Map<string, BlueskyAccountClient> = new Map();
-  private config: BotConfig;
-  private logger: Logger;
-  private telemetry: TelemetryService;
 
   constructor(config: BotConfig, logger: Logger, telemetry: TelemetryService) {
-    this.config = config;
-    this.logger = logger;
-    this.telemetry = telemetry;
+    super(config, logger, telemetry);
     this.initializeClients();
   }
 

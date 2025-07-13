@@ -3,21 +3,17 @@ import { Logger } from '../utils/logger';
 import type { TelemetryService } from './telemetryInterface';
 import { MastodonClient } from './mastodonClient';
 import { BlueskyClient } from './blueskyClient';
+import { BaseConfigurableService } from './baseService';
 
 /**
  * Unified social media client that handles multiple platforms
  */
-export class SocialMediaClient {
+export class SocialMediaClient extends BaseConfigurableService<BotConfig> {
   private mastodonClient: MastodonClient;
   private blueskyClient: BlueskyClient;
-  private config: BotConfig;
-  private logger: Logger;
-  private telemetry: TelemetryService;
 
   constructor(config: BotConfig, logger: Logger, telemetry: TelemetryService) {
-    this.config = config;
-    this.logger = logger;
-    this.telemetry = telemetry;
+    super(config, logger, telemetry);
     
     this.mastodonClient = new MastodonClient(config, logger, telemetry);
     this.blueskyClient = new BlueskyClient(config, logger, telemetry);

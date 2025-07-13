@@ -6,6 +6,7 @@ import { Logger } from '../utils/logger';
 import { MessageProvider } from '../messages/messageProvider';
 import { MessageProviderFactory } from '../messages/messageProviderFactory';
 import { PushProviderInterface } from '../messages/pushProvider';
+import { BaseConfigurableService } from './baseService';
 
 interface ScheduledProvider {
   name: string;
@@ -14,19 +15,14 @@ interface ScheduledProvider {
   config: ProviderConfig;
 }
 
-export class MultiProviderScheduler {
+export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
   private socialMediaClient: SocialMediaClient;
-  private config: BotConfig;
-  private logger: Logger;
-  private telemetry: TelemetryService;
   private scheduledProviders: ScheduledProvider[] = [];
   private isRunning = false;
 
   constructor(socialMediaClient: SocialMediaClient, config: BotConfig, logger: Logger, telemetry: TelemetryService) {
+    super(config, logger, telemetry);
     this.socialMediaClient = socialMediaClient;
-    this.config = config;
-    this.logger = logger;
-    this.telemetry = telemetry;
   }
 
   /**

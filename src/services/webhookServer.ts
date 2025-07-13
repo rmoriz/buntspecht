@@ -6,6 +6,7 @@ import { MastodonPingBot } from '../bot';
 import type { TelemetryService } from './telemetryInterface';
 import { MessageWithAttachments } from '../messages/messageProvider';
 import { JsonTemplateProcessor, AttachmentConfig } from '../utils/jsonTemplateProcessor';
+import { BaseConfigurableService } from './baseService';
 
 export interface WebhookConfig {
   enabled: boolean;
@@ -48,28 +49,24 @@ export interface WebhookResponse {
   accounts?: string[];
 }
 
-export class WebhookServer {
+export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
   private server: ReturnType<typeof createServer> | null = null;
-  private config: WebhookConfig;
-  private logger: Logger;
   private bot: MastodonPingBot;
-  private telemetry: TelemetryService;
   private templateProcessor: JsonTemplateProcessor;
   private isRunning = false;
 
   constructor(config: WebhookConfig, bot: MastodonPingBot, logger: Logger, telemetry: TelemetryService) {
-    this.config = {
+    const configWithDefaults: WebhookConfig = {
       host: '0.0.0.0',
       path: '/webhook',
       maxPayloadSize: 1024 * 1024, // 1MB
       timeout: 30000, // 30 seconds
-      hmacAlgorithm: 'sha256', // Default HMAC algorithm
+      hmacAlgorithm: 'sha256' as const, // Default HMAC algorithm
       hmacHeader: 'X-Hub-Signature-256', // Default HMAC header
       ...config
     };
+    super(configWithDefaults, logger, telemetry);
     this.bot = bot;
-    this.logger = logger;
-    this.telemetry = telemetry;
     this.templateProcessor = new JsonTemplateProcessor(logger);
   }
 
