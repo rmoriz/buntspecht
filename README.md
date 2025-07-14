@@ -2018,6 +2018,12 @@ bun run release:major    # Breaking changes (1.0.0 → 2.0.0)
 
 See [RELEASE_PROCESS.md](RELEASE_PROCESS.md) for detailed release documentation.
 
+## 📚 Additional Documentation
+
+- [Cache Migration System](CACHE_MIGRATION_SYSTEM.md) - Preventing duplicate messages during upgrades
+- [Automatic Secret Rotation](AUTOMATIC_SECRET_ROTATION.md) - Automatic credential updates
+- [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Technical implementation details
+
 ### Project Structure
 
 ```
