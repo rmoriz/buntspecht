@@ -217,7 +217,7 @@ export class JsonTemplateProcessor {
         description: (typeof attachmentObj[attachmentDescriptionKey] === 'string' ? attachmentObj[attachmentDescriptionKey] as string : null) || 
                      (typeof attachmentObj.alt === 'string' ? attachmentObj.alt as string : null) ||
                      (typeof attachmentObj.description === 'string' ? attachmentObj.description as string : null) || 
-                     undefined,
+                     '',  // Use empty string instead of undefined for better API compatibility
       };
       
       attachments.push(attachment);

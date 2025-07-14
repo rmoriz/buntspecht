@@ -105,7 +105,7 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
                 
                 const mediaAttachment = await accountClient.client.v2.media.create({
                   file,
-                  description: attachment.description,
+                  description: attachment.description || undefined,  // Don't send empty strings to API
                 });
                 
                 mediaIds.push(mediaAttachment.id);
