@@ -45,41 +45,55 @@ export class MessageDeduplicator {
    */
   public loadProcessedItems(providerName: string): Set<string> {
     const cacheFile = this.getCacheFilePath(providerName);
+    const processedSet = new Set<string>();
+    let currentCacheLoaded = false;
     
+    // First, try to load current cache file
     try {
       if (fs.existsSync(cacheFile)) {
         const data = fs.readFileSync(cacheFile, 'utf8');
         const parsed = JSON.parse(data);
         
         if (Array.isArray(parsed)) {
-          const processedSet = new Set(parsed);
-          this.logger.debug(`Loaded ${processedSet.size} processed items from cache for provider: ${providerName}`);
-          return processedSet;
+          parsed.forEach(item => processedSet.add(String(item)));
+          currentCacheLoaded = true;
+          this.logger.debug(`Loaded ${processedSet.size} processed items from current cache for provider: ${providerName}`);
         }
       }
     } catch (error) {
-      this.logger.warn(`Failed to load cache for provider ${providerName}:`, error);
+      this.logger.warn(`Failed to load current cache for provider ${providerName}:`, error);
     }
 
-    // If no current cache exists, try to migrate from legacy cache files
-    this.logger.debug(`No current cache found for provider: ${providerName}, checking for legacy cache files to migrate`);
+    // Always check for legacy cache files to merge, regardless of whether current cache exists
+    this.logger.debug(`Checking for legacy cache files to merge for provider: ${providerName}`);
     
     const migratedItems = this.migrator.migrateCacheFiles(providerName, this.cacheDir);
     
     if (migratedItems.size > 0) {
       // Validate the migrated data
       if (this.migrator.validateMigratedData(migratedItems, providerName)) {
-        // Save the migrated data in the new format
-        this.saveProcessedItems(providerName, migratedItems);
-        this.logger.info(`Successfully migrated ${migratedItems.size} processed items for provider: ${providerName}`);
-        return migratedItems;
+        const originalSize = processedSet.size;
+        
+        // Merge migrated items with current cache
+        migratedItems.forEach(item => processedSet.add(item));
+        
+        const newItems = processedSet.size - originalSize;
+        
+        if (newItems > 0) {
+          // Save the merged data in the new format
+          this.saveProcessedItems(providerName, processedSet);
+          this.logger.info(`Successfully merged ${migratedItems.size} legacy items (${newItems} new) with ${originalSize} current items for provider: ${providerName}`);
+        } else {
+          this.logger.debug(`All ${migratedItems.size} legacy items were already in current cache for provider: ${providerName}`);
+        }
       } else {
-        this.logger.warn(`Migration validation failed for provider ${providerName}, starting fresh`);
+        this.logger.warn(`Migration validation failed for provider ${providerName}, using only current cache`);
       }
+    } else if (!currentCacheLoaded) {
+      this.logger.debug(`No current cache or legacy cache found for provider: ${providerName}, starting fresh`);
     }
 
-    this.logger.debug(`No valid cache or migration data found for provider: ${providerName}, starting fresh`);
-    return new Set<string>();
+    return processedSet;
   }
 
   /**
