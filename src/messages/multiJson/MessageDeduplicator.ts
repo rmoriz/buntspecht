@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from '../../utils/logger';
+import { CacheMigrator } from './CacheMigrator';
 
 /**
  * Handles message deduplication using cache files to prevent duplicate posts.
@@ -9,10 +10,12 @@ import { Logger } from '../../utils/logger';
 export class MessageDeduplicator {
   private logger: Logger;
   private cacheDir: string;
+  private migrator: CacheMigrator;
 
   constructor(cacheDir: string, logger: Logger) {
     this.cacheDir = cacheDir;
     this.logger = logger;
+    this.migrator = new CacheMigrator(logger);
     this.ensureCacheDirectory();
   }
 
@@ -38,7 +41,7 @@ export class MessageDeduplicator {
   }
 
   /**
-   * Loads processed items from cache
+   * Loads processed items from cache, with automatic migration from legacy formats
    */
   public loadProcessedItems(providerName: string): Set<string> {
     const cacheFile = this.getCacheFilePath(providerName);
@@ -58,7 +61,24 @@ export class MessageDeduplicator {
       this.logger.warn(`Failed to load cache for provider ${providerName}:`, error);
     }
 
-    this.logger.debug(`No valid cache found for provider: ${providerName}, starting fresh`);
+    // If no current cache exists, try to migrate from legacy cache files
+    this.logger.debug(`No current cache found for provider: ${providerName}, checking for legacy cache files to migrate`);
+    
+    const migratedItems = this.migrator.migrateCacheFiles(providerName, this.cacheDir);
+    
+    if (migratedItems.size > 0) {
+      // Validate the migrated data
+      if (this.migrator.validateMigratedData(migratedItems, providerName)) {
+        // Save the migrated data in the new format
+        this.saveProcessedItems(providerName, migratedItems);
+        this.logger.info(`Successfully migrated ${migratedItems.size} processed items for provider: ${providerName}`);
+        return migratedItems;
+      } else {
+        this.logger.warn(`Migration validation failed for provider ${providerName}, starting fresh`);
+      }
+    }
+
+    this.logger.debug(`No valid cache or migration data found for provider: ${providerName}, starting fresh`);
     return new Set<string>();
   }
 

@@ -4,3 +4,4 @@ export { JsonArrayProcessor } from './JsonArrayProcessor';
 export { MessageDeduplicator } from './MessageDeduplicator';
 export { TemplateProcessor } from './TemplateProcessor';
 export { ExecutionScheduler } from './ExecutionScheduler';
+export { CacheMigrator } from './CacheMigrator';
