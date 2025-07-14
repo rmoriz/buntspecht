@@ -37,7 +37,11 @@ describe('MultiJsonCommandProvider', () => {
       './tmp_rovodev_test_cache_cleanup.json',
       './tmp_rovodev_test_cache_cleanup.json.tmp',
       './cache/tmp_rovodev_test_cache.json',
-      './cache/tmp_rovodev_test_cache.json.tmp'
+      './cache/tmp_rovodev_test_cache.json.tmp',
+      // Clean up actual cache files created by the MultiJsonCommandProvider
+      './test-provider_processed.json',
+      './test-provider-cleanup_processed.json',
+      './test-provider-external_processed.json'
     ];
     
     testCacheFiles.forEach(file => {
