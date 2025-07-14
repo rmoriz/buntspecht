@@ -168,7 +168,7 @@ describe('CacheMigrator', () => {
       
       expect(result.size).toBe(0);
       expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to migrate cache file'),
+        expect.stringContaining('Failed to parse legacy cache file'),
         expect.any(Error)
       );
       
