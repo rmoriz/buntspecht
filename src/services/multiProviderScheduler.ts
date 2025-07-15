@@ -416,15 +416,27 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
     
     for (const scheduledProvider of this.scheduledProviders) {
       if (typeof scheduledProvider.provider.warmCache === 'function') {
-        try {
-          this.logger.info(`Warming cache for provider: ${scheduledProvider.name}`);
-          // For providers that are account-aware, we might need to warm cache per account.
-          // For now, we call it once per provider.
-          // If a provider needs per-account warming, it should handle it internally.
-          await scheduledProvider.provider.warmCache();
-        } catch (error) {
-          this.logger.error(`Failed to warm cache for provider "${scheduledProvider.name}":`, error);
-          // Continue with other providers even if one fails
+        this.logger.info(`Warming cache for provider: ${scheduledProvider.name}`);
+        
+        // For providers that are account-aware, warm cache per account
+        if (scheduledProvider.provider.getProviderName() === 'multijsoncommand') {
+          const providerConfig = this.getProviderConfigs().find(p => p.name === scheduledProvider.name);
+          if (providerConfig && providerConfig.accounts) {
+            for (const accountName of providerConfig.accounts) {
+              try {
+                await scheduledProvider.provider.warmCache(accountName);
+              } catch (error) {
+                this.logger.error(`Failed to warm cache for provider "${scheduledProvider.name}" and account "${accountName}":`, error);
+              }
+            }
+          }
+        } else {
+          // For other providers, call warmCache without account name
+          try {
+            await scheduledProvider.provider.warmCache();
+          } catch (error) {
+            this.logger.error(`Failed to warm cache for provider "${scheduledProvider.name}":`, error);
+          }
         }
       } else {
         this.logger.debug(`Provider "${scheduledProvider.name}" does not support cache warming.`);

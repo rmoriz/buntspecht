@@ -121,10 +121,14 @@ export class MultiJsonCommandProvider implements MessageProvider {
     return 'multijsoncommand';
   }
 
+  private getCacheKey(accountName?: string): string {
+    return accountName ? `${this.providerName}:${accountName}` : this.providerName;
+  }
+
   /**
    * Generates a message by executing the command and processing one unprocessed item
    */
-  public async generateMessage(): Promise<string> {
+  public async generateMessage(accountName?: string): Promise<string> {
     if (!this.logger) {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
@@ -132,6 +136,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     const span = this.telemetry?.startSpan('multijson.generate_message', {
       'provider.name': this.providerName,
       'provider.type': 'multijson',
+      'provider.account': accountName || 'default',
     });
 
     try {
@@ -157,8 +162,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
       this.jsonProcessor.validateUniqueKeys(validItems, this.config.uniqueKey!);
 
       // Load processed items from cache
+      const cacheKey = this.getCacheKey(accountName);
       const processedItems = this.config.cache?.enabled !== false ? 
-        this.deduplicator.loadProcessedItems(this.providerName) : new Set<string>();
+        this.deduplicator.loadProcessedItems(cacheKey) : new Set<string>();
 
       // Filter out already processed items
       const { unprocessed, skipped } = this.deduplicator.filterUnprocessedItems(
@@ -168,14 +174,14 @@ export class MultiJsonCommandProvider implements MessageProvider {
       );
 
       if (unprocessed.length === 0) {
-        this.logger.info(`All ${validItems.length} items have been processed already`);
+        this.logger.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
         span?.setStatus({ code: 1 }); // OK
         return '';
       }
 
       // Process the first unprocessed item
       const item = unprocessed[0];
-      this.logger.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items`);
+      this.logger.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items for account: ${accountName || 'default'}`);
       const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
 
       // Create attachment configuration
@@ -201,7 +207,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
         // Mark as processed even if empty to avoid reprocessing
         this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
         if (this.config.cache?.enabled !== false) {
-          this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+          this.deduplicator.saveProcessedItems(cacheKey, processedItems);
         }
         span?.setStatus({ code: 1 }); // OK
         return '';
@@ -210,10 +216,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Mark item as processed and save cache
       this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
       if (this.config.cache?.enabled !== false) {
-        this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+        this.deduplicator.saveProcessedItems(cacheKey, processedItems);
       }
 
-      this.logger.info(`Generated message from item ${uniqueId}: "${messageData.text}"`);
+      this.logger.info(`Generated message from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
       
       span?.setAttributes({
         'multijson.total_items': validItems.length,
@@ -230,7 +236,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider failed: ${errorMessage}`);
+      this.logger?.error(`MultiJsonCommandProvider failed for account ${accountName || 'default'}: ${errorMessage}`);
       
       span?.recordException(error as Error);
       span?.setStatus({ code: 2, message: errorMessage }); // ERROR
@@ -244,7 +250,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   /**
    * Generates a message with attachments by executing the command and processing one unprocessed item
    */
-  public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
+  public async generateMessageWithAttachments(accountName?: string): Promise<MessageWithAttachments> {
     if (!this.logger) {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
@@ -252,6 +258,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     const span = this.telemetry?.startSpan('multijson.generate_message_with_attachments', {
       'provider.name': this.providerName,
       'provider.type': 'multijson',
+      'provider.account': accountName || 'default',
     });
 
     try {
@@ -277,8 +284,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
       this.jsonProcessor.validateUniqueKeys(validItems, this.config.uniqueKey!);
 
       // Load processed items from cache
+      const cacheKey = this.getCacheKey(accountName);
       const processedItems = this.config.cache?.enabled !== false ? 
-        this.deduplicator.loadProcessedItems(this.providerName) : new Set<string>();
+        this.deduplicator.loadProcessedItems(cacheKey) : new Set<string>();
 
       // Filter out already processed items
       const { unprocessed } = this.deduplicator.filterUnprocessedItems(
@@ -288,7 +296,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       );
 
       if (unprocessed.length === 0) {
-        this.logger.info(`All ${validItems.length} items have been processed already`);
+        this.logger.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
         span?.setStatus({ code: 1 }); // OK
         return { text: '', attachments: undefined };
       }
@@ -320,7 +328,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
         // Mark as processed even if empty to avoid reprocessing
         this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
         if (this.config.cache?.enabled !== false) {
-          this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+          this.deduplicator.saveProcessedItems(cacheKey, processedItems);
         }
         span?.setStatus({ code: 1 }); // OK
         return { text: '', attachments: undefined };
@@ -329,10 +337,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Mark item as processed and save cache
       this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
       if (this.config.cache?.enabled !== false) {
-        this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+        this.deduplicator.saveProcessedItems(cacheKey, processedItems);
       }
 
-      this.logger.info(`Generated message with attachments from item ${uniqueId}: "${messageData.text}"`);
+      this.logger.info(`Generated message with attachments from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
       
       span?.setAttributes({
         'multijson.total_items': validItems.length,
@@ -348,7 +356,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider failed: ${errorMessage}`);
+      this.logger?.error(`MultiJsonCommandProvider failed for account ${accountName || 'default'}: ${errorMessage}`);
       
       span?.recordException(error as Error);
       span?.setStatus({ code: 2, message: errorMessage }); // ERROR
@@ -363,16 +371,19 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * Warms up the cache by processing all items from the JSON source and marking them as processed
    * without generating or sending any messages.
    */
-  public async warmCache(): Promise<void> {
+  public async warmCache(accountName?: string): Promise<void> {
     if (!this.logger) {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
 
-    this.logger.info(`Warming cache for provider: ${this.providerName}`);
+    const cacheKey = this.getCacheKey(accountName);
+    this.logger.info(`Warming cache for provider: ${this.providerName}, account: ${accountName || 'default'} (cache key: ${cacheKey})`);
 
     const span = this.telemetry?.startSpan('multijson.warm_cache', {
       'provider.name': this.providerName,
       'provider.type': 'multijson',
+      'provider.account': accountName || 'default',
+      'provider.cache_key': cacheKey,
     });
 
     try {
@@ -399,7 +410,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
       // Load processed items from cache
       const processedItems = this.config.cache?.enabled !== false ? 
-        this.deduplicator.loadProcessedItems(this.providerName) : new Set<string>();
+        this.deduplicator.loadProcessedItems(cacheKey) : new Set<string>();
       
       const initialCacheSize = processedItems.size;
 
@@ -411,11 +422,11 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
       // Save the updated cache
       if (this.config.cache?.enabled !== false) {
-        this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+        this.deduplicator.saveProcessedItems(cacheKey, processedItems);
       }
 
       const newItemsCount = processedItems.size - initialCacheSize;
-      this.logger.info(`Cache warming complete for provider: ${this.providerName}. Added ${newItemsCount} new items to the cache.`);
+      this.logger.info(`Cache warming complete for provider: ${this.providerName}, account: ${accountName || 'default'}. Added ${newItemsCount} new items to the cache.`);
 
       span?.setAttributes({
         'multijson.total_items': validItems.length,
@@ -426,7 +437,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider cache warming failed: ${errorMessage}`);
+      this.logger?.error(`MultiJsonCommandProvider cache warming failed for account ${accountName || 'default'}: ${errorMessage}`);
       
       span?.recordException(error as Error);
       span?.setStatus({ code: 2, message: errorMessage }); // ERROR
