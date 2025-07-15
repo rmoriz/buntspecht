@@ -24,6 +24,7 @@ export function parseCliArguments(): CliOptions {
     .option('--verify', 'verify connection to Mastodon and exit')
     .option('--verify-secrets', 'verify secret resolution without connecting to social media and exit')
     .option('--about', 'show information about Buntspecht and its automated release system')
+    .option('--warm-cache', 'process all items from JSON providers and populate the cache without posting')
     .parse();
 
   const options = program.opts();
@@ -44,5 +45,6 @@ export function parseCliArguments(): CliOptions {
     verify: options.verify,
     verifySecrets: options.verifySecrets,
     about: options.about,
+    warmCache: options.warmCache,
   } as CliOptions;
 }

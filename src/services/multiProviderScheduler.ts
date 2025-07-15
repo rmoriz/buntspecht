@@ -409,6 +409,32 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
   }
 
   /**
+   * Warms the cache for all providers that support it
+   */
+  public async warmCache(): Promise<void> {
+    this.logger.info('Warming cache for all applicable providers...');
+    
+    for (const scheduledProvider of this.scheduledProviders) {
+      if (typeof scheduledProvider.provider.warmCache === 'function') {
+        try {
+          this.logger.info(`Warming cache for provider: ${scheduledProvider.name}`);
+          // For providers that are account-aware, we might need to warm cache per account.
+          // For now, we call it once per provider.
+          // If a provider needs per-account warming, it should handle it internally.
+          await scheduledProvider.provider.warmCache();
+        } catch (error) {
+          this.logger.error(`Failed to warm cache for provider "${scheduledProvider.name}":`, error);
+          // Continue with other providers even if one fails
+        }
+      } else {
+        this.logger.debug(`Provider "${scheduledProvider.name}" does not support cache warming.`);
+      }
+    }
+    
+    this.logger.info('Cache warming process completed for all applicable providers.');
+  }
+
+  /**
    * Returns whether the scheduler is currently running
    */
   public isSchedulerRunning(): boolean {

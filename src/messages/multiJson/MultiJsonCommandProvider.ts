@@ -360,6 +360,84 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
+   * Warms up the cache by processing all items from the JSON source and marking them as processed
+   * without generating or sending any messages.
+   */
+  public async warmCache(): Promise<void> {
+    if (!this.logger) {
+      throw new Error('Logger not set. Call setLogger() before using the provider.');
+    }
+
+    this.logger.info(`Warming cache for provider: ${this.providerName}`);
+
+    const span = this.telemetry?.startSpan('multijson.warm_cache', {
+      'provider.name': this.providerName,
+      'provider.type': 'multijson',
+    });
+
+    try {
+      // Execute command to get JSON data
+      const jsonData = await this.scheduler.executeCommand({
+        command: this.config.command,
+        timeout: this.config.timeout,
+        cwd: this.config.cwd,
+        env: this.config.env,
+        maxBuffer: this.config.maxBuffer,
+      });
+
+      // Process and validate JSON array
+      const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
+      
+      if (validItems.length === 0) {
+        this.logger.info('No valid items found in JSON data, cache warming not needed.');
+        span?.setStatus({ code: 1 }); // OK
+        return;
+      }
+
+      // Validate unique keys
+      this.jsonProcessor.validateUniqueKeys(validItems, this.config.uniqueKey!);
+
+      // Load processed items from cache
+      const processedItems = this.config.cache?.enabled !== false ? 
+        this.deduplicator.loadProcessedItems(this.providerName) : new Set<string>();
+      
+      const initialCacheSize = processedItems.size;
+
+      // Mark all items as processed
+      for (const item of validItems) {
+        const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
+        this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
+      }
+
+      // Save the updated cache
+      if (this.config.cache?.enabled !== false) {
+        this.deduplicator.saveProcessedItems(this.providerName, processedItems);
+      }
+
+      const newItemsCount = processedItems.size - initialCacheSize;
+      this.logger.info(`Cache warming complete for provider: ${this.providerName}. Added ${newItemsCount} new items to the cache.`);
+
+      span?.setAttributes({
+        'multijson.total_items': validItems.length,
+        'multijson.new_items_added': newItemsCount,
+        'multijson.cache_size': processedItems.size,
+      });
+      span?.setStatus({ code: 1 }); // OK
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger?.error(`MultiJsonCommandProvider cache warming failed: ${errorMessage}`);
+      
+      span?.recordException(error as Error);
+      span?.setStatus({ code: 2, message: errorMessage }); // ERROR
+      
+      throw error;
+    } finally {
+      span?.end();
+    }
+  }
+
+  /**
    * Gets provider configuration for debugging
    */
   public getConfig(): MultiJsonCommandProviderConfig {

@@ -99,4 +99,5 @@ export interface CliOptions {
   secretRotationStatus?: boolean;
   checkSecretRotations?: boolean;
   listMonitoredSecrets?: boolean;
+  warmCache?: boolean;
 }

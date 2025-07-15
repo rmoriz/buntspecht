@@ -90,6 +90,11 @@ export async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.warmCache) {
+      await bot.warmCache();
+      return;
+    }
+
     // Start the bot normally
     await bot.start();
 

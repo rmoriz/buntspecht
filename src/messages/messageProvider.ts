@@ -50,6 +50,12 @@ export interface MessageProvider {
    * @param telemetry Optional telemetry service for metrics
    */
   initialize?(logger: Logger, telemetry?: TelemetryService): Promise<void>;
+
+  /**
+   * Optional method to warm up the cache
+   * @param accountName Optional account name for account-aware providers
+   */
+  warmCache?(accountName?: string): Promise<void>;
 }
 
 /**

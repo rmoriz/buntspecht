@@ -108,6 +108,14 @@ export class MastodonPingBot {
   }
 
   /**
+   * Warms the cache for all providers that support it
+   */
+  public async warmCache(): Promise<void> {
+    this.logger.info('Warming cache...');
+    await this.scheduler.warmCache();
+  }
+
+  /**
    * Verifies the connection and displays account info
    */
   public async verify(): Promise<void> {

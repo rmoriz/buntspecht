@@ -146,6 +146,14 @@ export class JsonCommandProvider implements MessageProvider {
 
 
   /**
+   * Warm the cache (not applicable for this provider)
+   */
+  public async warmCache(): Promise<void> {
+    this.logger?.info('Cache warming is not applicable for JsonCommandProvider, but we will run the command once to ensure it works');
+    await this.generateMessage();
+  }
+
+  /**
    * Gets the provider name
    */
   public getProviderName(): string {
