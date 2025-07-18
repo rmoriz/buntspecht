@@ -41,6 +41,7 @@ coverage/
 
 # Temporary code files
 tmp_code*
+tmp_*
 
 # IDE files
 .vscode/
