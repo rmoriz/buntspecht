@@ -132,6 +132,9 @@ export class SecretManager extends BaseService {
       this.rotationDetector.stop();
     }
 
+    // Stop cache cleanup timer
+    this.cache.stopCleanupInterval();
+
     // Cleanup all providers
     for (const provider of this.providers.values()) {
       try {

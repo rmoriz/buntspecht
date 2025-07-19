@@ -261,7 +261,10 @@ export class AWSSecretsProvider implements SecretProvider {
       this.logger.debug(`Reading secret from AWS Secrets Manager: ${secretName}${key ? ` (key: ${key})` : ''} in region ${region}`);
       
       // Create and send the GetSecretValue command
-      const command = new GetSecretValueCommand!({ SecretId: secretName });
+      if (!GetSecretValueCommand) {
+        throw new Error('@aws-sdk/client-secrets-manager package is required but not installed');
+      }
+      const command = new GetSecretValueCommand({ SecretId: secretName });
       const response = await secretsManager.send(command);
       
       if (!response.SecretString) {
@@ -311,7 +314,10 @@ export class AWSSecretsProvider implements SecretProvider {
   }
 
   private createSecretsManagerClient(region: string): InstanceType<typeof import('@aws-sdk/client-secrets-manager').SecretsManagerClient> {
-    const client = new SecretsManagerClient!({
+    if (!SecretsManagerClient) {
+      throw new Error('@aws-sdk/client-secrets-manager package is required but not installed');
+    }
+    const client = new SecretsManagerClient({
       region: region,
       // AWS SDK v3 will automatically use credentials from:
       // 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
@@ -414,9 +420,12 @@ export class AzureKeyVaultProvider implements SecretProvider {
     // 4. Azure PowerShell credentials
     // 5. Visual Studio Code credentials
     // 6. Interactive browser authentication
-    const credential = new DefaultAzureCredential!();
+    if (!DefaultAzureCredential || !SecretClient) {
+      throw new Error('@azure/identity and @azure/keyvault-secrets packages are required but not installed');
+    }
+    const credential = new DefaultAzureCredential();
     
-    const client = new SecretClient!(vaultUrl, credential);
+    const client = new SecretClient(vaultUrl, credential);
 
     this.logger.debug(`Created Azure Key Vault client for vault: ${vaultName}`);
     return client;
@@ -514,12 +523,15 @@ export class GCPSecretManagerProvider implements SecretProvider {
   }
 
   private createSecretManagerClient(): InstanceType<typeof import('@google-cloud/secret-manager').SecretManagerServiceClient> {
+    if (!SecretManagerServiceClient) {
+      throw new Error('@google-cloud/secret-manager package is required but not installed');
+    }
     // Create client using Application Default Credentials (ADC) which tries:
     // 1. GOOGLE_APPLICATION_CREDENTIALS environment variable (service account key file)
     // 2. gcloud user credentials (gcloud auth application-default login)
     // 3. Google Cloud metadata server (if running on GCP)
     // 4. Service account attached to the resource (Compute Engine, App Engine, etc.)
-    const client = new SecretManagerServiceClient!();
+    const client = new SecretManagerServiceClient();
 
     this.logger.debug('Created Google Cloud Secret Manager client');
     return client;

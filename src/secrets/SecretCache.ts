@@ -1,4 +1,4 @@
-import { setInterval } from 'timers';
+import { setInterval, clearInterval } from 'timers';
 import { Logger } from '../utils/logger';
 import { SecretResult, SecretCacheConfig } from './types';
 
@@ -9,6 +9,7 @@ export class SecretCache {
   private cache = new Map<string, CacheEntry>();
   private logger: Logger;
   private config: SecretCacheConfig;
+  private cleanupTimer?: ReturnType<typeof setInterval>;
 
   constructor(config: SecretCacheConfig, logger: Logger) {
     this.config = config;
@@ -187,9 +188,24 @@ export class SecretCache {
   private startCleanupInterval(): void {
     const cleanupInterval = Math.min(this.config.ttl / 4, 60000); // Every quarter TTL or 1 minute, whichever is smaller
     
-    setInterval(() => {
+    this.cleanupTimer = setInterval(() => {
       this.cleanupExpired();
     }, cleanupInterval);
+    
+    // Allow Node.js to exit even if timer is active
+    if (this.cleanupTimer) {
+      this.cleanupTimer.unref();
+    }
+  }
+
+  /**
+   * Stop the cleanup interval timer
+   */
+  public stopCleanupInterval(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
+    }
   }
 
   /**

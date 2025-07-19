@@ -103,10 +103,14 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     return new Promise((resolve, reject) => {
-      this.server!.listen(this.config.port, this.config.host, () => {
+      if (!this.server) {
+        reject(new Error('Server not initialized'));
+        return;
+      }
+      this.server.listen(this.config.port, this.config.host, () => {
         this.isRunning = true;
         // Update config with actual assigned port (important for port: 0)
-        const address = this.server!.address();
+        const address = this.server?.address();
         if (address && typeof address === 'object') {
           this.config.port = address.port;
         }
@@ -114,7 +118,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         resolve();
       });
 
-      this.server!.on('error', (error: Error) => {
+      this.server.on('error', (error: Error) => {
         this.logger.error('Webhook server error:', error);
         reject(error);
       });
@@ -130,11 +134,17 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     return new Promise((resolve) => {
-      this.server!.close(() => {
+      if (this.server) {
+        this.server.close(() => {
+          this.isRunning = false;
+          this.logger.info('Webhook server stopped');
+          resolve();
+        });
+      } else {
         this.isRunning = false;
-        this.logger.info('Webhook server stopped');
+        this.logger.info('Webhook server already stopped');
         resolve();
-      });
+      }
     });
   }
 
@@ -249,7 +259,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
 
       req.on('data', (chunk) => {
         size += chunk.length;
-        if (size > this.config.maxPayloadSize!) {
+        if (size > (this.config.maxPayloadSize || 1024 * 1024)) {
           reject(new ValidationError('Payload too large'));
           return;
         }
