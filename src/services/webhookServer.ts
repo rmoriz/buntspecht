@@ -589,7 +589,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         service: 'buntspecht-webhook-server',
-        version: '0.11.0',
+        version: '0.12.0',
         webhook_enabled: this.config.enabled,
         webhook_path: this.config.path,
         webhook_port: this.config.port
