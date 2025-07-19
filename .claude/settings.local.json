@@ -6,7 +6,10 @@
       "Bash(npm test:*)",
       "Bash(npm run lint)",
       "Bash(npm run build)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
