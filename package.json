@@ -4,6 +4,7 @@
   "description": "A reliable multi-platform social media bot for Mastodon, Bluesky and other platforms with flexible message sources",
   "main": "dist/index.js",
   "scripts": {
+    "prebuild": "node scripts/update-version.js",
     "build": "tsc",
     "build:bun": "bun build src/index.ts --outdir dist --target node",
     "build:binary": "bun build --compile --minify --external @opentelemetry/* --external @opentelemetry/sdk-node --external @opentelemetry/auto-instrumentations-node --external @opentelemetry/exporter-jaeger --external @opentelemetry/exporter-prometheus --external @opentelemetry/resources --external @opentelemetry/semantic-conventions --external @opentelemetry/api --outfile=buntspecht src/index-binary.ts",

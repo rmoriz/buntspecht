@@ -1,6 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { URL } from 'url';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { VERSION } from '../version';
 import { Logger } from '../utils/logger';
 import { MastodonPingBot } from '../bot';
 import type { TelemetryService } from './telemetryInterface';
@@ -589,7 +590,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         service: 'buntspecht-webhook-server',
-        version: '0.12.0',
+        version: VERSION.toString(),
         webhook_enabled: this.config.enabled,
         webhook_path: this.config.path,
         webhook_port: this.config.port
