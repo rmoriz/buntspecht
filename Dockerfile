@@ -57,7 +57,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD bun -e "console.log('Bot is running')" || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Set default command
 CMD ["bun", "run", "dist/index.js"]

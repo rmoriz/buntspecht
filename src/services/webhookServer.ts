@@ -65,6 +65,12 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       hmacHeader: 'X-Hub-Signature-256', // Default HMAC header
       ...config
     };
+
+    // Validate webhook path doesn't conflict with health check endpoint
+    if (configWithDefaults.path === '/health') {
+      throw new Error('Webhook path cannot be "/health" as it conflicts with the health check endpoint');
+    }
+
     super(configWithDefaults, logger, telemetry);
     this.bot = bot;
     this.templateProcessor = new JsonTemplateProcessor(logger);
@@ -145,7 +151,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     try {
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Webhook-Secret, X-Hub-Signature, X-Hub-Signature-256, X-Hub-Signature-512');
 
       // Handle preflight requests
@@ -155,14 +161,21 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         return;
       }
 
-      // Only allow POST requests
+      // Check path
+      const url = new URL(req.url || '', `http://${req.headers.host}`);
+      
+      // Handle health check endpoint
+      if (url.pathname === '/health') {
+        await this.handleHealthCheck(req, res);
+        return;
+      }
+
+      // Only allow POST requests for webhook
       if (req.method !== 'POST') {
         this.sendErrorResponse(res, 405, 'Method not allowed');
         return;
       }
 
-      // Check path
-      const url = new URL(req.url || '', `http://${req.headers.host}`);
       if (url.pathname !== this.config.path) {
         this.sendErrorResponse(res, 404, 'Not found');
         return;
@@ -558,6 +571,36 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
     
     return remoteAddress;
+  }
+
+  /**
+   * Handles health check requests
+   */
+  private async handleHealthCheck(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+      // Allow GET and HEAD requests for health checks
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        this.sendErrorResponse(res, 405, 'Method not allowed');
+        return;
+      }
+
+      const healthResponse = {
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        service: 'buntspecht-webhook-server',
+        version: '0.11.0',
+        webhook_enabled: this.config.enabled,
+        webhook_path: this.config.path,
+        webhook_port: this.config.port
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(healthResponse, null, 2));
+    } catch (error) {
+      this.logger.error('Health check failed:', error);
+      this.sendErrorResponse(res, 500, 'Health check failed');
+    }
   }
 
   /**

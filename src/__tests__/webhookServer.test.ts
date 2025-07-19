@@ -1,10 +1,21 @@
-import { WebhookServer } from '../services/webhookServer';
+import { WebhookServer, WebhookConfig } from '../services/webhookServer';
 
 interface WebhookTestResponse {
   success: boolean;
   provider?: string;
   error?: string;
   [key: string]: unknown;
+}
+
+interface HealthCheckResponse {
+  status: string;
+  timestamp: string;
+  uptime: number;
+  service: string;
+  version: string;
+  webhook_enabled: boolean;
+  webhook_path: string;
+  webhook_port: number;
 }
 import { MastodonPingBot } from '../bot';
 import { Logger } from '../utils/logger';
@@ -266,7 +277,7 @@ describe('WebhookServer', () => {
 
       expect(response.status).toBe(200);
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
-      expect(response.headers.get('Access-Control-Allow-Methods')).toBe('POST, OPTIONS');
+      expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, OPTIONS');
     });
 
     it('should reject invalid JSON', async () => {
@@ -736,6 +747,82 @@ describe('WebhookServer', () => {
       expect(returnedConfig.secret).toBe('custom-secret');
       expect(returnedConfig.maxPayloadSize).toBe(2048);
       expect(returnedConfig.timeout).toBe(60000);
+    });
+
+    it('should throw error if webhook path conflicts with health endpoint', () => {
+      const config: WebhookConfig = {
+        enabled: true,
+        port: 3000,
+        path: '/health' // This should conflict
+      };
+
+      expect(() => {
+        new WebhookServer(config, mockBot, logger, telemetry);
+      }).toThrow('Webhook path cannot be "/health" as it conflicts with the health check endpoint');
+    });
+  });
+
+  describe('health check endpoint', () => {
+    let webhookServer: WebhookServer;
+
+    beforeEach(async () => {
+      const config: WebhookConfig = {
+        enabled: true,
+        port: 0, // Use random port
+        host: 'localhost',
+        path: '/webhook'
+      };
+
+      webhookServer = new WebhookServer(config, mockBot, logger, telemetry);
+      await webhookServer.start();
+    });
+
+    afterEach(async () => {
+      await webhookServer.stop();
+    });
+
+    it('should respond to GET /health with OK status', async () => {
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/health`);
+      
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Content-Type')).toContain('application/json');
+      
+      const data = await response.json() as HealthCheckResponse;
+      expect(data.status).toBe('OK');
+      expect(data.service).toBe('buntspecht-webhook-server');
+      expect(data.version).toBe('0.11.0');
+      expect(data.webhook_enabled).toBe(true);
+      expect(data.webhook_path).toBe('/webhook');
+      expect(typeof data.timestamp).toBe('string');
+      expect(typeof data.uptime).toBe('number');
+    });
+
+    it('should respond to HEAD /health with OK status', async () => {
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/health`, {
+        method: 'HEAD'
+      });
+      
+      expect(response.status).toBe(200);
+    });
+
+    it('should reject POST to /health', async () => {
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/health`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      
+      expect(response.status).toBe(405);
+    });
+
+    it('should reject PUT to /health', async () => {
+      const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/health`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      
+      expect(response.status).toBe(405);
     });
   });
 });

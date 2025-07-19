@@ -686,6 +686,33 @@ maxPayloadSize = 1048576  # 1MB max payload size
 timeout = 30000  # 30 seconds timeout
 ```
 
+### Health Check Endpoint
+
+The webhook server includes a built-in health check endpoint for Docker and monitoring systems.
+
+**Endpoint:** `GET /health`
+
+**Response:**
+```json
+{
+  "status": "OK",
+  "timestamp": "2025-07-19T12:00:00.000Z",
+  "uptime": 3600,
+  "service": "buntspecht-webhook-server",
+  "version": "0.11.0",
+  "webhook_enabled": true,
+  "webhook_path": "/webhook",
+  "webhook_port": 3000
+}
+```
+
+**Usage with Docker:**
+The health check endpoint is automatically used by the Docker container for health monitoring. You can also manually check the health:
+
+```bash
+curl http://localhost:3000/health
+```
+
 ### Webhook API
 
 **Endpoint:** `POST /webhook`
