@@ -437,12 +437,32 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider cache warming failed for account ${accountName || 'default'}: ${errorMessage}`);
       
-      span?.recordException(error as Error);
-      span?.setStatus({ code: 2, message: errorMessage }); // ERROR
+      // Check if this is a common, non-critical error that should not fail cache warming
+      const isNonCriticalError = errorMessage.includes('No such file or directory') ||
+                                errorMessage.includes('ENOENT') ||
+                                errorMessage.includes('Command failed') ||
+                                errorMessage.includes('not found');
       
-      throw error;
+      if (isNonCriticalError) {
+        this.logger?.warn(`Cache warming skipped for provider ${this.providerName}, account ${accountName || 'default'}: ${errorMessage}`);
+        this.logger?.debug(`Non-critical error details for cache warming:`, error);
+        
+        span?.setAttributes({
+          'multijson.cache_warming_skipped': true,
+          'multijson.skip_reason': 'non_critical_error'
+        });
+        span?.setStatus({ code: 1 }); // OK - treat as successful skip
+        return; // Don't throw, just return gracefully
+      } else {
+        // For other errors, log as error but still don't throw to avoid breaking cache warming
+        this.logger?.error(`MultiJsonCommandProvider cache warming failed for account ${accountName || 'default'}: ${errorMessage}`);
+        this.logger?.debug(`Cache warming error details:`, error);
+        
+        span?.recordException(error as Error);
+        span?.setStatus({ code: 2, message: errorMessage }); // ERROR
+        return; // Don't throw, let cache warming continue with other providers
+      }
     } finally {
       span?.end();
     }
