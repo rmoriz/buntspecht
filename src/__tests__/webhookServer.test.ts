@@ -790,7 +790,7 @@ describe('WebhookServer', () => {
       const data = await response.json() as HealthCheckResponse;
       expect(data.status).toBe('OK');
       expect(data.service).toBe('buntspecht-webhook-server');
-      expect(data.version).toBe('0.12.0');
+      expect(data.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(data.webhook_enabled).toBe(true);
       expect(data.webhook_path).toBe('/webhook');
       expect(typeof data.timestamp).toBe('string');

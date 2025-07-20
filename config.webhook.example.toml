@@ -117,7 +117,7 @@ level = "info"
 # For telemetry use Docker or run the bot directly with Bun/Node.js.
 enabled = false
 serviceName = "buntspecht"
-serviceVersion = "0.8.0"
+serviceVersion = "0.13.0"
 
 [telemetry.jaeger]
 enabled = false

@@ -1,6 +1,6 @@
 {
   "name": "buntspecht",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "A reliable multi-platform social media bot for Mastodon, Bluesky and other platforms with flexible message sources",
   "main": "dist/index.js",
   "scripts": {

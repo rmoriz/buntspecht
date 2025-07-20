@@ -27,7 +27,7 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - ⚙️ Flexible configuration via TOML files
 - 🔍 Multiple configuration paths with priority order
 - 📝 **Enhanced logging**: Comprehensive logging with message character counts
-- 🧪 Complete test coverage (300+ tests)
+- 🧪 Complete test coverage (400+ tests)
 - 🐳 Docker support for CI/CD
 - 🛡️ TypeScript for type safety
 - 📡 Modern API integration with masto.js (Mastodon) and @atproto/api (Bluesky)
@@ -699,7 +699,7 @@ The webhook server includes a built-in health check endpoint for Docker and moni
   "timestamp": "2025-07-19T12:00:00.000Z",
   "uptime": 3600,
   "service": "buntspecht-webhook-server",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "webhook_enabled": true,
   "webhook_path": "/webhook",
   "webhook_port": 3000
@@ -1822,7 +1822,7 @@ Buntspecht supports OpenTelemetry for comprehensive monitoring, tracing, and met
 # Enable/disable OpenTelemetry
 enabled = true
 serviceName = "buntspecht"
-serviceVersion = "0.8.0"
+serviceVersion = "0.13.0"
 
 [telemetry.jaeger]
 # Jaeger for Distributed Tracing
