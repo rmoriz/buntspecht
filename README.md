@@ -1109,6 +1109,62 @@ Example post: `"Check out https://example.com #awesome @friend.bsky.social"` bec
 - `#awesome` tagged as hashtag facet
 - `@friend.bsky.social` tagged as mention facet
 
+## Cache Management
+
+### Cache Warming
+
+Buntspecht includes a cache warming feature that allows you to pre-populate caches for JSON-based providers without actually posting messages. This is particularly useful for:
+
+- **Initial setup**: Populate caches when first deploying the bot
+- **Maintenance**: Refresh caches after configuration changes
+- **Testing**: Verify data sources work without posting to social media
+- **Concurrent operation**: Safe to run while the bot is already running
+
+#### How Cache Warming Works
+
+When you run `--warm-cache`, Buntspecht:
+
+1. **Processes all JSON providers**: Executes commands for JsonCommand and MultiJsonCommand providers
+2. **Extracts and caches items**: Identifies unique items and adds them to the cache
+3. **Skips posting**: No messages are sent to social media platforms
+4. **Exits cleanly**: Completes the warming process and exits
+5. **Account-aware**: Warms caches per account for providers that support multiple accounts
+
+#### Usage Examples
+
+```bash
+# Warm caches (Docker)
+docker exec buntspecht bun start --warm-cache
+
+# Warm caches (Binary/Source)
+bun start --warm-cache
+
+# Example output:
+# [INFO] Warming cache for all applicable providers...
+# [INFO] Warming cache for provider: news-feed
+# [INFO] Cache warming complete for provider: news-feed, account: mastodon-main. Added 15 new items to the cache.
+# [INFO] Provider "ping-provider" does not support cache warming.
+# [INFO] Cache warming process completed for all applicable providers.
+```
+
+#### Supported Providers
+
+- ✅ **MultiJsonCommand providers**: Fully supported with account-aware caching
+- ✅ **JsonCommand providers**: Supported (logs that warming is not applicable)
+- ❌ **Push providers**: Not applicable (event-driven, no cache)
+- ❌ **Ping providers**: Not applicable (static messages)
+
+#### Safe Concurrent Operation
+
+Cache warming is designed to be safe to run while Buntspecht is already running:
+
+- **No interference**: Doesn't affect running scheduled tasks
+- **No posting**: Never sends messages to social media
+- **Independent process**: Runs as a separate operation and exits
+- **Shared cache files**: Safely updates the same cache files used by the running bot
+
+This makes it perfect for maintenance scripts, deployment processes, or manual cache refresh operations.
+
 ## Usage
 
 ### Start Bot
@@ -1161,6 +1217,9 @@ docker exec buntspecht bun start --push-provider-status provider-name
 # Show webhook server status and configuration
 docker exec buntspecht bun start --webhook-status
 
+# Warm caches for all providers (safe to run while bot is running)
+docker exec buntspecht bun start --warm-cache
+
 # Trigger a push provider with default message
 docker exec buntspecht bun start --trigger-push provider-name
 
@@ -1197,6 +1256,9 @@ bun start --push-provider-status provider-name
 
 # Show webhook server status and configuration
 bun start --webhook-status
+
+# Warm caches for all providers (safe to run while bot is running)
+bun start --warm-cache
 
 # Trigger a push provider with default message
 bun start --trigger-push provider-name
