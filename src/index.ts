@@ -92,6 +92,8 @@ export async function main(): Promise<void> {
 
     if (cliOptions.warmCache) {
       await bot.warmCache();
+      // Properly shutdown services to allow process to exit
+      await bot.stop();
       return;
     }
 

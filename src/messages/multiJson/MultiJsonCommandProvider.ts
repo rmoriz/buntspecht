@@ -448,9 +448,19 @@ export class MultiJsonCommandProvider implements MessageProvider {
         this.logger?.warn(`Cache warming skipped for provider ${this.providerName}, account ${accountName || 'default'}: ${errorMessage}`);
         this.logger?.debug(`Non-critical error details for cache warming:`, error);
         
+        // Still create/touch the cache file to mark this provider as processed
+        if (this.config.cache?.enabled !== false) {
+          const cacheKey = this.getCacheKey(accountName);
+          const processedItems = this.deduplicator.loadProcessedItems(cacheKey);
+          // Save empty cache to mark provider as processed
+          this.deduplicator.saveProcessedItems(cacheKey, processedItems);
+          this.logger?.debug(`Created empty cache file for provider ${this.providerName}, account ${accountName || 'default'}`);
+        }
+        
         span?.setAttributes({
           'multijson.cache_warming_skipped': true,
-          'multijson.skip_reason': 'non_critical_error'
+          'multijson.skip_reason': 'non_critical_error',
+          'multijson.cache_file_created': true
         });
         span?.setStatus({ code: 1 }); // OK - treat as successful skip
         return; // Don't throw, just return gracefully
