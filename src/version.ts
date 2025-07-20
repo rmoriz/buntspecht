@@ -4,7 +4,7 @@
  */
 export const VERSION = {
   major: 0,
-  minor: 12,
+  minor: 14,
   patch: 0,
   
   toString(): string {
