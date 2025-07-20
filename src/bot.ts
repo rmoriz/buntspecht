@@ -40,8 +40,8 @@ export class MastodonPingBot {
     this.socialMediaClient = new SocialMediaClient(this.config, this.logger, this.telemetry);
     this.scheduler = new MultiProviderScheduler(this.socialMediaClient, this.config, this.logger, this.telemetry);
     
-    // Initialize webhook server if configured
-    if (this.config.webhook?.enabled) {
+    // Initialize webhook server if configured and not in cache warming mode
+    if (this.config.webhook?.enabled && !this.cliOptions.warmCache) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
       // Start webhook server immediately - it should work independently of social media verification
       await this.webhookServer.start();
@@ -51,9 +51,12 @@ export class MastodonPingBot {
 
     // Secret rotation detection is now handled by SecretManager
     
-    const isConnected = await this.socialMediaClient.verifyConnection();
-    if (!isConnected) {
-      throw new Error('Failed to connect to social media accounts. Please check your configuration.');
+    // Skip social media verification for cache warming operations
+    if (!this.cliOptions.warmCache) {
+      const isConnected = await this.socialMediaClient.verifyConnection();
+      if (!isConnected) {
+        throw new Error('Failed to connect to social media accounts. Please check your configuration.');
+      }
     }
 
     // Initialize the scheduler with message provider
