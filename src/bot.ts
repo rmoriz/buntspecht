@@ -40,8 +40,20 @@ export class MastodonPingBot {
     this.socialMediaClient = new SocialMediaClient(this.config, this.logger, this.telemetry);
     this.scheduler = new MultiProviderScheduler(this.socialMediaClient, this.config, this.logger, this.telemetry);
     
-    // Initialize webhook server if configured and not in cache warming mode
-    if (this.config.webhook?.enabled && !this.cliOptions.warmCache) {
+    // Initialize webhook server if configured and not in CLI-only mode
+    const isCliOnlyOperation = this.cliOptions.warmCache || 
+                              this.cliOptions.webhookStatus || 
+                              this.cliOptions.verify || 
+                              this.cliOptions.verifySecrets ||
+                              this.cliOptions.about ||
+                              this.cliOptions.listProviders ||
+                              this.cliOptions.listPushProviders ||
+                              this.cliOptions.pushProviderStatus ||
+                              this.cliOptions.secretRotationStatus ||
+                              this.cliOptions.checkSecretRotations ||
+                              this.cliOptions.listMonitoredSecrets;
+    
+    if (this.config.webhook?.enabled && !isCliOnlyOperation) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
       // Start webhook server immediately - it should work independently of social media verification
       await this.webhookServer.start();
@@ -51,8 +63,19 @@ export class MastodonPingBot {
 
     // Secret rotation detection is now handled by SecretManager
     
-    // Skip social media verification for cache warming operations
-    if (!this.cliOptions.warmCache) {
+    // Skip social media verification for CLI-only operations that don't need it
+    const skipSocialMediaVerification = this.cliOptions.warmCache || 
+                                       this.cliOptions.webhookStatus || 
+                                       this.cliOptions.verifySecrets ||
+                                       this.cliOptions.about ||
+                                       this.cliOptions.listProviders ||
+                                       this.cliOptions.listPushProviders ||
+                                       this.cliOptions.pushProviderStatus ||
+                                       this.cliOptions.secretRotationStatus ||
+                                       this.cliOptions.checkSecretRotations ||
+                                       this.cliOptions.listMonitoredSecrets;
+    
+    if (!skipSocialMediaVerification) {
       const isConnected = await this.socialMediaClient.verifyConnection();
       if (!isConnected) {
         throw new Error('Failed to connect to social media accounts. Please check your configuration.');
