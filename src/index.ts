@@ -14,26 +14,31 @@ export async function main(): Promise<void> {
     if (cliOptions.about) {
       console.log('Buntspecht - A reliable Fediverse bot for automated messages with flexible sources');
       console.log(`Version: ${require('../package.json').version}`);
+      await bot.stop();
       return;
     }
 
     if (cliOptions.verify) {
       await bot.verify();
+      await bot.stop();
       return;
     }
 
     if (cliOptions.verifySecrets) {
       console.log('Secret verification not yet implemented');
+      await bot.stop();
       return;
     }
 
     if (cliOptions.testPost) {
       await bot.testPost();
+      await bot.stop();
       return;
     }
 
     if (cliOptions.testProvider) {
       await bot.testPostFromProvider(cliOptions.testProvider);
+      await bot.stop();
       return;
     }
 
@@ -41,6 +46,7 @@ export async function main(): Promise<void> {
       const providers = bot.getProviderInfo();
       console.log('Configured providers:');
       providers.forEach(p => console.log(`- ${p.name} (${p.type}) - ${p.enabled ? 'enabled' : 'disabled'}`));
+      await bot.stop();
       return;
     }
 
@@ -48,6 +54,7 @@ export async function main(): Promise<void> {
       const pushProviders = bot.getPushProviders();
       console.log('Configured push providers:');
       pushProviders.forEach(p => console.log(`- ${p.name}`));
+      await bot.stop();
       return;
     }
 
@@ -58,28 +65,33 @@ export async function main(): Promise<void> {
       } else {
         console.log(`Push provider ${cliOptions.pushProviderStatus} not found`);
       }
+      await bot.stop();
       return;
     }
 
     if (cliOptions.triggerPush) {
       await bot.triggerPushProvider(cliOptions.triggerPush, cliOptions.triggerPushMessage);
+      await bot.stop();
       return;
     }
 
     if (cliOptions.webhookStatus) {
       const webhookInfo = bot.getWebhookInfo();
       console.log(`Webhook status: ${webhookInfo.enabled ? 'enabled' : 'disabled'}, running: ${webhookInfo.running}`);
+      await bot.stop();
       return;
     }
 
     if (cliOptions.secretRotationStatus) {
       const enabled = bot.isSecretRotationEnabled();
       console.log(`Secret rotation detection: ${enabled ? 'enabled' : 'disabled'}`);
+      await bot.stop();
       return;
     }
 
     if (cliOptions.checkSecretRotations) {
       await bot.checkSecretRotations();
+      await bot.stop();
       return;
     }
 
@@ -87,6 +99,7 @@ export async function main(): Promise<void> {
       const secrets = await bot.getMonitoredSecrets();
       console.log('Monitored secrets:');
       secrets.forEach(s => console.log(`- ${s.accountName}.${s.fieldName}: last checked ${s.lastChecked}`));
+      await bot.stop();
       return;
     }
 
