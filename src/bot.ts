@@ -51,7 +51,11 @@ export class MastodonPingBot {
                               this.cliOptions.pushProviderStatus ||
                               this.cliOptions.secretRotationStatus ||
                               this.cliOptions.checkSecretRotations ||
-                              this.cliOptions.listMonitoredSecrets;
+                              this.cliOptions.listMonitoredSecrets ||
+                              this.cliOptions.testPost ||
+                              this.cliOptions.testProvider ||
+                              this.cliOptions.triggerProvider ||
+                              this.cliOptions.triggerPush;
     
     if (this.config.webhook?.enabled && !isCliOnlyOperation) {
       this.webhookServer = new WebhookServer(this.config.webhook, this, this.logger, this.telemetry);
