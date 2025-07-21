@@ -5,27 +5,81 @@ import { parseCliArguments } from './cli';
 
 export async function main(): Promise<void> {
   const cliOptions = parseCliArguments();
+
+  // Handle simple CLI commands that don't need bot initialization
+  if (cliOptions.about) {
+    console.log('Buntspecht - A reliable Fediverse bot for automated messages with flexible sources');
+    console.log(`Version: ${require('../package.json').version}`);
+    return;
+  }
+
+  if (cliOptions.verifySecrets) {
+    console.log('Secret verification not yet implemented');
+    return;
+  }
+
+  // Handle commands that only need configuration loading (no full bot initialization)
+  if (cliOptions.listProviders || cliOptions.listPushProviders || cliOptions.pushProviderStatus || 
+      cliOptions.webhookStatus || cliOptions.secretRotationStatus) {
+    const bot = new MastodonPingBot(cliOptions);
+    
+    try {
+      await bot.initialize();
+      
+      if (cliOptions.listProviders) {
+        const providers = bot.getProviderInfo();
+        console.log('Configured providers:');
+        providers.forEach(p => console.log(`- ${p.name} (${p.type}) - ${p.enabled ? 'enabled' : 'disabled'}`));
+        await bot.stop();
+        return;
+      }
+
+      if (cliOptions.listPushProviders) {
+        const pushProviders = bot.getPushProviders();
+        console.log('Configured push providers:');
+        pushProviders.forEach(p => console.log(`- ${p.name}`));
+        await bot.stop();
+        return;
+      }
+
+      if (cliOptions.pushProviderStatus) {
+        const provider = bot.getPushProvider(cliOptions.pushProviderStatus);
+        if (provider) {
+          console.log(`Push provider ${cliOptions.pushProviderStatus} status: configured`);
+        } else {
+          console.log(`Push provider ${cliOptions.pushProviderStatus} not found`);
+        }
+        await bot.stop();
+        return;
+      }
+
+      if (cliOptions.webhookStatus) {
+        const webhookInfo = bot.getWebhookInfo();
+        console.log(`Webhook status: ${webhookInfo.enabled ? 'enabled' : 'disabled'}, running: ${webhookInfo.running}`);
+        await bot.stop();
+        return;
+      }
+
+      if (cliOptions.secretRotationStatus) {
+        const enabled = bot.isSecretRotationEnabled();
+        console.log(`Secret rotation detection: ${enabled ? 'enabled' : 'disabled'}`);
+        await bot.stop();
+        return;
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  }
+
+  // Initialize bot for commands that need full functionality
   const bot = new MastodonPingBot(cliOptions);
 
   try {
     await bot.initialize();
 
-    // Handle CLI-only operations
-    if (cliOptions.about) {
-      console.log('Buntspecht - A reliable Fediverse bot for automated messages with flexible sources');
-      console.log(`Version: ${require('../package.json').version}`);
-      await bot.stop();
-      return;
-    }
-
     if (cliOptions.verify) {
       await bot.verify();
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.verifySecrets) {
-      console.log('Secret verification not yet implemented');
       await bot.stop();
       return;
     }
@@ -42,32 +96,6 @@ export async function main(): Promise<void> {
       return;
     }
 
-    if (cliOptions.listProviders) {
-      const providers = bot.getProviderInfo();
-      console.log('Configured providers:');
-      providers.forEach(p => console.log(`- ${p.name} (${p.type}) - ${p.enabled ? 'enabled' : 'disabled'}`));
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.listPushProviders) {
-      const pushProviders = bot.getPushProviders();
-      console.log('Configured push providers:');
-      pushProviders.forEach(p => console.log(`- ${p.name}`));
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.pushProviderStatus) {
-      const provider = bot.getPushProvider(cliOptions.pushProviderStatus);
-      if (provider) {
-        console.log(`Push provider ${cliOptions.pushProviderStatus} status: configured`);
-      } else {
-        console.log(`Push provider ${cliOptions.pushProviderStatus} not found`);
-      }
-      await bot.stop();
-      return;
-    }
 
     if (cliOptions.triggerPush) {
       await bot.triggerPushProvider(cliOptions.triggerPush, cliOptions.triggerPushMessage);
@@ -75,19 +103,6 @@ export async function main(): Promise<void> {
       return;
     }
 
-    if (cliOptions.webhookStatus) {
-      const webhookInfo = bot.getWebhookInfo();
-      console.log(`Webhook status: ${webhookInfo.enabled ? 'enabled' : 'disabled'}, running: ${webhookInfo.running}`);
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.secretRotationStatus) {
-      const enabled = bot.isSecretRotationEnabled();
-      console.log(`Secret rotation detection: ${enabled ? 'enabled' : 'disabled'}`);
-      await bot.stop();
-      return;
-    }
 
     if (cliOptions.checkSecretRotations) {
       await bot.checkSecretRotations();
