@@ -25,6 +25,7 @@ export function parseCliArguments(): CliOptions {
     .option('--verify-secrets', 'verify secret resolution without connecting to social media and exit')
     .option('--about', 'show information about Buntspecht and its automated release system')
     .option('--warm-cache', 'process all items from JSON providers and populate the cache without posting')
+    .option('--trigger-provider <n>', 'immediately execute a specific provider (ignores cron schedule) and exit')
     .parse();
 
   const options = program.opts();
