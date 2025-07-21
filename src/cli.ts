@@ -33,6 +33,7 @@ export function parseCliArguments(): CliOptions {
     config: options.config,
     testPost: options.testPost,
     testProvider: options.testProvider,
+    triggerProvider: options.triggerProvider,
     listProviders: options.listProviders,
     listPushProviders: options.listPushProviders,
     pushProviderStatus: options.pushProviderStatus,

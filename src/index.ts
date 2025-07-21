@@ -96,6 +96,12 @@ export async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.triggerProvider) {
+      await bot.testPostFromProvider(cliOptions.triggerProvider);
+      await bot.stop();
+      return;
+    }
+
 
     if (cliOptions.triggerPush) {
       await bot.triggerPushProvider(cliOptions.triggerPush, cliOptions.triggerPushMessage);

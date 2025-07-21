@@ -87,6 +87,7 @@ export interface CliOptions {
   config?: string;
   testPost?: boolean;
   testProvider?: string;
+  triggerProvider?: string;
   listProviders?: boolean;
   verify?: boolean;
   verifySecrets?: boolean;
