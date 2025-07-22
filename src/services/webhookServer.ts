@@ -24,14 +24,15 @@ export interface WebhookConfig {
 }
 
 export interface WebhookRequest {
-  provider: string;
+  provider: string; // Will be auto-detected from URL path if not provided
   message?: string;
   accounts?: string[];
   visibility?: 'public' | 'unlisted' | 'private' | 'direct';
   metadata?: Record<string, unknown>;
   // JSON workflow support
   json?: unknown; // JSON data for template processing
-  template?: string; // Template to apply to JSON data
+  template?: string; // Template to apply to JSON data (overrides config template)
+  templateName?: string; // Named template from provider config (e.g., "github.push")
   // Multi-JSON workflow support
   uniqueKey?: string; // Unique key for multi-JSON iteration (default: "id")
   // Attachment support
@@ -187,7 +188,9 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         return;
       }
 
-      if (url.pathname !== this.config.path) {
+      // Check if this is the main webhook path or a provider-specific path
+      const { isValidPath, providerName } = this.validateWebhookPath(url.pathname);
+      if (!isValidPath) {
         this.sendErrorResponse(res, 404, 'Not found');
         return;
       }
@@ -204,7 +207,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
 
       // Parse request body and get raw body for HMAC validation
       const { body, rawBody } = await this.parseRequestBody(req);
-      const webhookRequest = this.validateWebhookRequest(body);
+      const webhookRequest = this.validateWebhookRequest(body, providerName);
 
       // Verify authentication (HMAC signature or simple secret)
       if (!this.validateWebhookAuth(webhookRequest.provider, req, rawBody)) {
@@ -280,9 +283,35 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
   }
 
   /**
+   * Validates webhook path and returns provider name if found
+   */
+  private validateWebhookPath(pathname: string): { isValidPath: boolean; providerName?: string } {
+    // Check main webhook path
+    if (pathname === this.config.path) {
+      return { isValidPath: true };
+    }
+
+    // Check provider-specific paths
+    try {
+      const botConfig = this.bot.getConfig();
+      for (const providerConfig of botConfig.bot.providers) {
+        if (providerConfig.webhookPath && pathname === providerConfig.webhookPath) {
+          this.logger.debug(`Matched provider-specific webhook path: ${pathname} -> ${providerConfig.name}`);
+          return { isValidPath: true, providerName: providerConfig.name };
+        }
+      }
+    } catch (error) {
+      // If bot config is not available (e.g., in tests), just check main path
+      this.logger.debug('Bot config not available for provider path validation');
+    }
+
+    return { isValidPath: false };
+  }
+
+  /**
    * Validates the webhook request
    */
-  private validateWebhookRequest(body: unknown): WebhookRequest {
+  private validateWebhookRequest(body: unknown, autoDetectedProvider?: string): WebhookRequest {
     if (!body || typeof body !== 'object') {
       throw new ValidationError('Request body must be a JSON object');
     }
@@ -290,8 +319,20 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     // Type assertion after validation
     const bodyObj = body as Record<string, unknown>;
 
-    if (!bodyObj.provider || typeof bodyObj.provider !== 'string') {
-      throw new ValidationError('Provider name is required and must be a string');
+    // Provider can be auto-detected from URL path or explicitly provided in JSON
+    let providerName: string;
+    if (autoDetectedProvider) {
+      // Provider detected from URL path - JSON provider field is optional
+      providerName = autoDetectedProvider;
+      if (bodyObj.provider && typeof bodyObj.provider === 'string' && bodyObj.provider !== autoDetectedProvider) {
+        this.logger.warn(`Provider mismatch: URL suggests "${autoDetectedProvider}" but JSON contains "${bodyObj.provider}". Using URL provider.`);
+      }
+    } else {
+      // No auto-detection - provider must be in JSON
+      if (!bodyObj.provider || typeof bodyObj.provider !== 'string') {
+        throw new ValidationError('Provider name is required and must be a string when using the main webhook path');
+      }
+      providerName = bodyObj.provider;
     }
 
     // Basic field type validation
@@ -333,6 +374,10 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     // Validate JSON workflow fields
+    if (bodyObj.templateName && typeof bodyObj.templateName !== 'string') {
+      throw new ValidationError('templateName must be a string');
+    }
+
     if (bodyObj.uniqueKey && typeof bodyObj.uniqueKey !== 'string') {
       throw new ValidationError('uniqueKey must be a string');
     }
@@ -358,7 +403,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     return {
-      provider: bodyObj.provider as string,
+      provider: providerName,
       message: bodyObj.message as string | undefined,
       accounts: bodyObj.accounts as string[] | undefined,
       visibility: bodyObj.visibility as 'public' | 'unlisted' | 'private' | 'direct' | undefined,
@@ -366,6 +411,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       // JSON workflow fields
       json: bodyObj.json,
       template: bodyObj.template as string | undefined,
+      templateName: bodyObj.templateName as string | undefined,
       uniqueKey: bodyObj.uniqueKey as string | undefined,
       // Attachment fields
       attachmentsKey: bodyObj.attachmentsKey as string | undefined,
@@ -389,12 +435,23 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
 
     let processedMessages: MessageWithAttachments[] = [];
 
-    // Process JSON workflow if provided
-    if (request.json && request.template) {
-      processedMessages = await this.processJsonWorkflow(request);
+    // Process JSON workflow if provided, or if we have JSON data and a template in config
+    if (request.json) {
+      // Try to resolve template from config if not provided
+      const template = this.resolveTemplate(request);
+      if (template) {
+        processedMessages = await this.processJsonWorkflow(request);
+      } else if (request.message) {
+        // Fallback to simple message if no template found
+        processedMessages = [{ text: request.message, attachments: undefined }];
+      } else {
+        throw new ValidationError(`No template found for provider "${request.provider}" and no message provided. Configure a template in the provider config or provide a template/message in the request.`);
+      }
+    } else if (request.message) {
+      // Traditional message workflow
+      processedMessages = [{ text: request.message, attachments: undefined }];
     } else {
-      // Traditional message workflow (allow undefined message for backward compatibility)
-      processedMessages = [{ text: request.message || '', attachments: undefined }];
+      throw new ValidationError('Either JSON data with template or a message is required');
     }
 
     // Process each message (for multi-JSON support)
@@ -632,8 +689,14 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
    * Processes JSON workflow (single object or array)
    */
   private async processJsonWorkflow(request: WebhookRequest): Promise<MessageWithAttachments[]> {
-    if (!request.json || !request.template) {
-      throw new ValidationError('JSON data and template are required for JSON workflow');
+    if (!request.json) {
+      throw new ValidationError('JSON data is required for JSON workflow');
+    }
+
+    // Resolve template from various sources
+    const template = this.resolveTemplate(request);
+    if (!template) {
+      throw new ValidationError('Template is required for JSON workflow. Provide template, templateName, or configure a default template for the provider.');
     }
 
     const messages: MessageWithAttachments[] = [];
@@ -654,7 +717,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         const uniqueId = String(jsonObj[uniqueKey] || i);
         
         try {
-          const message = this.templateProcessor.applyTemplate(request.template, jsonObj);
+          const message = this.templateProcessor.applyTemplate(template, jsonObj);
           const attachmentConfig: AttachmentConfig = {
             attachmentsKey: request.attachmentsKey,
             attachmentDataKey: request.attachmentDataKey,
@@ -684,7 +747,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       const jsonObj = request.json as Record<string, unknown>;
       
       try {
-        const message = this.templateProcessor.applyTemplate(request.template, jsonObj);
+        const message = this.templateProcessor.applyTemplate(template, jsonObj);
         const attachmentConfig: AttachmentConfig = {
           attachmentsKey: request.attachmentsKey,
           attachmentDataKey: request.attachmentDataKey,
@@ -717,6 +780,56 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     return messages;
+  }
+
+  /**
+   * Resolves template from various sources in priority order:
+   * 1. Explicit template in request (highest priority)
+   * 2. Named template from provider config
+   * 3. Default template from provider config
+   */
+  private resolveTemplate(request: WebhookRequest): string | null {
+    // 1. Explicit template in request (overrides everything)
+    if (request.template) {
+      this.logger.debug(`Using explicit template from request for provider: ${request.provider}`);
+      return request.template;
+    }
+
+    // Get provider configuration
+    const providerInfo = this.bot.getProviderInfo().find(p => p.name === request.provider);
+    if (!providerInfo) {
+      this.logger.warn(`Provider "${request.provider}" not found in configuration`);
+      return null;
+    }
+
+    // Get provider config from bot (we need access to the full config)
+    const botConfig = this.bot.getConfig();
+    const providerConfig = botConfig.bot.providers.find(p => p.name === request.provider);
+    if (!providerConfig) {
+      this.logger.warn(`Provider configuration not found for: ${request.provider}`);
+      return null;
+    }
+
+    // 2. Named template from provider config
+    if (request.templateName && providerConfig.templates) {
+      const namedTemplate = providerConfig.templates[request.templateName];
+      if (namedTemplate) {
+        this.logger.debug(`Using named template "${request.templateName}" from provider config for: ${request.provider}`);
+        return namedTemplate;
+      } else {
+        this.logger.warn(`Named template "${request.templateName}" not found in provider "${request.provider}" config`);
+      }
+    }
+
+    // 3. Default template from provider config
+    if (providerConfig.template) {
+      this.logger.debug(`Using default template from provider config for: ${request.provider}`);
+      return providerConfig.template;
+    }
+
+    // No template found
+    this.logger.debug(`No template found for provider: ${request.provider}`);
+    return null;
   }
 
 }

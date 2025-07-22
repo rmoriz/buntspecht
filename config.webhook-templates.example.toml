@@ -1,0 +1,113 @@
+# Buntspecht Configuration - Webhook Templates in Config
+# This example shows how to define templates in the provider configuration
+# so webhooks only need to send JSON data
+
+[logging]
+level = "info"
+
+[webhook]
+enabled = true
+port = 8080
+host = "0.0.0.0"
+path = "/webhook"
+
+# Account configurations
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-token"
+
+[[accounts]]
+name = "bluesky-main"
+type = "bluesky"
+identifier = "your-handle.bsky.social"
+password = "your-app-password"
+
+# GitHub Integration with multiple templates
+[bot]
+[[bot.providers]]
+name = "github-events"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "unlisted"
+# Default template (used when no templateName is specified)
+template = "🔔 GitHub event: {{action}} in {{repository.name}}"
+
+# Named templates for specific event types
+[bot.providers.templates]
+"push" = "🚀 Push to {{repository.name}} by {{pusher.name}}: {{commits.0.message}} ({{compare}})"
+"pull_request.opened" = "🔧 New PR in {{repository.name}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}} {{pull_request.html_url}}"
+"pull_request.closed" = "{{#if pull_request.merged}}✅ PR merged{{else}}❌ PR closed{{/if}} in {{repository.name}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}}"
+"issues.opened" = "🐛 New issue in {{repository.name}}: \"{{issue.title}}\" by @{{issue.user.login}} {{issue.html_url}}"
+"release.published" = "🎉 New release {{release.tag_name}} published in {{repository.name}}: {{release.name}} {{release.html_url}}"
+
+[bot.providers.config]
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Hub-Signature-256"
+
+# GitLab CI Integration
+[[bot.providers]]
+name = "gitlab-ci"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# Default template for all GitLab events
+template = "🦊 GitLab {{object_kind}} in {{project.name}}: {{#if pipeline}}{{pipeline.status}}{{else}}{{object_attributes.state}}{{/if}}"
+
+# Named templates for specific GitLab events
+[bot.providers.templates]
+"pipeline.success" = "✅ Pipeline succeeded in {{project.name}} ({{pipeline.duration}}s) {{pipeline.web_url}}"
+"pipeline.failed" = "❌ Pipeline failed in {{project.name}} ({{pipeline.duration}}s) {{pipeline.web_url}}"
+"merge_request.opened" = "🔀 New MR in {{project.name}}: \"{{object_attributes.title}}\" by @{{user.username}}"
+"merge_request.merged" = "✅ MR merged in {{project.name}}: \"{{object_attributes.title}}\" by @{{user.username}}"
+
+[bot.providers.config]
+hmacSecret = "gitlab-webhook-secret"
+hmacHeader = "X-Gitlab-Token"
+
+# Docker Hub Integration
+[[bot.providers]]
+name = "dockerhub-builds"
+type = "push"
+accounts = ["mastodon-main"]
+# Simple default template
+template = "🐳 Docker build {{state}} for {{repository.repo_name}}:{{push_data.tag}}"
+
+[bot.providers.config]
+webhookSecret = "dockerhub-secret"
+
+# Custom Service with Complex Templates
+[[bot.providers]]
+name = "monitoring-alerts"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# Default alert template
+template = "🚨 {{alert.severity}} alert: {{alert.summary}}"
+
+# Named templates for different alert types
+[bot.providers.templates]
+"cpu.high" = "⚡ High CPU usage on {{host}}: {{value}}% (threshold: {{threshold}}%)"
+"memory.high" = "💾 High memory usage on {{host}}: {{value}}% (threshold: {{threshold}}%)"
+"disk.full" = "💽 Disk space critical on {{host}}: {{value}}% full ({{path}})"
+"service.down" = "🔴 Service {{service}} is down on {{host}} (duration: {{duration}})"
+"service.up" = "🟢 Service {{service}} is back up on {{host}}"
+
+[bot.providers.config]
+hmacSecret = "monitoring-secret"
+hmacAlgorithm = "sha512"
+hmacHeader = "X-Monitor-Signature"
+
+# News Feed with Array Processing
+[[bot.providers]]
+name = "news-feed"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "public"
+# Template for processing news arrays
+template = "📰 {{title}} by {{author}} {{#if url}}{{url}}{{/if}}"
+
+[bot.providers.config]
+webhookSecret = "news-feed-secret"

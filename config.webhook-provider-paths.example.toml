@@ -1,0 +1,134 @@
+# Buntspecht Configuration - Provider-specific Webhook Paths
+# This example shows how to configure custom webhook paths for each provider
+# External services can send directly to /webhook/github, /webhook/gitlab, etc.
+
+[logging]
+level = "info"
+
+# Main webhook configuration
+[webhook]
+enabled = true
+port = 8080
+host = "0.0.0.0"
+path = "/webhook"  # Main webhook path (still works for explicit provider in JSON)
+
+# Account configurations
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-token"
+
+[[accounts]]
+name = "bluesky-main"
+type = "bluesky"
+identifier = "your-handle.bsky.social"
+password = "your-app-password"
+
+# GitHub Integration with custom webhook path
+[bot]
+[[bot.providers]]
+name = "github-events"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "unlisted"
+# Custom webhook path - GitHub can send directly to this URL
+webhookPath = "/webhook/github"
+# Default template for all GitHub events
+template = "🔔 GitHub {{action}} in {{repository.name}}"
+
+# Named templates for specific GitHub events
+[bot.providers.templates]
+"push" = "🚀 {{head_commit.author.name}} pushed to {{repository.name}}/{{ref}}: {{head_commit.message}}"
+"pull_request" = "🔧 PR {{action}} in {{repository.name}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}}"
+"issues" = "🐛 Issue {{action}} in {{repository.name}}: \"{{issue.title}}\" by @{{issue.user.login}}"
+"release" = "🎉 Release {{action}} in {{repository.name}}: {{release.tag_name}} - {{release.name}}"
+
+[bot.providers.config]
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Hub-Signature-256"
+
+# GitLab Integration with custom webhook path
+[[bot.providers]]
+name = "gitlab-ci"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# Custom webhook path - GitLab can send directly to this URL
+webhookPath = "/webhook/gitlab"
+# Default template for GitLab events
+template = "🦊 GitLab {{object_kind}} in {{project.name}}: {{#if pipeline}}{{pipeline.status}}{{else}}{{object_attributes.state}}{{/if}}"
+
+# Named templates for GitLab events
+[bot.providers.templates]
+"Pipeline Hook" = "{{#if (eq pipeline.status \"success\")}}✅{{else if (eq pipeline.status \"failed\")}}❌{{else}}🔄{{/if}} Pipeline {{pipeline.status}} in {{project.name}} ({{pipeline.duration}}s)"
+"Merge Request Hook" = "🔀 MR {{object_attributes.action}} in {{project.name}}: \"{{object_attributes.title}}\" by @{{user.username}}"
+"Push Hook" = "📤 Push to {{project.name}}/{{ref}} by {{user_name}}: {{commits.0.message}}"
+
+[bot.providers.config]
+hmacSecret = "gitlab-webhook-secret"
+hmacHeader = "X-Gitlab-Token"
+
+# Docker Hub Integration
+[[bot.providers]]
+name = "dockerhub-builds"
+type = "push"
+accounts = ["mastodon-main"]
+# Custom webhook path for Docker Hub
+webhookPath = "/webhook/dockerhub"
+# Template for Docker Hub webhooks
+template = "🐳 Docker build {{state}} for {{repository.repo_name}}:{{push_data.tag}}"
+
+[bot.providers.config]
+webhookSecret = "dockerhub-secret"
+
+# Monitoring System with custom path
+[[bot.providers]]
+name = "monitoring-alerts"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# Custom webhook path for monitoring system
+webhookPath = "/webhook/monitoring"
+# Default alert template
+template = "🚨 {{severity}} alert on {{hostname}}: {{message}}"
+
+# Named templates for different alert types
+[bot.providers.templates]
+"cpu_alert" = "⚡ CPU usage {{value}}% on {{hostname}} (threshold: {{threshold}}%)"
+"memory_alert" = "💾 Memory usage {{value}}% on {{hostname}} (threshold: {{threshold}}%)"
+"disk_alert" = "💽 Disk {{value}}% full on {{hostname}} ({{mount_point}})"
+"service_alert" = "{{#if (eq status \"down\")}}🔴{{else}}🟢{{/if}} Service {{service_name}} {{status}} on {{hostname}}"
+
+[bot.providers.config]
+hmacSecret = "monitoring-secret"
+hmacAlgorithm = "sha512"
+hmacHeader = "X-Monitor-Signature"
+
+# News Feed with custom path
+[[bot.providers]]
+name = "news-aggregator"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "public"
+# Custom webhook path for news aggregator
+webhookPath = "/webhook/news"
+# Template for news items
+template = "📰 {{title}} by {{author}}{{#if url}} {{url}}{{/if}}"
+
+[bot.providers.config]
+webhookSecret = "news-secret"
+
+# CI/CD System (Jenkins, etc.)
+[[bot.providers]]
+name = "jenkins-builds"
+type = "push"
+accounts = ["mastodon-main"]
+# Custom webhook path for Jenkins
+webhookPath = "/webhook/jenkins"
+# Template for build notifications
+template = "🏗️ Build {{#if (eq build.phase \"COMPLETED\")}}{{#if (eq build.status \"SUCCESS\")}}✅ succeeded{{else}}❌ failed{{/if}}{{else}}🔄 {{build.phase}}{{/if}} for {{name}} #{{build.number}}"
+
+[bot.providers.config]
+webhookSecret = "jenkins-secret"

@@ -23,6 +23,11 @@ export interface ProviderConfig {
   accounts: string[]; // Array of account names to post to
   visibility?: 'public' | 'unlisted' | 'private' | 'direct';
   config: { [key: string]: unknown };
+  // Template configuration for push providers
+  template?: string; // Default template for JSON processing
+  templates?: { [key: string]: string }; // Named templates (e.g., "github.push", "gitlab.pipeline")
+  // Webhook configuration for push providers
+  webhookPath?: string; // Custom webhook path for this provider (e.g., "/webhook/github")
 }
 
 export interface TelemetryConfig {

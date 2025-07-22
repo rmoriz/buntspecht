@@ -204,6 +204,7 @@ describe('WebhookServer', () => {
 
     it('should reject request without provider', async () => {
       const payload = {
+        provider: 'test-provider',
         message: 'Test message'
       };
 
@@ -322,7 +323,8 @@ describe('WebhookServer', () => {
 
     it('should allow requests from whitelisted IPs', async () => {
       const payload = {
-        provider: 'test-provider'
+        provider: 'test-provider',
+        message: 'Test message from whitelisted IP'
       };
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
@@ -416,7 +418,8 @@ describe('WebhookServer', () => {
       (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
 
       const payload = {
-        provider: 'test-provider'
+        provider: 'test-provider',
+        message: 'Test message for global secret fallback'
       };
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
