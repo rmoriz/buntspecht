@@ -661,7 +661,12 @@ async function handleWebhook(req, res) {
 
 ## Webhook Integration
 
-Buntspecht includes a built-in webhook server that allows external systems to trigger push providers via HTTP requests. This enables real-time notifications from monitoring systems, CI/CD pipelines, GitHub, and other services.
+Buntspecht includes a built-in webhook server with **two distinct webhook types** for different use cases:
+
+1. **Provider-specific webhooks** (`/webhook/provider-name`) - For external services like GitHub, GitLab, Twitch
+2. **Generic webhook** (`/webhook`) - For manual notifications and flexible integrations
+
+This enables real-time notifications from monitoring systems, CI/CD pipelines, GitHub, and other services with enhanced security and flexibility.
 
 ### Webhook Configuration
 
@@ -746,10 +751,17 @@ curl http://localhost:3000/health
 
 #### Basic Webhook Call
 ```bash
+# Generic webhook - specify provider in JSON
 curl -X POST http://localhost:3000/webhook \
   -H "Content-Type: application/json" \
   -H "X-Webhook-Secret: your-webhook-secret-here" \
   -d '{"provider": "webhook-alerts", "message": "Test alert message"}'
+
+# Provider-specific webhook - provider determined by URL path
+curl -X POST http://localhost:3000/webhook/github \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: sha256=calculated_signature" \
+  -d '{"action": "opened", "repository": {"name": "my-repo"}}'
 ```
 
 #### GitHub Webhook Integration
@@ -801,23 +813,39 @@ curl -X POST http://localhost:3000/webhook \
 - **Rate Limiting**: Consider implementing rate limiting at the reverse proxy level
 - **Payload Validation**: All requests are validated for proper JSON format and required fields
 
-#### Provider-Specific Webhook Secrets
+#### Two Webhook Types
 
-Each push provider can have its own webhook secret for enhanced security isolation:
+**1. Provider-Specific Webhooks** - For external services:
 
 ```toml
-# Provider with specific webhook secret
+# GitHub integration with provider-specific webhook
+[[bot.providers]]
+name = "github-events"
+type = "push"
+accounts = ["mastodon-main"]
+# Custom webhook path - GitHub sends directly here
+webhookPath = "/webhook/github"
+# Template applied automatically to incoming JSON
+template = "🔔 GitHub {{action}} in {{repository.name}}"
+
+[bot.providers.config]
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Hub-Signature-256"
+```
+
+**2. Generic Webhook** - For flexible usage:
+
+```toml
+# Manual notifications via generic webhook
 [[bot.providers]]
 name = "monitoring-alerts"
 type = "push"
-enabled = true
 accounts = ["alerts-account"]
+# No webhookPath - only accessible via generic webhook
 
 [bot.providers.config]
-defaultMessage = "Monitoring alert"
-allowExternalMessages = true
-maxMessageLength = 500
-webhookSecret = "monitoring-specific-secret-123"  # Provider-specific secret
+webhookSecret = "monitoring-specific-secret-123"
 ```
 
 **Benefits of Provider-Specific Secrets:**
