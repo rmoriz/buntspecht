@@ -360,8 +360,14 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       }
       
       // For provider-specific webhooks, JSON data is required (no simple message workflow)
-      if (!bodyObj.json) {
+      // The JSON data can be either in a 'json' field or the entire body can be the JSON data
+      if (!bodyObj.json && !this.isValidJsonData(bodyObj)) {
         throw new ValidationError(`Provider-specific webhook requires JSON data. Use the generic webhook path ${this.config.path} for simple message workflows.`);
+      }
+      
+      // If the entire body is JSON data (not wrapped in a 'json' field), use it directly
+      if (!bodyObj.json && this.isValidJsonData(bodyObj)) {
+        bodyObj.json = bodyObj;
       }
     } else {
       // Generic webhook: provider must be specified in JSON
@@ -906,6 +912,21 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
     
     return sanitized;
+  }
+
+  /**
+   * Checks if the provided object contains valid JSON data for processing
+   * (i.e., it's not just a simple message or provider field)
+   */
+  private isValidJsonData(obj: Record<string, unknown>): boolean {
+    // If it only contains 'provider' and/or 'message', it's not valid JSON data
+    const keys = Object.keys(obj);
+    const systemFields = ['provider', 'message', 'accounts', 'visibility', 'template', 'templateName', 'uniqueKey', 'attachmentsKey', 'attachmentDataKey', 'attachmentMimeTypeKey', 'attachmentFilenameKey', 'attachmentDescriptionKey'];
+    
+    // Check if there are any keys that are not system fields
+    const hasDataFields = keys.some(key => !systemFields.includes(key));
+    
+    return hasDataFields;
   }
 
 }
