@@ -54,7 +54,7 @@ export class JsonTemplateProcessor {
       
       // Apply function if specified
       if (functionCall) {
-        result = this.applyTemplateFunction(result, functionCall, path);
+        result = this.applyTemplateFunction(value, functionCall, path);
       }
       
       return result;
@@ -63,9 +63,9 @@ export class JsonTemplateProcessor {
 
   /**
    * Applies a template function to a value
-   * Currently supports: trim:length
+   * Currently supports: trim:length, join:separator
    */
-  private applyTemplateFunction(value: string, functionCall: string, variablePath: string): string {
+  private applyTemplateFunction(value: unknown, functionCall: string, variablePath: string): string {
     const colonIndex = functionCall.indexOf(':');
     let functionName: string;
     let functionArgs: string[] = [];
@@ -73,26 +73,26 @@ export class JsonTemplateProcessor {
     if (colonIndex !== -1) {
       functionName = functionCall.substring(0, colonIndex).trim();
       const argsString = functionCall.substring(colonIndex + 1);
-      // Split by comma but preserve commas within the suffix argument
-      const firstCommaIndex = argsString.indexOf(',');
-      if (firstCommaIndex !== -1) {
-        functionArgs = [
-          argsString.substring(0, firstCommaIndex).trim(),
-          argsString.substring(firstCommaIndex + 1).trim()
-        ];
-      } else {
-        functionArgs = [argsString.trim()];
-      }
+      // Split by comma but preserve spaces in arguments (don't trim them all)
+      functionArgs = argsString.split(',').map((arg, index) => {
+        // For join function, preserve spaces in the first argument (separator)
+        if (functionName === 'join' && index === 0) {
+          return arg; // Don't trim the separator
+        }
+        return arg.trim();
+      });
     } else {
       functionName = functionCall.trim();
     }
     
     switch (functionName) {
       case 'trim':
-        return this.trimFunction(value, functionArgs, variablePath);
+        return this.trimFunction(String(value), functionArgs, variablePath);
+      case 'join':
+        return this.joinFunction(value, functionArgs, variablePath);
       default:
         this.logger.warn(`Unknown template function "${functionName}" for variable "${variablePath}"`);
-        return value; // Return original value if function is unknown
+        return String(value); // Return original value if function is unknown
     }
   }
 
@@ -136,6 +136,34 @@ export class JsonTemplateProcessor {
     }
     
     return value.substring(0, effectiveMaxLength) + suffix;
+  }
+
+  /**
+   * Joins an array with a separator and optional prefix for each element
+   * Usage: {{tags|join: }} or {{tags|join: ,#}} or {{tags|join:#,#}}
+   * Args: [separator, prefix?]
+   */
+  private joinFunction(value: unknown, args: string[], variablePath: string): string {
+    if (!Array.isArray(value)) {
+      this.logger.warn(`join function can only be applied to arrays, but variable "${variablePath}" is not an array`);
+      return String(value);
+    }
+
+    if (args.length === 0) {
+      this.logger.warn(`join function requires at least one argument (separator) for variable "${variablePath}"`);
+      return value.join('');
+    }
+
+    const separator = args[0] || '';
+    const prefix = args.length > 1 ? args[1] : '';
+
+    // Convert array elements to strings and add prefix if specified
+    const processedElements = value.map(element => {
+      const stringElement = String(element);
+      return prefix ? prefix + stringElement : stringElement;
+    });
+
+    return processedElements.join(separator);
   }
 
   /**
