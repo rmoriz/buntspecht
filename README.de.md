@@ -620,7 +620,16 @@ async function handleWebhook(req, res) {
 Buntspecht enthält einen integrierten Webhook-Server mit **zwei verschiedenen Webhook-Typen** für unterschiedliche Anwendungsfälle:
 
 1. **Provider-spezifische Webhooks** (`/webhook/provider-name`) - Für externe Services wie GitHub, GitLab, Twitch
+   ```json
+   POST /webhook/github
+   {"action": "push", "repository": {"name": "mein-repo"}}
+   ```
+
 2. **Generischer Webhook** (`/webhook`) - Für manuelle Benachrichtigungen und flexible Integrationen
+   ```json
+   POST /webhook
+   {"provider": "alerts", "message": "Server ist offline"}
+   ```
 
 Dies ermöglicht Echtzeit-Benachrichtigungen von Monitoring-Systemen, CI/CD-Pipelines, GitHub und anderen Services mit verbesserter Sicherheit und Flexibilität.
 
