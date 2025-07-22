@@ -300,7 +300,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
           return { isValidPath: true, providerName: providerConfig.name };
         }
       }
-    } catch (error) {
+    } catch {
       // If bot config is not available (e.g., in tests), just check main path
       this.logger.debug('Bot config not available for provider path validation');
     }
