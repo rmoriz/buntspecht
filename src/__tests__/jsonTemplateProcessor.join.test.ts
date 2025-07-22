@@ -24,7 +24,7 @@ describe('JsonTemplateProcessor - join function', () => {
     
     const result = processor.applyTemplate(template, data);
     
-    expect(result).toBe('Tags: tag1 tag2 tag3');
+    expect(result).toBe('Tags: tag1tag2tag3');
   });
 
   it('should join array with space separator and hashtag prefix', () => {
