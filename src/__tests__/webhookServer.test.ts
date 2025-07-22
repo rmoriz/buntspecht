@@ -925,6 +925,20 @@ describe('WebhookServer', () => {
     });
 
     it('should validate JSON workflow requirements', async () => {
+      // Test with provider that has no template configured
+      (mockBot.getConfig as jest.Mock).mockReturnValue({
+        bot: {
+          providers: [
+            { 
+              name: 'test-provider', 
+              type: 'push', 
+              config: { /* no template */ },
+              webhookPath: '/webhook/test-provider'
+            }
+          ]
+        }
+      });
+
       // Missing template when json is provided
       const invalidJsonPayload1 = {
         provider: 'test-provider',
@@ -940,9 +954,9 @@ describe('WebhookServer', () => {
         body: JSON.stringify(invalidJsonPayload1)
       });
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(400);
       let result = await response.json() as WebhookTestResponse;
-      expect(result.error).toContain('Internal server error');
+      expect(result.error).toContain('No template configured for provider');
 
       // Missing json when template is provided
       const invalidJsonPayload2 = {
