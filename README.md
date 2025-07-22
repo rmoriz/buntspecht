@@ -828,10 +828,19 @@ webhookPath = "/webhook/github"
 # Template applied automatically to incoming JSON
 template = "🔔 GitHub {{action}} in {{repository.name}}"
 
+# Named templates for specific GitHub event types
+[bot.providers.templates]
+"push" = "🚀 {{head_commit.author.name}} pushed to {{repository.name}}: {{head_commit.message}}"
+"pull_request" = "🔧 PR {{action}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}}"
+"issues" = "🐛 Issue {{action}}: \"{{issue.title}}\" by @{{issue.user.login}}"
+
 [bot.providers.config]
+# HMAC authentication (recommended for external services)
 hmacSecret = "github-webhook-secret"
-hmacAlgorithm = "sha256"
-hmacHeader = "X-Hub-Signature-256"
+hmacAlgorithm = "sha256"  # sha1, sha256, sha512
+hmacHeader = "X-Hub-Signature-256"  # Custom header name
+# Alternative: Simple secret authentication
+# webhookSecret = "simple-secret"
 ```
 
 **2. Generic Webhook** - For flexible usage:
@@ -843,12 +852,62 @@ name = "monitoring-alerts"
 type = "push"
 accounts = ["alerts-account"]
 # No webhookPath - only accessible via generic webhook
+template = "🚨 {{severity}}: {{message}}"
 
 [bot.providers.config]
+# Simple secret or HMAC authentication
 webhookSecret = "monitoring-specific-secret-123"
+# Or HMAC for enhanced security:
+# hmacSecret = "monitoring-hmac-secret"
+# hmacAlgorithm = "sha512"
+# hmacHeader = "X-Monitor-Signature"
 ```
 
-**Benefits of Provider-Specific Secrets:**
+#### Provider-Specific Authentication Options
+
+Each provider supports multiple authentication methods:
+
+**HMAC Authentication (Recommended):**
+```toml
+[bot.providers.config]
+hmacSecret = "your-hmac-secret"
+hmacAlgorithm = "sha256"  # sha1, sha256, sha512
+hmacHeader = "X-Hub-Signature-256"  # Custom header name
+```
+
+**Simple Secret Authentication:**
+```toml
+[bot.providers.config]
+webhookSecret = "your-simple-secret"
+```
+
+**Authentication Priority:**
+1. Provider-specific HMAC (if configured)
+2. Global HMAC (fallback)
+3. Provider-specific simple secret
+4. Global simple secret
+5. No authentication (allows all requests)
+
+#### Webhook Path Configuration
+
+**Provider-Specific Paths:**
+```toml
+[[bot.providers]]
+name = "external-service"
+webhookPath = "/webhook/service-name"  # Custom path for this provider
+template = "📢 {{event}}: {{message}}"
+
+[bot.providers.config]
+hmacSecret = "service-specific-secret"
+```
+
+**External Service Examples:**
+- GitHub: `/webhook/github` with `X-Hub-Signature-256`
+- GitLab: `/webhook/gitlab` with `X-Gitlab-Token`
+- Twitch: `/webhook/twitch` with `X-Twitch-Signature`
+- Custom: `/webhook/monitoring` with `X-Monitor-Signature`
+
+**Benefits of Provider-Specific Webhooks:**
 - **Security Isolation**: Different external systems can use different secrets
 - **Granular Access Control**: Compromised secret only affects one provider
 - **Easier Secret Rotation**: Rotate secrets for specific integrations without affecting others
