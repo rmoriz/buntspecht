@@ -389,9 +389,8 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     // JSON workflow validation (only if JSON fields are provided)
     if (bodyObj.json !== undefined || bodyObj.template) {
       // If json is provided, template is required
-      if (bodyObj.json !== undefined && !bodyObj.template) {
-        throw new ValidationError('Template is required when json data is provided');
-      }
+      // Template validation for JSON data will be done later in processJsonWorkflow
+      // where we can check provider config templates
 
       // If template is provided, json is required
       if (bodyObj.template && bodyObj.json === undefined) {
