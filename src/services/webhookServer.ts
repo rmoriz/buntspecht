@@ -445,7 +445,13 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         // Fallback to simple message if no template found
         processedMessages = [{ text: request.message, attachments: undefined }];
       } else {
-        throw new ValidationError(`No template found for provider "${request.provider}" and no message provided. Configure a template in the provider config or provide a template/message in the request.`);
+        // More helpful error message with configuration guidance
+        const providerInfo = this.bot.getProviderInfo().find(p => p.name === request.provider);
+        if (providerInfo) {
+          throw new ValidationError(`No template configured for provider "${request.provider}". Please add a 'template' field to the provider configuration, or provide a 'template' or 'message' in the webhook request.`);
+        } else {
+          throw new ValidationError(`Provider "${request.provider}" not found. Please check the provider name or configure the provider in your config.toml file.`);
+        }
       }
     } else if (request.message) {
       // Traditional message workflow
@@ -803,7 +809,14 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     }
 
     // Get provider config from bot (we need access to the full config)
-    const botConfig = this.bot.getConfig();
+    let botConfig;
+    try {
+      botConfig = this.bot.getConfig();
+    } catch (error) {
+      this.logger.warn(`Failed to get bot config for template resolution: ${(error as Error).message}`);
+      return null;
+    }
+
     const providerConfig = botConfig.bot.providers.find(p => p.name === request.provider);
     if (!providerConfig) {
       this.logger.warn(`Provider configuration not found for: ${request.provider}`);
