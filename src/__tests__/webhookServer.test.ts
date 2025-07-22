@@ -204,15 +204,13 @@ describe('WebhookServer', () => {
 
     it('should reject request without provider', async () => {
       const payload = {
-        provider: 'test-provider',
-        message: 'Test message'
+        // Empty payload - no provider, no message, no json
       };
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Secret': 'test-secret'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
