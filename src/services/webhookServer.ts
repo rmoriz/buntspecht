@@ -207,6 +207,19 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
 
       // Parse request body and get raw body for HMAC validation
       const { body, rawBody } = await this.parseRequestBody(req);
+      
+      // Debug logging: Log incoming webhook payload 1:1
+      if (this.logger.isDebugEnabled()) {
+        this.logger.debug(`Incoming webhook payload for ${webhookType} webhook:`, {
+          url: url.pathname,
+          method: req.method,
+          headers: this.sanitizeHeaders(req.headers),
+          body: body,
+          rawBodyLength: rawBody.length,
+          providerName: providerName || 'auto-detect'
+        });
+      }
+      
       const webhookRequest = this.validateWebhookRequest(body, webhookType, providerName);
 
       // Verify authentication (HMAC signature or simple secret)
@@ -866,6 +879,33 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     // No template found
     this.logger.debug(`No template found for provider: ${request.provider}`);
     return null;
+  }
+
+  /**
+   * Sanitizes headers for logging (removes sensitive information)
+   */
+  private sanitizeHeaders(headers: Record<string, string | string[] | undefined>): Record<string, string | string[]> {
+    const sanitized: Record<string, string | string[]> = {};
+    const sensitiveHeaders = ['authorization', 'x-webhook-secret', 'x-hub-signature', 'x-hub-signature-256', 'x-gitlab-token'];
+    
+    for (const [key, value] of Object.entries(headers)) {
+      if (value !== undefined) {
+        const lowerKey = key.toLowerCase();
+        if (sensitiveHeaders.some(sensitive => lowerKey.includes(sensitive))) {
+          // Show only first and last 4 characters for sensitive headers
+          const stringValue = Array.isArray(value) ? value[0] : value;
+          if (stringValue && stringValue.length > 8) {
+            sanitized[key] = `${stringValue.substring(0, 4)}...${stringValue.substring(stringValue.length - 4)}`;
+          } else {
+            sanitized[key] = '***';
+          }
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    }
+    
+    return sanitized;
   }
 
 }

@@ -1,0 +1,53 @@
+# Buntspecht Configuration - Webhook Debug Logging
+# This example shows how to enable detailed webhook payload logging for debugging
+
+[logging]
+# Set to debug level to see incoming webhook payloads 1:1
+level = "debug"
+
+[webhook]
+enabled = true
+port = 8080
+host = "0.0.0.0"
+path = "/webhook"
+
+# Account configurations
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-token"
+
+# Provider with webhook debugging
+[bot]
+[[bot.providers]]
+name = "github-debug"
+type = "push"
+accounts = ["mastodon-main"]
+# Provider-specific webhook path for debugging
+webhookPath = "/webhook/github"
+# Template for GitHub events
+template = "🔔 GitHub {{action}} in {{repository.name}}"
+
+[bot.providers.config]
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Hub-Signature-256"
+
+# When logging.level = "debug", you will see output like:
+# [2025-07-22T10:30:45.123Z] DEBUG Incoming webhook payload for provider-specific webhook: {
+#   "url": "/webhook/github",
+#   "method": "POST", 
+#   "headers": {
+#     "content-type": "application/json",
+#     "x-hub-signature-256": "sha2...f123",
+#     "user-agent": "GitHub-Hookshot/abc123"
+#   },
+#   "body": {
+#     "action": "opened",
+#     "repository": {"name": "my-repo"},
+#     "pull_request": {"title": "Fix bug"}
+#   },
+#   "rawBodyLength": 1234,
+#   "providerName": "github-debug"
+# }
