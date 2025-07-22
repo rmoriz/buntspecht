@@ -1,0 +1,127 @@
+# Buntspecht Configuration - Refactored Webhook System
+# This example demonstrates the two distinct webhook types:
+# 1. Provider-specific webhooks (fixed provider, JSON only)
+# 2. Generic webhook (free provider choice, JSON or message)
+
+[logging]
+level = "info"
+
+# Main webhook configuration
+[webhook]
+enabled = true
+port = 8080
+host = "0.0.0.0"
+path = "/webhook"  # Generic webhook path - allows free provider choice
+
+# Account configurations
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-token"
+
+[[accounts]]
+name = "bluesky-main"
+type = "bluesky"
+identifier = "your-handle.bsky.social"
+password = "your-app-password"
+
+# ===== PROVIDER-SPECIFIC WEBHOOKS =====
+# These webhooks are bound to a specific provider
+# External services send JSON data to provider-specific URLs
+# Provider cannot be overridden - it's determined by the URL path
+
+# GitHub Integration (provider-specific webhook)
+[bot]
+[[bot.providers]]
+name = "github-events"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "unlisted"
+# Provider-specific webhook path - GitHub sends directly here
+webhookPath = "/webhook/github"
+# Default template for GitHub events
+template = "🔔 GitHub {{action}} in {{repository.name}}"
+
+# Named templates for specific GitHub event types
+[bot.providers.templates]
+"push" = "🚀 {{head_commit.author.name}} pushed to {{repository.name}}: {{head_commit.message}}"
+"pull_request" = "🔧 PR {{action}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}}"
+"issues" = "🐛 Issue {{action}}: \"{{issue.title}}\" by @{{issue.user.login}}"
+
+[bot.providers.config]
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Hub-Signature-256"
+
+# Twitch Integration (provider-specific webhook)
+[[bot.providers]]
+name = "twitch-notifications"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "public"
+# Provider-specific webhook path - Twitch service sends here
+webhookPath = "/webhook/twitch"
+# Template for Twitch stream events
+template = "🎮 {{payload.streamer_name}} ist live auf {{payload.url}} ({{payload.followers_count}} Follower)"
+
+[bot.providers.config]
+hmacSecret = "twitch-webhook-secret"
+hmacAlgorithm = "sha256"
+hmacHeader = "X-Twitch-Signature"
+
+# GitLab CI Integration (provider-specific webhook)
+[[bot.providers]]
+name = "gitlab-ci"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# Provider-specific webhook path - GitLab sends here
+webhookPath = "/webhook/gitlab"
+template = "🦊 GitLab {{object_kind}}: {{pipeline.status}} in {{project.name}}"
+
+[bot.providers.templates]
+"Pipeline Hook" = "{{#if (eq pipeline.status \"success\")}}✅{{else}}❌{{/if}} Pipeline {{pipeline.status}} ({{pipeline.duration}}s)"
+
+[bot.providers.config]
+hmacSecret = "gitlab-webhook-secret"
+hmacHeader = "X-Gitlab-Token"
+
+# ===== GENERIC WEBHOOK PROVIDERS =====
+# These providers can only be used via the generic webhook
+# They allow free provider choice and support both JSON and simple messages
+
+# Manual Notifications (generic webhook only)
+[[bot.providers]]
+name = "manual-notifications"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+# NO webhookPath - this provider is only accessible via generic webhook
+template = "📢 {{message}}"
+
+[bot.providers.config]
+webhookSecret = "manual-secret"
+
+# Alert System (generic webhook only)
+[[bot.providers]]
+name = "alert-system"
+type = "push"
+accounts = ["mastodon-main"]
+visibility = "private"
+# NO webhookPath - generic webhook only
+template = "🚨 {{severity}}: {{message}}"
+
+[bot.providers.config]
+hmacSecret = "alert-system-secret"
+hmacAlgorithm = "sha512"
+hmacHeader = "X-Alert-Signature"
+
+# Flexible Notifier (generic webhook only)
+[[bot.providers]]
+name = "flexible-notifier"
+type = "push"
+accounts = ["mastodon-main", "bluesky-main"]
+# NO webhookPath - supports both JSON and simple messages via generic webhook
+
+[bot.providers.config]
+webhookSecret = "flexible-secret"

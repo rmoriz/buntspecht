@@ -189,7 +189,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       }
 
       // Check if this is the main webhook path or a provider-specific path
-      const { isValidPath, providerName } = this.validateWebhookPath(url.pathname);
+      const { isValidPath, webhookType, providerName } = this.validateWebhookPath(url.pathname);
       if (!isValidPath) {
         this.sendErrorResponse(res, 404, 'Not found');
         return;
@@ -207,7 +207,7 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
 
       // Parse request body and get raw body for HMAC validation
       const { body, rawBody } = await this.parseRequestBody(req);
-      const webhookRequest = this.validateWebhookRequest(body, providerName);
+      const webhookRequest = this.validateWebhookRequest(body, webhookType, providerName);
 
       // Verify authentication (HMAC signature or simple secret)
       if (!this.validateWebhookAuth(webhookRequest.provider, req, rawBody)) {
@@ -283,12 +283,16 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
   }
 
   /**
-   * Validates webhook path and returns provider name if found
+   * Validates webhook path and returns webhook type and provider info
    */
-  private validateWebhookPath(pathname: string): { isValidPath: boolean; providerName?: string } {
-    // Check main webhook path
+  private validateWebhookPath(pathname: string): { 
+    isValidPath: boolean; 
+    webhookType: 'generic' | 'provider-specific';
+    providerName?: string;
+  } {
+    // Check main webhook path (generic webhook)
     if (pathname === this.config.path) {
-      return { isValidPath: true };
+      return { isValidPath: true, webhookType: 'generic' };
     }
 
     // Check provider-specific paths
@@ -297,7 +301,11 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       for (const providerConfig of botConfig.bot.providers) {
         if (providerConfig.webhookPath && pathname === providerConfig.webhookPath) {
           this.logger.debug(`Matched provider-specific webhook path: ${pathname} -> ${providerConfig.name}`);
-          return { isValidPath: true, providerName: providerConfig.name };
+          return { 
+            isValidPath: true, 
+            webhookType: 'provider-specific',
+            providerName: providerConfig.name 
+          };
         }
       }
     } catch {
@@ -305,13 +313,17 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       this.logger.debug('Bot config not available for provider path validation');
     }
 
-    return { isValidPath: false };
+    return { isValidPath: false, webhookType: 'generic' };
   }
 
   /**
    * Validates the webhook request
    */
-  private validateWebhookRequest(body: unknown, autoDetectedProvider?: string): WebhookRequest {
+  private validateWebhookRequest(
+    body: unknown, 
+    webhookType: 'generic' | 'provider-specific',
+    autoDetectedProvider?: string
+  ): WebhookRequest {
     if (!body || typeof body !== 'object') {
       throw new ValidationError('Request body must be a JSON object');
     }
@@ -319,18 +331,29 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     // Type assertion after validation
     const bodyObj = body as Record<string, unknown>;
 
-    // Provider can be auto-detected from URL path or explicitly provided in JSON
+    // Handle provider validation based on webhook type
     let providerName: string;
-    if (autoDetectedProvider) {
-      // Provider detected from URL path - JSON provider field is optional
+    
+    if (webhookType === 'provider-specific') {
+      // Provider-specific webhook: provider is determined by URL path
+      if (!autoDetectedProvider) {
+        throw new ValidationError('Internal error: provider-specific webhook without provider name');
+      }
       providerName = autoDetectedProvider;
+      
+      // Provider field in JSON is ignored for provider-specific webhooks
       if (bodyObj.provider && typeof bodyObj.provider === 'string' && bodyObj.provider !== autoDetectedProvider) {
-        this.logger.warn(`Provider mismatch: URL suggests "${autoDetectedProvider}" but JSON contains "${bodyObj.provider}". Using URL provider.`);
+        this.logger.warn(`Provider field "${bodyObj.provider}" in JSON ignored for provider-specific webhook. Using URL-determined provider: ${autoDetectedProvider}`);
+      }
+      
+      // For provider-specific webhooks, JSON data is required (no simple message workflow)
+      if (!bodyObj.json) {
+        throw new ValidationError(`Provider-specific webhook requires JSON data. Use the generic webhook path ${this.config.path} for simple message workflows.`);
       }
     } else {
-      // No auto-detection - provider must be in JSON
+      // Generic webhook: provider must be specified in JSON
       if (!bodyObj.provider || typeof bodyObj.provider !== 'string') {
-        throw new ValidationError('Provider name is required and must be a string when using the main webhook path');
+        throw new ValidationError('Provider name is required and must be a string when using the generic webhook path');
       }
       providerName = bodyObj.provider;
     }
