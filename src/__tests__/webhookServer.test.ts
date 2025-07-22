@@ -154,6 +154,18 @@ describe('WebhookServer', () => {
       (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
         { name: 'test-provider', type: 'push', enabled: true }
       ]);
+      (mockBot.getConfig as jest.Mock).mockReturnValue({
+        bot: {
+          providers: [
+            { 
+              name: 'test-provider', 
+              type: 'push', 
+              config: { template: 'Test template: {{message}}' },
+              webhookPath: '/webhook/test-provider'
+            }
+          ]
+        }
+      });
     });
 
     it('should handle valid webhook request', async () => {

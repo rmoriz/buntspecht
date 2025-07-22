@@ -359,16 +359,9 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
         this.logger.warn(`Provider field "${bodyObj.provider}" in JSON ignored for provider-specific webhook. Using URL-determined provider: ${autoDetectedProvider}`);
       }
       
-      // For provider-specific webhooks, JSON data is required (no simple message workflow)
-      // The JSON data can be either in a 'json' field or the entire body can be the JSON data
-      if (!bodyObj.json && !this.isValidJsonData(bodyObj)) {
-        throw new ValidationError(`Provider-specific webhook requires JSON data. Use the generic webhook path ${this.config.path} for simple message workflows.`);
-      }
-      
-      // If the entire body is JSON data (not wrapped in a 'json' field), use it directly
-      if (!bodyObj.json && this.isValidJsonData(bodyObj)) {
-        bodyObj.json = bodyObj;
-      }
+      // For provider-specific webhooks, the entire body IS the JSON data
+      // No need for a separate 'json' field - the whole payload is the data
+      bodyObj.json = bodyObj;
     } else {
       // Generic webhook: provider must be specified in JSON
       if (!bodyObj.provider || typeof bodyObj.provider !== 'string') {
@@ -875,10 +868,19 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
       }
     }
 
-    // 3. Default template from provider config
+    // 3. Default template from provider config (both top-level and in config section)
     if (providerConfig.template) {
       this.logger.debug(`Using default template from provider config for: ${request.provider}`);
       return providerConfig.template;
+    }
+    
+    // 4. Template from provider config.template (for push providers)
+    if (providerConfig.config && typeof providerConfig.config === 'object') {
+      const configObj = providerConfig.config as Record<string, unknown>;
+      if (configObj.template && typeof configObj.template === 'string') {
+        this.logger.debug(`Using template from provider config.template for: ${request.provider}`);
+        return configObj.template;
+      }
     }
 
     // No template found

@@ -4,7 +4,7 @@
 
 ### 1. Provider-Specific Webhooks
 - **Fixed provider** determined by URL path
-- **JSON data required** (no simple messages)
+- **Entire JSON payload** used as template data
 - **Templates from config** applied automatically
 - **External services** send directly to provider URLs
 
@@ -172,16 +172,18 @@ curl -X POST http://localhost:8080/webhook/github \
 # Uses "github-events" provider (from URL path)
 ```
 
-### Simple Message to Provider-Specific Webhook (Error)
+### Missing Template in Provider Config (Error)
 ```bash
-# This will FAIL - provider-specific webhooks require JSON
+# This will FAIL - provider-specific webhooks need template in config
 curl -X POST http://localhost:8080/webhook/twitch \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Simple message"
+    "streamer_name": "TestStreamer",
+    "url": "https://twitch.tv/teststreamer"
   }'
 
-# Error: "Provider-specific webhook requires JSON data"
+# Error: "Template is required for JSON workflow"
+# Fix: Add template to provider config: [bot.providers.config] template = "..."
 ```
 
 ### Missing Provider in Generic Webhook (Error)
