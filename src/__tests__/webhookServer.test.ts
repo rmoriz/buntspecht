@@ -30,7 +30,8 @@ const mockBot = {
   triggerPushProviderWithVisibilityAndAttachments: jest.fn(),
   getPushProviders: jest.fn(),
   getProviderInfo: jest.fn(),
-  getPushProvider: jest.fn()
+  getPushProvider: jest.fn(),
+  getConfig: jest.fn()
 } as unknown as MastodonPingBot;
 
 describe('WebhookServer', () => {
