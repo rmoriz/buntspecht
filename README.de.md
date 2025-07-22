@@ -617,9 +617,67 @@ async function handleWebhook(req, res) {
 
 ## Webhook-Integration
 
-Buntspecht enthält einen integrierten Webhook-Server, der es externen Systemen ermöglicht, Push-Provider über HTTP-Requests auszulösen. Dies ermöglicht Echtzeit-Benachrichtigungen von Monitoring-Systemen, CI/CD-Pipelines, GitHub und anderen Services.
+Buntspecht enthält einen integrierten Webhook-Server mit **zwei verschiedenen Webhook-Typen** für unterschiedliche Anwendungsfälle:
+
+1. **Provider-spezifische Webhooks** (`/webhook/provider-name`) - Für externe Services wie GitHub, GitLab, Twitch
+2. **Generischer Webhook** (`/webhook`) - Für manuelle Benachrichtigungen und flexible Integrationen
+
+Dies ermöglicht Echtzeit-Benachrichtigungen von Monitoring-Systemen, CI/CD-Pipelines, GitHub und anderen Services mit verbesserter Sicherheit und Flexibilität.
 
 ### Webhook-Konfiguration
+
+#### Zwei Webhook-Typen
+
+**1. Provider-spezifische Webhooks** - Für externe Services:
+
+```toml
+# GitHub-Integration mit provider-spezifischem Webhook
+[[bot.providers]]
+name = "github-events"
+type = "push"
+accounts = ["mastodon-main"]
+# Custom Webhook-Pfad - GitHub sendet direkt hierhin
+webhookPath = "/webhook/github"
+# Template wird automatisch auf eingehende JSON-Daten angewendet
+template = "🔔 GitHub {{action}} in {{repository.name}}"
+
+# Named Templates für spezifische GitHub Event-Typen
+[bot.providers.templates]
+"push" = "🚀 {{head_commit.author.name}} pushed: {{head_commit.message}}"
+"pull_request.opened" = "🔧 Neue PR: \"{{pull_request.title}}\" von @{{pull_request.user.login}}"
+"issues.opened" = "🐛 Neues Issue: \"{{issue.title}}\" {{issue.html_url}}"
+"release.published" = "🎉 Release {{release.tag_name}}: {{release.name}}"
+
+[bot.providers.config]
+# HMAC-Authentifizierung (empfohlen für externe Services)
+hmacSecret = "github-webhook-secret"
+hmacAlgorithm = "sha256"  # sha1, sha256, sha512
+hmacHeader = "X-Hub-Signature-256"  # Custom Header-Name
+# Alternative: Einfache Secret-Authentifizierung
+# webhookSecret = "einfaches-secret"
+```
+
+**2. Generischer Webhook** - Für flexible Nutzung:
+
+```toml
+# Manuelle Benachrichtigungen über generischen Webhook
+[[bot.providers]]
+name = "monitoring-alerts"
+type = "push"
+accounts = ["alerts-account"]
+# Kein webhookPath - nur über generischen Webhook erreichbar
+template = "🚨 {{severity}}: {{message}}"
+
+[bot.providers.config]
+# Einfaches Secret oder HMAC-Authentifizierung
+webhookSecret = "monitoring-specific-secret-123"
+# Oder HMAC für erhöhte Sicherheit:
+# hmacSecret = "monitoring-hmac-secret"
+# hmacAlgorithm = "sha512"
+# hmacHeader = "X-Monitor-Signature"
+```
+
+#### Globale Webhook-Konfiguration
 
 ```toml
 [webhook]
@@ -627,10 +685,9 @@ Buntspecht enthält einen integrierten Webhook-Server, der es externen Systemen 
 enabled = true
 port = 3000
 host = "0.0.0.0"  # Auf allen Interfaces lauschen
-path = "/webhook"  # Webhook-Endpunkt-Pfad
+path = "/webhook"  # Generischer Webhook-Endpunkt-Pfad
 
 # Sicherheitseinstellungen
-secret = "ihr-webhook-secret-hier"  # Optional: Authentifizierungs-Secret
 allowedIPs = [  # Optional: IP-Whitelist
   "127.0.0.1",
   "192.168.1.0/24",
@@ -675,10 +732,17 @@ timeout = 30000  # 30 Sekunden Timeout
 
 #### Einfacher Webhook-Aufruf
 ```bash
+# Generischer Webhook - Provider im JSON angeben
 curl -X POST http://localhost:3000/webhook \
   -H "Content-Type: application/json" \
   -H "X-Webhook-Secret: ihr-webhook-secret-hier" \
   -d '{"provider": "webhook-alerts", "message": "Test Alert-Nachricht"}'
+
+# Provider-spezifischer Webhook - Provider durch URL-Pfad bestimmt
+curl -X POST http://localhost:3000/webhook/github \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: sha256=berechnete_signatur" \
+  -d '{"action": "opened", "repository": {"name": "mein-repo"}}'
 ```
 
 #### GitHub Webhook-Integration
