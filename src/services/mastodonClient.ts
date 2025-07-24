@@ -2,6 +2,7 @@ import { createRestAPIClient, type mastodon } from 'masto';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from './telemetryInterface';
+import { TelemetryHelper } from '../utils/telemetryHelper';
 import { BaseConfigurableService } from './baseService';
 
 interface AccountClient {
@@ -57,14 +58,23 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
    * Posts a status message with attachments to specified accounts
    */
   public async postStatusWithAttachments(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
-    const span = this.telemetry.startSpan('mastodon.post_status', {
-      'mastodon.accounts_count': accountNames.length,
-      'mastodon.provider': provider || 'unknown',
-      'mastodon.message_length': messageData.text.length,
-      'mastodon.attachments_count': messageData.attachments?.length || 0,
-    });
+    return await TelemetryHelper.executeWithSpan(
+      this.telemetry,
+      'mastodon.post_status',
+      {
+        'mastodon.accounts_count': accountNames.length,
+        'mastodon.provider': provider || 'unknown',
+        'mastodon.message_length': messageData.text.length,
+        'mastodon.attachments_count': messageData.attachments?.length || 0,
+      },
+      () => this.executePostStatus(messageData, accountNames, provider, visibility)
+    );
+  }
 
-    try {
+  /**
+   * Internal method to execute status posting
+   */
+  private async executePostStatus(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string, visibility?: 'public' | 'unlisted' | 'private' | 'direct'): Promise<void> {
       if (accountNames.length === 0) {
         throw new Error('No accounts specified for posting');
       }
@@ -141,23 +151,12 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
       if (successfulPosts.length === 0) {
         // All posts failed
         const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
-        span?.setStatus({ code: 2, message: 'All posts failed' }); // ERROR
         throw new Error(`Failed to post to all accounts: ${errors}`);
       } else if (failedPosts.length > 0) {
         // Some posts failed, log warning but don't throw
         const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
         this.logger.warn(`Some posts failed: ${errors}`);
-        span?.setStatus({ code: 1, message: 'Some posts failed' }); // WARNING
-      } else {
-        span?.setStatus({ code: 1 }); // OK
       }
-    } catch (error) {
-      span?.recordException(error as Error);
-      span?.setStatus({ code: 2, message: (error as Error).message }); // ERROR
-      throw error;
-    } finally {
-      span?.end();
-    }
   }
 
   /**

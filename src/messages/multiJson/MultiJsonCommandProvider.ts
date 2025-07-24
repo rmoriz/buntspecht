@@ -60,6 +60,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private templateProcessor: TemplateProcessor;
   private scheduler: ExecutionScheduler;
   private fileWatcher?: FileWatcher;
+  private pendingFileChangeCallback?: () => void;
   private fileReader?: FileReader;
 
   constructor(config: MultiJsonCommandProviderConfig) {
@@ -607,6 +608,12 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     this.fileWatcher = new FileWatcher(this.config.file, this.logger);
     this.fileWatcher.setup();
+    
+    // Apply any pending callback that was set before the watcher was ready
+    if (this.pendingFileChangeCallback) {
+      this.fileWatcher.setChangeCallback(this.pendingFileChangeCallback);
+      this.pendingFileChangeCallback = undefined;
+    }
   }
 
   /**
@@ -620,7 +627,13 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * Set callback for file changes
    */
   public setFileChangeCallback(callback: () => void): void {
-    this.fileWatcher?.setChangeCallback(callback);
+    if (this.fileWatcher) {
+      // FileWatcher is ready, set callback immediately
+      this.fileWatcher.setChangeCallback(callback);
+    } else {
+      // FileWatcher not ready yet, store callback for later
+      this.pendingFileChangeCallback = callback;
+    }
   }
 
   /**

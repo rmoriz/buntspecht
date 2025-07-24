@@ -4,6 +4,8 @@ import { exec } from 'child_process';
 import { JsonTemplateProcessor, AttachmentConfig } from '../utils/jsonTemplateProcessor';
 import { promisify } from 'util';
 import type { TelemetryService } from '../services/telemetryInterface';
+import { TelemetryHelper } from '../utils/telemetryHelper';
+import { FileWatcher } from '../utils/fileWatcher';
 import * as fs from 'fs';
 
 const execAsync = promisify(exec);
@@ -45,12 +47,9 @@ export class JsonCommandProvider implements MessageProvider {
   private attachmentFilenameKey: string;
   private attachmentDescriptionKey: string;
   private logger?: Logger;
+  private telemetry?: TelemetryService;
   private templateProcessor: JsonTemplateProcessor;
-  private lastFileContent?: string;
-  private onFileChanged?: () => void;
-  private lastFileChangeTime: number = 0;
-  private fileChangeDebounceMs: number = 1000; // 1 second debounce (can be lower with fs.watch)
-  private fileWatcher?: fs.FSWatcher;
+  private fileWatcher?: FileWatcher;
 
   constructor(config: JsonCommandProviderConfig) {
     // Validate that either command or file is provided, but not both
@@ -95,6 +94,26 @@ export class JsonCommandProvider implements MessageProvider {
    * parsing JSON output, and applying the template
    */
   public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
+    if (this.telemetry) {
+      return await TelemetryHelper.executeWithSpan(
+        this.telemetry,
+        'jsoncommand.generate_message',
+        { 
+          provider: 'JsonCommandProvider',
+          hasCommand: !!this.command,
+          hasFile: !!this.file
+        },
+        () => this.executeGenerateMessage()
+      );
+    }
+    
+    return this.executeGenerateMessage();
+  }
+
+  /**
+   * Internal method to execute message generation
+   */
+  private async executeGenerateMessage(): Promise<MessageWithAttachments> {
     let jsonData: Record<string, unknown>;
     
     if (this.command) {
@@ -211,8 +230,9 @@ export class JsonCommandProvider implements MessageProvider {
   /**
    * Initialize the provider
    */
-  public async initialize(logger: Logger, _telemetry?: TelemetryService): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
+    this.telemetry = telemetry;
     this.templateProcessor = new JsonTemplateProcessor(this.logger);
     
     if (this.command) {
@@ -242,94 +262,32 @@ export class JsonCommandProvider implements MessageProvider {
    * Set up file watcher for automatic change detection
    */
   private setupFileWatcher(): void {
-    if (!this.file) {
+    if (!this.file || !this.logger) {
       return;
     }
 
-    // Skip file watching in test environment to prevent Jest worker issues
-    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
-      this.logger?.debug(`Skipping file watcher setup in test environment for: ${this.file}`);
-      return;
-    }
-
-    try {
-      this.logger?.info(`Setting up file watcher for: ${this.file}`);
-      
-      // Watch the file for changes using fs.watch (event-based, more efficient)
-      this.fileWatcher = fs.watch(this.file, (eventType, _filename) => {
-        // Only respond to 'change' events, ignore 'rename' events
-        if (eventType === 'change') {
-          const now = Date.now();
-          
-          // Debounce rapid file changes
-          if (now - this.lastFileChangeTime < this.fileChangeDebounceMs) {
-            this.logger?.debug(`Debouncing file change for ${this.file} (${now - this.lastFileChangeTime}ms since last)`);
-            return;
-          }
-          
-          this.lastFileChangeTime = now;
-          this.logger?.info(`File changed: ${this.file}`);
-          
-          // Trigger file change callback if available
-          if (this.onFileChanged) {
-            this.onFileChanged();
-          }
-        }
-      });
-      
-      // Handle watcher errors
-      this.fileWatcher.on('error', (error) => {
-        this.logger?.error(`File watcher error for ${this.file}: ${error.message}`);
-      });
-      
-      // Store initial file content for comparison
-      if (fs.existsSync(this.file)) {
-        this.lastFileContent = fs.readFileSync(this.file, 'utf8');
-      }
-      
-    } catch (error) {
-      this.logger?.error(`Failed to set up file watcher: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    this.fileWatcher = new FileWatcher(this.file, this.logger);
+    this.fileWatcher.setup();
   }
 
   /**
    * Check if file has changed since last read
    */
   public hasFileChanged(): boolean {
-    if (!this.file || !fs.existsSync(this.file)) {
-      return false;
-    }
-
-    try {
-      const currentContent = fs.readFileSync(this.file, 'utf8');
-      const hasChanged = currentContent !== this.lastFileContent;
-      
-      if (hasChanged) {
-        this.lastFileContent = currentContent;
-      }
-      
-      return hasChanged;
-    } catch (error) {
-      this.logger?.error(`Failed to check file changes: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+    return this.fileWatcher?.hasFileChanged() || false;
   }
 
   /**
    * Set callback for file changes
    */
   public setFileChangeCallback(callback: () => void): void {
-    this.onFileChanged = callback;
+    this.fileWatcher?.setChangeCallback(callback);
   }
 
   /**
    * Cleanup resources
    */
   public cleanup(): void {
-    if (this.fileWatcher) {
-      this.fileWatcher.close();
-      this.logger?.info(`Stopped watching file: ${this.file}`);
-      this.fileWatcher = undefined;
-    }
+    this.fileWatcher?.cleanup();
   }
 }

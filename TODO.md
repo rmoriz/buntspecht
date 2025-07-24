@@ -33,14 +33,14 @@ Reduce code duplication and improve maintainability by extracting common pattern
 
 ## 🔄 **Phase 2: Apply Utilities to Remaining Files**
 
-### **2.1 Refactor JsonCommandProvider** (~5 iterations)
-- **File**: `src/messages/jsonCommandProvider.ts` (334 lines)
+### **2.1 Refactor JsonCommandProvider** ✅ DONE
+- **File**: `src/messages/jsonCommandProvider.ts` (334 → 292 lines)
 - **Tasks**:
-  - [ ] Replace manual telemetry spans with `TelemetryHelper.executeWithSpan()`
-  - [ ] Replace custom file watcher code with `FileWatcher` utility
-  - [ ] Update `generateMessage()` and `generateMessageWithAttachments()` methods
-  - [ ] Run tests to ensure no regressions
-- **Expected Impact**: ~50 lines reduction, consistent with MultiJsonCommandProvider
+  - [x] Replace manual telemetry spans with `TelemetryHelper.executeWithSpan()`
+  - [x] Replace custom file watcher code with `FileWatcher` utility
+  - [x] Update `generateMessage()` and `generateMessageWithAttachments()` methods
+  - [x] Run tests to ensure no regressions
+- **Actual Impact**: 42 lines reduction (12.6%), all 59 tests passing
 
 ### **2.2 Apply TelemetryHelper to Other Services** (~3 iterations)
 - **Files to update**:
@@ -180,4 +180,4 @@ Reduce code duplication and improve maintainability by extracting common pattern
 ---
 
 **Last Updated**: 2025-01-24
-**Status**: Phase 1 Complete ✅, Phase 2.1 Ready to Start 🚀
+**Status**: Phase 1 Complete ✅, Phase 2.1 Complete ✅, Phase 2.2 Ready to Start 🚀
