@@ -161,7 +161,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
         'provider.account': accountName || 'default',
       },
       async (span) => {
-      // Execute command to get JSON data
+      // Execute command or read file to get JSON data
       let jsonData: unknown;
       if (this.config.command) {
         jsonData = await this.scheduler.executeCommand({
@@ -171,8 +171,22 @@ export class MultiJsonCommandProvider implements MessageProvider {
           env: this.config.env,
           maxBuffer: this.config.maxBuffer
         });
+      } else if (this.config.file) {
+        const fileContent = await this.readJsonFile();
+        if (fileContent === null) {
+          // File is empty or being written, skip this iteration gracefully
+          this.logger!.debug('File is temporarily empty, skipping message generation');
+          return '';
+        }
+        
+        // Parse the JSON content
+        try {
+          jsonData = JSON.parse(fileContent);
+        } catch (parseError) {
+          throw new Error(`Failed to parse JSON from file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        }
       } else {
-        throw new Error('No command specified in configuration');
+        throw new Error('No command or file specified in configuration');
       }
 
       // Validate JSON array
@@ -274,7 +288,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     });
 
     try {
-      // Execute command to get JSON data
+      // Execute command or read file to get JSON data
       let jsonData: unknown;
       if (this.config.command) {
         jsonData = await this.scheduler.executeCommand({
@@ -284,8 +298,22 @@ export class MultiJsonCommandProvider implements MessageProvider {
           env: this.config.env,
           maxBuffer: this.config.maxBuffer
         });
+      } else if (this.config.file) {
+        const fileContent = await this.readJsonFile();
+        if (fileContent === null) {
+          // File is empty or being written, skip this iteration gracefully
+          this.logger.debug('File is temporarily empty, skipping message generation');
+          return { text: '', attachments: undefined };
+        }
+        
+        // Parse the JSON content
+        try {
+          jsonData = JSON.parse(fileContent);
+        } catch (parseError) {
+          throw new Error(`Failed to parse JSON from file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        }
       } else {
-        throw new Error('No command specified in configuration');
+        throw new Error('No command or file specified in configuration');
       }
 
       // Validate JSON array
