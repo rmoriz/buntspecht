@@ -25,6 +25,10 @@ export default [
         __dirname: 'readonly',
         console: 'readonly',
         require: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
         // Browser/Web globals
         fetch: 'readonly',
         URL: 'readonly',

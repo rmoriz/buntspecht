@@ -4,7 +4,7 @@ import type { TelemetryService } from '../services/telemetryInterface';
  * Telemetry span interface for type safety
  */
 export interface TelemetrySpan {
-  setAttributes(attributes: Record<string, any>): void;
+  setAttributes(attributes: Record<string, string | number | boolean>): void;
   setStatus(status: { code: number; message?: string }): void;
   recordException(error: Error): void;
   end(): void;
@@ -26,7 +26,7 @@ export class TelemetryHelper {
   static async executeWithSpan<T>(
     telemetry: TelemetryService | undefined,
     spanName: string,
-    initialAttributes: Record<string, any>,
+    initialAttributes: Record<string, string | number | boolean>,
     operation: (span?: TelemetrySpan) => Promise<T>
   ): Promise<T> {
     const span = telemetry?.startSpan(spanName, initialAttributes) as TelemetrySpan | undefined;
@@ -56,7 +56,7 @@ export class TelemetryHelper {
   static executeWithSpanSync<T>(
     telemetry: TelemetryService | undefined,
     spanName: string,
-    initialAttributes: Record<string, any>,
+    initialAttributes: Record<string, string | number | boolean>,
     operation: (span?: TelemetrySpan) => T
   ): T {
     const span = telemetry?.startSpan(spanName, initialAttributes) as TelemetrySpan | undefined;
@@ -80,7 +80,7 @@ export class TelemetryHelper {
    * @param span The span to set attributes on
    * @param attributes The attributes to set
    */
-  static setAttributes(span: TelemetrySpan | undefined, attributes: Record<string, any>): void {
+  static setAttributes(span: TelemetrySpan | undefined, attributes: Record<string, string | number | boolean>): void {
     span?.setAttributes(attributes);
   }
 
