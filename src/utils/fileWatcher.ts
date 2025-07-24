@@ -30,6 +30,20 @@ export class FileWatcher {
       return;
     }
 
+    // Check if file exists before setting up watcher
+    if (!fs.existsSync(this.filePath)) {
+      this.logger.warn(`File does not exist yet, will watch parent directory for creation: ${this.filePath}`);
+      this.setupDirectoryWatcher();
+      return;
+    }
+
+    this.setupFileWatcher();
+  }
+
+  /**
+   * Sets up a watcher for the actual file
+   */
+  private setupFileWatcher(): void {
     try {
       this.logger.info(`Setting up file watcher for: ${this.filePath}`);
       
@@ -44,6 +58,12 @@ export class FileWatcher {
       // Handle watcher errors
       this.fileWatcher.on('error', (error) => {
         this.logger.error(`File watcher error for ${this.filePath}: ${error.message}`);
+        // If file was deleted, switch to directory watching
+        if (error.message.includes('ENOENT')) {
+          this.logger.info(`File was deleted, switching to directory watching for: ${this.filePath}`);
+          this.cleanup();
+          this.setupDirectoryWatcher();
+        }
       });
       
       // Store initial file content for comparison
@@ -51,6 +71,45 @@ export class FileWatcher {
       
     } catch (error) {
       this.logger.error(`Failed to set up file watcher: ${error instanceof Error ? error.message : String(error)}`);
+      // Fallback to directory watching
+      this.setupDirectoryWatcher();
+    }
+  }
+
+  /**
+   * Sets up a watcher for the parent directory to detect file creation
+   */
+  private setupDirectoryWatcher(): void {
+    const path = require('path');
+    const parentDir = path.dirname(this.filePath);
+    const fileName = path.basename(this.filePath);
+
+    try {
+      this.logger.info(`Setting up directory watcher for file creation: ${parentDir} (watching for ${fileName})`);
+      
+      // Watch the parent directory for file creation
+      this.fileWatcher = fs.watch(parentDir, (eventType: string, changedFileName: string | null) => {
+        // Check if our target file was created or changed
+        if (changedFileName === fileName) {
+          if (eventType === 'rename' && fs.existsSync(this.filePath)) {
+            // File was created, switch to file watching
+            this.logger.info(`File created, switching to file watching: ${this.filePath}`);
+            this.cleanup();
+            this.setupFileWatcher();
+          } else if (eventType === 'change') {
+            // File was changed
+            this.handleFileChange();
+          }
+        }
+      });
+      
+      // Handle watcher errors
+      this.fileWatcher.on('error', (error) => {
+        this.logger.error(`Directory watcher error for ${parentDir}: ${error.message}`);
+      });
+      
+    } catch (error) {
+      this.logger.error(`Failed to set up directory watcher: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
