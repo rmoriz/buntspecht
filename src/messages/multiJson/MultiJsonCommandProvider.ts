@@ -1,6 +1,8 @@
 import { MessageProvider, MessageProviderConfig, MessageWithAttachments } from '../messageProvider';
 import { Logger } from '../../utils/logger';
 import type { TelemetryService } from '../../services/telemetryInterface';
+import { TelemetryHelper } from '../../utils/telemetryHelper';
+import { FileWatcher } from '../../utils/fileWatcher';
 import { JsonArrayProcessor } from './JsonArrayProcessor';
 import { MessageDeduplicator } from './MessageDeduplicator';
 import { TemplateProcessor } from './TemplateProcessor';
@@ -56,11 +58,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private deduplicator: MessageDeduplicator;
   private templateProcessor: TemplateProcessor;
   private scheduler: ExecutionScheduler;
-  private lastFileContent?: string;
-  private onFileChanged?: () => void;
-  private lastFileChangeTime: number = 0;
-  private fileChangeDebounceMs: number = 1000; // 1 second debounce (can be lower with fs.watch)
-  private fileWatcher?: fs.FSWatcher;
+  private fileWatcher?: FileWatcher;
 
   constructor(config: MultiJsonCommandProviderConfig) {
     this.validateConfig(config);
@@ -151,13 +149,15 @@ export class MultiJsonCommandProvider implements MessageProvider {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
 
-    const span = this.telemetry?.startSpan('multijson.generate_message', {
-      'provider.name': this.providerName,
-      'provider.type': 'multijson',
-      'provider.account': accountName || 'default',
-    });
-
-    try {
+    return await TelemetryHelper.executeWithSpan(
+      this.telemetry,
+      'multijson.generate_message',
+      {
+        'provider.name': this.providerName,
+        'provider.type': 'multijson',
+        'provider.account': accountName || 'default',
+      },
+      async (span) => {
       // Execute command to get JSON data
       let jsonData: unknown;
       if (this.config.command) {
@@ -176,8 +176,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
       
       if (validItems.length === 0) {
-        this.logger.info('No valid items found in JSON data');
-        span?.setStatus({ code: 1 }); // OK
+        this.logger!.info('No valid items found in JSON data');
         return '';
       }
 
@@ -197,14 +196,13 @@ export class MultiJsonCommandProvider implements MessageProvider {
       );
 
       if (unprocessed.length === 0) {
-        this.logger.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
-        span?.setStatus({ code: 1 }); // OK
+        this.logger!.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
         return '';
       }
 
       // Process the first unprocessed item
       const item = unprocessed[0];
-      this.logger.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items for account: ${accountName || 'default'}`);
+      this.logger!.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items for account: ${accountName || 'default'}`);
       const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
 
       // Create attachment configuration
@@ -226,13 +224,12 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
       // Validate the generated message
       if (!this.templateProcessor.isValidMessage(messageData)) {
-        this.logger.info(`Generated empty message for item ${uniqueId}, skipping`);
+        this.logger!.info(`Generated empty message for item ${uniqueId}, skipping`);
         // Mark as processed even if empty to avoid reprocessing
         this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
         if (this.config.cache?.enabled !== false) {
           this.deduplicator.saveProcessedItems(cacheKey, processedItems);
         }
-        span?.setStatus({ code: 1 }); // OK
         return '';
       }
 
@@ -242,9 +239,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
         this.deduplicator.saveProcessedItems(cacheKey, processedItems);
       }
 
-      this.logger.info(`Generated message from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
+      this.logger!.info(`Generated message from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
       
-      span?.setAttributes({
+      TelemetryHelper.setAttributes(span, {
         'multijson.total_items': validItems.length,
         'multijson.unprocessed_items': unprocessed.length,
         'multijson.skipped_items': skipped,
@@ -253,21 +250,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
         'multijson.has_attachments': !!messageData.attachments,
         'multijson.attachments_count': messageData.attachments?.length || 0,
       });
-      span?.setStatus({ code: 1 }); // OK
 
       return messageData.text;
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider failed for account ${accountName || 'default'}: ${errorMessage}`);
-      
-      span?.recordException(error as Error);
-      span?.setStatus({ code: 2, message: errorMessage }); // ERROR
-      
-      throw error;
-    } finally {
-      span?.end();
-    }
+      }
+    );
   }
 
   /**
@@ -565,84 +551,26 @@ export class MultiJsonCommandProvider implements MessageProvider {
    * Set up file watcher for automatic change detection
    */
   private setupFileWatcher(): void {
-    if (!this.config.file) {
+    if (!this.config.file || !this.logger) {
       return;
     }
 
-    // Skip file watching in test environment to prevent Jest worker issues
-    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
-      this.logger?.debug(`Skipping file watcher setup in test environment for: ${this.config.file}`);
-      return;
-    }
-
-    try {
-      this.logger?.info(`Setting up file watcher for: ${this.config.file}`);
-      
-      // Watch the file for changes using fs.watch (event-based, more efficient)
-      this.fileWatcher = fs.watch(this.config.file, (eventType, _filename) => {
-        // Only respond to 'change' events, ignore 'rename' events
-        if (eventType === 'change') {
-          const now = Date.now();
-          
-          // Debounce rapid file changes
-          if (now - this.lastFileChangeTime < this.fileChangeDebounceMs) {
-            this.logger?.debug(`Debouncing file change for ${this.config.file} (${now - this.lastFileChangeTime}ms since last)`);
-            return;
-          }
-          
-          this.lastFileChangeTime = now;
-          this.logger?.info(`File changed: ${this.config.file}`);
-          
-          // Trigger file change callback if available
-          if (this.onFileChanged) {
-            this.onFileChanged();
-          }
-        }
-      });
-      
-      // Handle watcher errors
-      this.fileWatcher.on('error', (error) => {
-        this.logger?.error(`File watcher error for ${this.config.file}: ${error.message}`);
-      });
-      
-      // Store initial file content for comparison
-      if (fs.existsSync(this.config.file)) {
-        this.lastFileContent = fs.readFileSync(this.config.file, 'utf8');
-      }
-      
-    } catch (error) {
-      this.logger?.error(`Failed to set up file watcher: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    this.fileWatcher = new FileWatcher(this.config.file, this.logger);
+    this.fileWatcher.setup();
   }
 
   /**
    * Check if file has changed since last read
    */
   public hasFileChanged(): boolean {
-    if (!this.config.file || !fs.existsSync(this.config.file)) {
-      return false;
-    }
-
-    try {
-      const currentContent = fs.readFileSync(this.config.file, 'utf8');
-      const hasChanged = currentContent !== this.lastFileContent;
-      
-      if (hasChanged) {
-        this.lastFileContent = currentContent;
-      }
-      
-      return hasChanged;
-    } catch (error) {
-      this.logger?.error(`Failed to check file changes: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+    return this.fileWatcher?.hasFileChanged() || false;
   }
 
   /**
    * Set callback for file changes
    */
   public setFileChangeCallback(callback: () => void): void {
-    this.onFileChanged = callback;
+    this.fileWatcher?.setChangeCallback(callback);
   }
 
   /**
@@ -655,8 +583,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     
     // Cleanup file watcher
     if (this.fileWatcher) {
-      this.fileWatcher.close();
-      this.logger?.info(`Stopped watching file: ${this.config.file}`);
+      this.fileWatcher.cleanup();
       this.fileWatcher = undefined;
     }
   }
