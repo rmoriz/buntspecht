@@ -271,7 +271,7 @@ level = "info"
 1. Go to your Mastodon instance
 2. Settings → Development → New Application
 3. Name: "Buntspecht Bot" (or any name)
-4. Scopes: `write:statuses`
+4. Scopes: `write:statuses` for text posts, or `write` for posts with attachments/images
 5. Create application and copy access token
 
 ## Message Providers
@@ -344,8 +344,9 @@ command = "git log --oneline -1"
 
 ### JSON Command Provider
 
-Executes external commands that output JSON and applies templates with variables from the JSON data:
+Executes external commands that output JSON or reads JSON from files, then applies templates with variables from the JSON data:
 
+#### Command-based (Traditional)
 ```toml
 [[bot.providers]]
 name = "json-provider"
@@ -364,17 +365,57 @@ template = "📊 Repository {{name}} has {{stars}} stars! Programming language: 
 
 # Optional: Timeout in milliseconds (default: 30000)
 timeout = 10000
-
-# Optional: Working directory for the command
-# cwd = "/path/to/working/directory"
-
-# Optional: Maximum buffer size for stdout/stderr (default: 1MB)
-# maxBuffer = 1048576
-
-# Optional: Environment variables
-# [bot.providers.config.env]
-# API_KEY = "your-api-key"
 ```
+
+#### File-based (New)
+```toml
+[[bot.providers]]
+name = "weather-from-file"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"  # Every day at 8:00 AM
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Read from file instead of command (mutually exclusive with command)
+file = "/app/data/weather.json"
+template = "🌤️ Weather in {{city}}: {{temperature}}°C, {{description}}"
+```
+
+#### File Watching (Automatic Posting)
+```toml
+[[bot.providers]]
+name = "alerts-from-file"
+type = "jsoncommand"
+# No cronSchedule = file watching enabled for change detection
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+file = "/app/data/alerts.json"
+template = "🚨 Alert: {{message}} - {{severity}}"
+```
+
+**Note**: File watching automatically triggers message generation when files change. No manual intervention required!
+
+**Startup Grace Period**: File changes are ignored for the first 3 seconds after startup to prevent existing files from triggering posts during initialization.
+
+**Configuration Options:**
+- **Either** `command` OR `file` (mutually exclusive)
+- **File watching**: Automatic posting when no `cronSchedule` is provided
+- **Template variables**: Use `{{variable}}` for JSON properties
+- **Nested properties**: Support dot notation like `{{user.name}}`
+- **Template functions**: `trim:length` and `join:separator,prefix`
+- **Attachments**: Full support for images and files
+
+**File vs Command Benefits:**
+- **File**: Better performance, real-time updates, simpler configuration
+- **Command**: Dynamic data fetching, API calls, data processing
+
+**File Watching Behavior:**
+- **Grace Period**: 3-second startup delay prevents initial file triggers
+- **Rate Limiting**: 5-second minimum interval between file change triggers
+- **Real-time**: Automatic posting when files change (after grace period)
 
 #### JSON Command Provider Examples
 
@@ -433,7 +474,7 @@ template = "{{user.name|trim:20}}: {{user.bio|trim:60}}"
 
 ### Multi JSON Command Provider
 
-Executes external commands that output JSON arrays and processes each object as a separate message. Perfect for RSS feeds, API endpoints returning multiple items, or any data source with multiple entries. Features intelligent caching to prevent duplicate messages. Each cron execution processes one new item from the array, with timing controlled by the cron schedule.
+Executes external commands that output JSON arrays or reads JSON arrays from files, then processes each object as a separate message. Perfect for RSS feeds, API endpoints returning multiple items, or any data source with multiple entries. Features intelligent caching to prevent duplicate messages. Each cron execution processes one new item from the array, with timing controlled by the cron schedule.
 
 ```toml
 [[bot.providers]]

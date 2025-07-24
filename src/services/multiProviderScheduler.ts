@@ -1,5 +1,8 @@
 import * as cron from 'node-cron';
 import { SocialMediaClient } from './socialMediaClient';
+import { FileWatcherScheduler } from './fileWatcherScheduler';
+import { JsonCommandProvider } from '../messages/jsonCommandProvider';
+import { MultiJsonCommandProvider } from '../messages/multiJson/MultiJsonCommandProvider';
 import type { TelemetryService } from './telemetryInterface';
 import { BotConfig, ProviderConfig } from '../types/config';
 import { Logger } from '../utils/logger';
@@ -19,10 +22,12 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
   private socialMediaClient: SocialMediaClient;
   private scheduledProviders: ScheduledProvider[] = [];
   private isRunning = false;
+  private fileWatcherScheduler?: FileWatcherScheduler;
 
   constructor(socialMediaClient: SocialMediaClient, config: BotConfig, logger: Logger, telemetry: TelemetryService) {
     super(config, logger, telemetry);
     this.socialMediaClient = socialMediaClient;
+    this.fileWatcherScheduler = new FileWatcherScheduler(logger, socialMediaClient, telemetry);
   }
 
   /**
@@ -108,6 +113,18 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
       task,
       config: providerConfig
     });
+
+    // Register file-based providers with file watcher scheduler
+    const isFileBasedProvider = messageProvider instanceof JsonCommandProvider || messageProvider instanceof MultiJsonCommandProvider;
+    if (isFileBasedProvider && !providerConfig.cronSchedule) {
+      this.fileWatcherScheduler?.registerProvider(
+        providerConfig.name,
+        messageProvider,
+        providerConfig,
+        providerConfig.accounts
+      );
+      this.logger.info(`Registered file watcher for provider "${providerConfig.name}"`);
+    }
 
     if (isPushProvider) {
       this.logger.info(`Initialized push provider "${providerConfig.name}" for accounts: ${providerConfig.accounts.join(', ')}`);

@@ -42,7 +42,7 @@ RUN bun install --frozen-lockfile --production
 COPY --from=builder /app/dist ./dist
 
 # Copy example config
-COPY config.example.toml ./
+COPY examples/configuration/config.example.toml ./
 
 # Create config directory
 RUN mkdir -p /home/buntspecht/.config/buntspecht && \
@@ -65,4 +65,4 @@ CMD ["bun", "run", "dist/index.js"]
 # Labels for metadata
 LABEL maintainer="your-email@example.com"
 LABEL description="Buntspecht - A reliable Fediverse bot for automated messages with flexible sources"
-LABEL version="0.16.1"
+LABEL version="0.17.0"

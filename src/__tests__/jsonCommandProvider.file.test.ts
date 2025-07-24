@@ -28,6 +28,11 @@ describe('JsonCommandProvider - File Support', () => {
     }
   });
 
+  afterAll(() => {
+    // Force cleanup of any remaining file watchers
+    jest.clearAllTimers();
+  });
+
   it('should create provider with file configuration', () => {
     const config = {
       file: testFilePath,
@@ -115,18 +120,27 @@ describe('JsonCommandProvider - File Support', () => {
 
     await provider.initialize(mockLogger);
     
-    // Initial state - no changes
-    expect(provider.hasFileChanged()).toBe(false);
+    try {
+      // First call initializes lastFileContent, so it returns true
+      const firstCall = provider.hasFileChanged();
+      expect(firstCall).toBe(true); // First call always returns true to initialize
 
-    // Modify file
-    const testData2 = { message: 'Second version' };
-    fs.writeFileSync(testFilePath, JSON.stringify(testData2));
+      // Second call should return false (no changes since initialization)
+      expect(provider.hasFileChanged()).toBe(false);
 
-    // Should detect change
-    expect(provider.hasFileChanged()).toBe(true);
-    
-    // Second call should return false (no new changes)
-    expect(provider.hasFileChanged()).toBe(false);
+      // Modify file
+      const testData2 = { message: 'Second version' };
+      fs.writeFileSync(testFilePath, JSON.stringify(testData2));
+
+      // Should detect change
+      expect(provider.hasFileChanged()).toBe(true);
+      
+      // Another call should return false (no new changes)
+      expect(provider.hasFileChanged()).toBe(false);
+    } finally {
+      // Always cleanup
+      provider.cleanup();
+    }
   });
 
   it('should work with attachments from file', async () => {
@@ -150,11 +164,16 @@ describe('JsonCommandProvider - File Support', () => {
     });
 
     await provider.initialize(mockLogger);
-    const result = await provider.generateMessageWithAttachments();
+    
+    try {
+      const result = await provider.generateMessageWithAttachments();
 
-    expect(result.text).toBe('Message: Test with attachment');
-    expect(result.attachments).toHaveLength(1);
-    expect(result.attachments![0].mimeType).toBe('image/png');
+      expect(result.text).toBe('Message: Test with attachment');
+      expect(result.attachments).toHaveLength(1);
+      expect(result.attachments?.[0]?.mimeType).toBe('image/png');
+    } finally {
+      provider.cleanup();
+    }
   });
 
   it('should cleanup file watcher', async () => {
@@ -170,5 +189,8 @@ describe('JsonCommandProvider - File Support', () => {
     // Cleanup should not throw
     expect(() => provider.cleanup()).not.toThrow();
     expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Stopped watching file'));
+    
+    // Ensure cleanup is called
+    provider.cleanup();
   });
 });

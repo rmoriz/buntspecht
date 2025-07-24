@@ -71,7 +71,7 @@ describe('MultiJsonCommandProvider', () => {
         template: 'Message: {{message}}',
       } as MultiJsonCommandProviderConfig;
 
-      expect(() => new MultiJsonCommandProvider(config)).toThrow('Command is required for MultiJsonCommandProvider');
+      expect(() => new MultiJsonCommandProvider(config)).toThrow('Either command or file is required for MultiJsonCommandProvider');
     });
 
     it('should throw error if template is missing', () => {

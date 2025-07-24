@@ -1,6 +1,8 @@
 import { ConfigLoader } from './config/configLoader';
 import { SocialMediaClient } from './services/socialMediaClient';
 import { MultiProviderScheduler } from './services/multiProviderScheduler';
+import { JsonCommandProvider } from './messages/jsonCommandProvider';
+import { MultiJsonCommandProvider } from './messages/multiJson/MultiJsonCommandProvider';
 import { WebhookServer } from './services/webhookServer';
 import { SecretRotationDetector } from './services/secretRotationDetector';
 import { createTelemetryService } from './services/telemetryFactory';

@@ -7,6 +7,7 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 ### Core Features
 - **[Automatic Secret Rotation](AUTOMATIC_SECRET_ROTATION.md)** - Comprehensive guide to automatic secret rotation detection and management
 - **[Cache Migration System](CACHE_MIGRATION_SYSTEM.md)** - Automatic cache migration system that prevents duplicate messages during upgrades
+- **[Webhook Usage Examples](webhook-usage-examples.md)** - Comprehensive examples and patterns for webhook integration
 
 ### Development & Architecture
 - **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - Complete implementation details for automatic secret rotation detection
@@ -22,7 +23,8 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 
 ### For Users
 - **Getting Started**: See the main [README.md](../README.md) in the project root
-- **Configuration**: Check the various `config.*.example.toml` files in the project root
+- **Configuration**: Check the [configuration examples](../examples/configuration/) directory
+- **Webhooks**: Review [Webhook Usage Examples](webhook-usage-examples.md)
 - **Secret Management**: Read [Automatic Secret Rotation](AUTOMATIC_SECRET_ROTATION.md)
 
 ### For Developers
@@ -62,7 +64,7 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 - **[README.de.md](../README.de.md)** - German translation of main documentation
 
 ### Configuration Examples
-Located in the project root:
+Located in [examples/configuration/](../examples/configuration/):
 - `config.example.toml` - Basic configuration
 - `config.secret-rotation.example.toml` - Secret rotation configuration
 - `config.multijson.example.toml` - Multi-JSON provider configuration

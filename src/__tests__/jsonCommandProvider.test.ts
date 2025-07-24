@@ -32,7 +32,7 @@ describe('JsonCommandProvider', () => {
         template: 'Test: {{test}}'
       } as JsonCommandProviderConfig;
 
-      expect(() => new JsonCommandProvider(config)).toThrow('Command is required for JsonCommandProvider');
+      expect(() => new JsonCommandProvider(config)).toThrow('Either command or file is required for JsonCommandProvider');
     });
 
     it('should throw error if template is missing', () => {

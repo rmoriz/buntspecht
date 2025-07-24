@@ -174,7 +174,7 @@ Der Bot sucht nach Konfigurationsdateien in folgender Prioritätsreihenfolge:
 
 ```bash
 # Beispielkonfiguration kopieren
-cp config.example.toml config.toml
+cp examples/configuration/config.example.toml config.toml
 
 # Konfiguration bearbeiten
 nano config.toml
@@ -269,7 +269,7 @@ level = "info"
 1. Gehen Sie zu Ihrer Mastodon-Instanz
 2. Einstellungen → Entwicklung → Neue Anwendung
 3. Name: "Buntspecht Bot" (oder beliebig)
-4. Bereiche: `write:statuses`
+4. Bereiche: `write:statuses` für Text-Posts oder `write` für Posts mit Anhängen/Bildern
 5. Anwendung erstellen und Access Token kopieren
 
 ## Message Provider
@@ -342,8 +342,9 @@ command = "git log --oneline -1"
 
 ### JSON Command Provider
 
-Führt externe Kommandos aus, die JSON ausgeben, und wendet Templates mit Variablen aus den JSON-Daten an:
+Führt externe Kommandos aus, die JSON ausgeben, oder liest JSON aus Dateien und wendet Templates mit Variablen aus den JSON-Daten an:
 
+#### Kommando-basiert (Traditionell)
 ```toml
 [[bot.providers]]
 name = "json-provider"
@@ -362,17 +363,57 @@ template = "📊 Repository {{name}} hat {{stars}} Sterne! Programmiersprache: {
 
 # Optional: Timeout in Millisekunden (Standard: 30000)
 timeout = 10000
-
-# Optional: Arbeitsverzeichnis für das Kommando
-# cwd = "/pfad/zum/arbeitsverzeichnis"
-
-# Optional: Maximale Puffergröße für stdout/stderr (Standard: 1MB)
-# maxBuffer = 1048576
-
-# Optional: Umgebungsvariablen
-# [bot.providers.config.env]
-# API_KEY = "dein-api-schluessel"
 ```
+
+#### Datei-basiert (Neu)
+```toml
+[[bot.providers]]
+name = "wetter-aus-datei"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"  # Jeden Tag um 8:00 Uhr
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Aus Datei lesen statt Kommando (gegenseitig ausschließend mit command)
+file = "/app/data/wetter.json"
+template = "🌤️ Wetter in {{stadt}}: {{temperatur}}°C, {{beschreibung}}"
+```
+
+#### Datei-Überwachung (Automatisches Posting)
+```toml
+[[bot.providers]]
+name = "alerts-aus-datei"
+type = "jsoncommand"
+# Kein cronSchedule = Datei-Überwachung für Änderungs-Erkennung aktiviert
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+file = "/app/data/alerts.json"
+template = "🚨 Alert: {{nachricht}} - {{schweregrad}}"
+```
+
+**Hinweis**: Die Datei-Überwachung löst automatisch die Nachrichten-Generierung aus, wenn sich Dateien ändern. Keine manuelle Intervention erforderlich!
+
+**Startup-Schonfrist**: Dateiänderungen werden in den ersten 3 Sekunden nach dem Start ignoriert, um zu verhindern, dass bestehende Dateien während der Initialisierung Posts auslösen.
+
+**Konfigurationsoptionen:**
+- **Entweder** `command` ODER `file` (gegenseitig ausschließend)
+- **Datei-Überwachung**: Automatisches Posting wenn kein `cronSchedule` angegeben
+- **Template-Variablen**: Verwende `{{variable}}` für JSON-Eigenschaften
+- **Verschachtelte Eigenschaften**: Unterstützung für Punkt-Notation wie `{{user.name}}`
+- **Template-Funktionen**: `trim:length` und `join:separator,prefix`
+- **Anhänge**: Vollständige Unterstützung für Bilder und Dateien
+
+**Datei vs. Kommando Vorteile:**
+- **Datei**: Bessere Performance, Echtzeit-Updates, einfachere Konfiguration
+- **Kommando**: Dynamisches Datenabrufen, API-Aufrufe, Datenverarbeitung
+
+**Datei-Überwachungs-Verhalten:**
+- **Schonfrist**: 3-Sekunden Startup-Verzögerung verhindert initiale Datei-Trigger
+- **Rate Limiting**: 5-Sekunden Mindestabstand zwischen Dateiänderungs-Triggern
+- **Echtzeit**: Automatisches Posting bei Dateiänderungen (nach Schonfrist)
 
 #### JSON Command Provider Beispiele
 
@@ -431,7 +472,7 @@ template = "{{user.name|trim:20}}: {{user.bio|trim:60}}"
 
 ### Multi JSON Command Provider
 
-Führt externe Kommandos aus, die JSON-Arrays ausgeben und verarbeitet jedes Objekt als separate Nachricht. Perfekt für RSS-Feeds, API-Endpunkte mit mehreren Einträgen oder jede Datenquelle mit mehreren Elementen. Bietet intelligentes Caching zur Vermeidung doppelter Nachrichten. Jede Cron-Ausführung verarbeitet ein neues Element aus dem Array, wobei das Timing durch den Cron-Schedule kontrolliert wird.
+Führt externe Kommandos aus, die JSON-Arrays ausgeben, oder liest JSON-Arrays aus Dateien und verarbeitet jedes Objekt als separate Nachricht. Perfekt für RSS-Feeds, API-Endpunkte mit mehreren Einträgen oder jede Datenquelle mit mehreren Elementen. Bietet intelligentes Caching zur Vermeidung doppelter Nachrichten. Jede Cron-Ausführung verarbeitet ein neues Element aus dem Array, wobei das Timing durch den Cron-Schedule kontrolliert wird.
 
 ```toml
 [[bot.providers]]
@@ -806,7 +847,7 @@ Das `examples/`-Verzeichnis enthält umfassende Webhook-Integrations-Beispiele:
 
 - `webhook-integration-example.js` - Vollständige Integrationsmuster
 - `webhook-client.js` - Test-Client für Webhook-Endpunkte
-- `config.webhook.example.toml` - Vollständiges Webhook-Konfigurationsbeispiel
+- `examples/configuration/config.webhook.example.toml` - Vollständiges Webhook-Konfigurationsbeispiel
 
 ## Sichtbarkeits-Konfiguration
 
@@ -1599,7 +1640,7 @@ message = "🤖 Tägliches Update von unserem Bot! #automation #crossplatform"
 
 ### Bluesky-Konfigurationsbeispiele
 
-Siehe `config.bluesky.example.toml` für umfassende plattformübergreifende Konfigurationsbeispiele.
+Siehe `examples/configuration/config.bluesky.example.toml` für umfassende plattformübergreifende Konfigurationsbeispiele.
 
 ## Telemetrie und Monitoring
 
