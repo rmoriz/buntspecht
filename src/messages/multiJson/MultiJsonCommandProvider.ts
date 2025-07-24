@@ -3,6 +3,7 @@ import { Logger } from '../../utils/logger';
 import type { TelemetryService } from '../../services/telemetryInterface';
 import { TelemetryHelper } from '../../utils/telemetryHelper';
 import { FileWatcher } from '../../utils/fileWatcher';
+import { FileReader } from '../../utils/fileReader';
 import { JsonArrayProcessor } from './JsonArrayProcessor';
 import { MessageDeduplicator } from './MessageDeduplicator';
 import { TemplateProcessor } from './TemplateProcessor';
@@ -59,6 +60,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private templateProcessor: TemplateProcessor;
   private scheduler: ExecutionScheduler;
   private fileWatcher?: FileWatcher;
+  private fileReader?: FileReader;
 
   constructor(config: MultiJsonCommandProviderConfig) {
     this.validateConfig(config);
@@ -109,6 +111,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.jsonProcessor = new JsonArrayProcessor(logger);
     this.templateProcessor = new TemplateProcessor(logger);
     this.scheduler = new ExecutionScheduler(logger, this.telemetry);
+    this.fileReader = new FileReader(logger);
     
     // Set up deduplicator with cache directory
     const cacheDir = this.config.cache?.filePath ? 
@@ -412,7 +415,19 @@ export class MultiJsonCommandProvider implements MessageProvider {
           maxBuffer: this.config.maxBuffer,
         }));
       } else if (this.config.file) {
-        jsonData = await this.readJsonFile();
+        const fileContent = await this.readJsonFile();
+        if (fileContent === null) {
+          // File is empty or being written, skip this iteration gracefully
+          this.logger!.debug('File is temporarily empty, skipping cache warming');
+          return;
+        }
+        
+        // Parse the JSON content
+        try {
+          jsonData = JSON.parse(fileContent);
+        } catch (parseError) {
+          throw new Error(`Failed to parse JSON from file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        }
       } else {
         throw new Error('Neither command nor file is configured');
       }
@@ -520,22 +535,29 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Read JSON data from file
+   * Read JSON data from file with robust error handling for transient empty files
    */
-  private async readJsonFile(): Promise<string> {
+  private async readJsonFile(): Promise<string | null> {
     if (!this.config.file) {
       throw new Error('No file configured');
     }
 
+    if (!this.fileReader) {
+      throw new Error('FileReader not initialized. Call setLogger() first.');
+    }
+
     try {
-      if (!fs.existsSync(this.config.file)) {
-        throw new Error(`File does not exist: ${this.config.file}`);
-      }
-      
-      const fileContent = fs.readFileSync(this.config.file, 'utf8');
-      
-      if (!fileContent.trim()) {
-        throw new Error('File is empty');
+      // Use robust file reading with retry logic for transient empty files
+      const fileContent = await this.fileReader.readFileRobust(this.config.file, {
+        maxRetries: 3,
+        retryDelay: 100,
+        throwOnEmpty: false, // Return null for empty files instead of throwing
+        minFileSize: 1
+      });
+
+      if (fileContent === null) {
+        this.logger?.debug(`File ${this.config.file} is empty or being written, skipping this iteration`);
+        return null;
       }
 
       this.logger?.debug(`Read JSON file: ${this.config.file} (${fileContent.length} characters)`);
