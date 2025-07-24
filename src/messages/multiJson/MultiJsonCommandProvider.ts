@@ -579,7 +579,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       this.logger?.info(`Setting up file watcher for: ${this.config.file}`);
       
       // Watch the file for changes using fs.watch (event-based, more efficient)
-      this.fileWatcher = fs.watch(this.config.file, (eventType, filename) => {
+      this.fileWatcher = fs.watch(this.config.file, (eventType, _filename) => {
         // Only respond to 'change' events, ignore 'rename' events
         if (eventType === 'change') {
           const now = Date.now();

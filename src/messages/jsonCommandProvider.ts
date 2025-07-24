@@ -256,7 +256,7 @@ export class JsonCommandProvider implements MessageProvider {
       this.logger?.info(`Setting up file watcher for: ${this.file}`);
       
       // Watch the file for changes using fs.watch (event-based, more efficient)
-      this.fileWatcher = fs.watch(this.file, (eventType, filename) => {
+      this.fileWatcher = fs.watch(this.file, (eventType, _filename) => {
         // Only respond to 'change' events, ignore 'rename' events
         if (eventType === 'change') {
           const now = Date.now();
