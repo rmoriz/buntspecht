@@ -156,7 +156,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     try {
       // Execute command to get JSON data
-      const jsonData = await this.scheduler.executeCommand({
+      let jsonData: string;
+      if (this.config.command) {
+        jsonData = String(await this.scheduler.executeCommand({
         command: this.config.command!,
         timeout: this.config.timeout,
         cwd: this.config.cwd,
@@ -278,7 +280,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     try {
       // Execute command to get JSON data
-      const jsonData = await this.scheduler.executeCommand({
+      let jsonData: string;
+      if (this.config.command) {
+        jsonData = String(await this.scheduler.executeCommand({
         command: this.config.command!,
         timeout: this.config.timeout,
         cwd: this.config.cwd,
