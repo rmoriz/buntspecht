@@ -59,7 +59,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private lastFileContent?: string;
   private onFileChanged?: () => void;
   private lastFileChangeTime: number = 0;
-  private fileChangeDebounceMs: number = 2000; // 2 second debounce
+  private fileChangeDebounceMs: number = 1000; // 1 second debounce (can be lower with fs.watch)
+  private fileWatcher?: fs.FSWatcher;
 
   constructor(config: MultiJsonCommandProviderConfig) {
     this.validateConfig(config);
@@ -577,9 +578,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
     try {
       this.logger?.info(`Setting up file watcher for: ${this.config.file}`);
       
-      // Watch the file for changes
-      fs.watchFile(this.config.file, { interval: 1000 }, (curr, prev) => {
-        if (curr.mtime !== prev.mtime) {
+      // Watch the file for changes using fs.watch (event-based, more efficient)
+      this.fileWatcher = fs.watch(this.config.file, (eventType, filename) => {
+        // Only respond to 'change' events, ignore 'rename' events
+        if (eventType === 'change') {
           const now = Date.now();
           
           // Debounce rapid file changes
@@ -596,6 +598,11 @@ export class MultiJsonCommandProvider implements MessageProvider {
             this.onFileChanged();
           }
         }
+      });
+      
+      // Handle watcher errors
+      this.fileWatcher.on('error', (error) => {
+        this.logger?.error(`File watcher error for ${this.config.file}: ${error.message}`);
       });
       
       // Store initial file content for comparison
@@ -647,9 +654,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
     }
     
     // Cleanup file watcher
-    if (this.config.file) {
-      fs.unwatchFile(this.config.file);
+    if (this.fileWatcher) {
+      this.fileWatcher.close();
       this.logger?.info(`Stopped watching file: ${this.config.file}`);
+      this.fileWatcher = undefined;
     }
   }
 }
