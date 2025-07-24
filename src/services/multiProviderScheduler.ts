@@ -186,6 +186,11 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
       }
     }
 
+    // Cleanup file watcher scheduler
+    if (this.fileWatcherScheduler) {
+      this.fileWatcherScheduler.cleanup();
+    }
+
     if (this.isRunning) {
       this.logger.info('Multi-provider scheduler stopped');
     } else {
