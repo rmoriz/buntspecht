@@ -48,6 +48,8 @@ export class JsonCommandProvider implements MessageProvider {
   private templateProcessor: JsonTemplateProcessor;
   private lastFileContent?: string;
   private onFileChanged?: () => void;
+  private lastFileChangeTime: number = 0;
+  private fileChangeDebounceMs: number = 2000; // 2 second debounce
 
   constructor(config: JsonCommandProviderConfig) {
     // Validate that either command or file is provided, but not both
@@ -255,7 +257,17 @@ export class JsonCommandProvider implements MessageProvider {
       // Watch the file for changes
       fs.watchFile(this.file, { interval: 1000 }, (curr, prev) => {
         if (curr.mtime !== prev.mtime) {
+          const now = Date.now();
+          
+          // Debounce rapid file changes
+          if (now - this.lastFileChangeTime < this.fileChangeDebounceMs) {
+            this.logger?.debug(`Debouncing file change for ${this.file} (${now - this.lastFileChangeTime}ms since last)`);
+            return;
+          }
+          
+          this.lastFileChangeTime = now;
           this.logger?.info(`File changed: ${this.file}`);
+          
           // Trigger file change callback if available
           if (this.onFileChanged) {
             this.onFileChanged();

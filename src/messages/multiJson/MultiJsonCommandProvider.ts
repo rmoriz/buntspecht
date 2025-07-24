@@ -58,6 +58,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private scheduler: ExecutionScheduler;
   private lastFileContent?: string;
   private onFileChanged?: () => void;
+  private lastFileChangeTime: number = 0;
+  private fileChangeDebounceMs: number = 2000; // 2 second debounce
 
   constructor(config: MultiJsonCommandProviderConfig) {
     this.validateConfig(config);
@@ -156,17 +158,20 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     try {
       // Execute command to get JSON data
-      let jsonData: string;
+      let jsonData: unknown;
       if (this.config.command) {
-        jsonData = String(await this.scheduler.executeCommand({
-        command: this.config.command!,
-        timeout: this.config.timeout,
-        cwd: this.config.cwd,
-        env: this.config.env,
-        maxBuffer: this.config.maxBuffer
-      });
+        jsonData = await this.scheduler.executeCommand({
+          command: this.config.command!,
+          timeout: this.config.timeout,
+          cwd: this.config.cwd,
+          env: this.config.env,
+          maxBuffer: this.config.maxBuffer
+        });
+      } else {
+        throw new Error('No command specified in configuration');
+      }
 
-      // Process and validate JSON array
+      // Validate JSON array
       const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
       
       if (validItems.length === 0) {
@@ -280,17 +285,20 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     try {
       // Execute command to get JSON data
-      let jsonData: string;
+      let jsonData: unknown;
       if (this.config.command) {
-        jsonData = String(await this.scheduler.executeCommand({
-        command: this.config.command!,
-        timeout: this.config.timeout,
-        cwd: this.config.cwd,
-        env: this.config.env,
-        maxBuffer: this.config.maxBuffer
-      });
+        jsonData = await this.scheduler.executeCommand({
+          command: this.config.command!,
+          timeout: this.config.timeout,
+          cwd: this.config.cwd,
+          env: this.config.env,
+          maxBuffer: this.config.maxBuffer
+        });
+      } else {
+        throw new Error('No command specified in configuration');
+      }
 
-      // Process and validate JSON array
+      // Validate JSON array
       const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
       
       if (validItems.length === 0) {
@@ -572,7 +580,17 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Watch the file for changes
       fs.watchFile(this.config.file, { interval: 1000 }, (curr, prev) => {
         if (curr.mtime !== prev.mtime) {
+          const now = Date.now();
+          
+          // Debounce rapid file changes
+          if (now - this.lastFileChangeTime < this.fileChangeDebounceMs) {
+            this.logger?.debug(`Debouncing file change for ${this.config.file} (${now - this.lastFileChangeTime}ms since last)`);
+            return;
+          }
+          
+          this.lastFileChangeTime = now;
           this.logger?.info(`File changed: ${this.config.file}`);
+          
           // Trigger file change callback if available
           if (this.onFileChanged) {
             this.onFileChanged();
