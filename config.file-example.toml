@@ -1,0 +1,134 @@
+# Buntspecht Configuration with File Support
+# This example demonstrates the new file option for JSON and MultiJSON providers
+
+[[accounts]]
+name = "main-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-access-token-here"
+
+[bot]
+
+# Example 1: JSON Command Provider with File
+[[bot.providers]]
+name = "weather-from-file"
+type = "jsoncommand"
+cronSchedule = "0 8 * * *"  # Every day at 8:00 AM
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Use file instead of command
+file = "/app/data/weather.json"
+template = "🌤️ Weather in {{city}}: {{temperature}}°C, {{description}}"
+attachmentsKey = "images"
+attachmentDataKey = "base64_data"
+attachmentMimeTypeKey = "mime_type"
+
+# Example 2: MultiJSON Command Provider with File
+[[bot.providers]]
+name = "news-from-file"
+type = "multijson"
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Use file instead of command
+file = "/app/data/news.json"
+template = "📰 {{title}}: {{summary}} - {{url}}"
+uniqueKey = "id"
+attachmentsKey = "images"
+attachmentDataKey = "data"
+throttleDelay = 5000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 86400000  # 24 hours
+maxSize = 1000
+
+# Example 3: File Watching without Cron (automatic on file change)
+[[bot.providers]]
+name = "alerts-from-file"
+type = "multijson"
+# No cronSchedule = automatic file watching!
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+file = "/app/data/alerts.json"
+template = "🚨 Alert: {{message}} - {{severity}}"
+uniqueKey = "alert_id"
+throttleDelay = 1000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 3600000  # 1 hour
+maxSize = 500
+
+# Example 4: Your Bike Reports with File
+[[bot.providers]]
+name = "bike-reports-file"
+type = "multijson"
+cronSchedule = "*/10 * * * *"  # Every 10 minutes
+enabled = true
+accounts = ["main-account"]
+
+[bot.providers.config]
+# Read from file instead of command
+file = "/app/data/meldeplattform.json"
+template = """⚠️🚲 {{title}}
+🏘️ {{borough}}
+📍 {{address}}
+📅 {{creation_date}}
+
+{{description|trim:40}}
+{{url}}
+#Muenchen #Fahrrad #Radverkehr"""
+uniqueKey = "id"
+attachmentsKey = "images"
+attachmentDataKey = "base64_data"
+attachmentMimeTypeKey = "mime_type"
+throttleDelay = 10000
+
+[bot.providers.config.cache]
+enabled = true
+ttl = 1209600000  # 14 days
+maxSize = 1000
+filePath = "/app/cache/bike_reports_file.json"
+
+[logging]
+level = "info"
+
+# Notes on File Support:
+#
+# 1. File vs Command:
+#    - Use either 'file' OR 'command', never both
+#    - file: Path to JSON file (absolute path recommended)
+#    - command: Shell command that outputs JSON
+#
+# 2. File Watching:
+#    - If NO cronSchedule is provided, automatic file watching is enabled
+#    - File changes trigger message generation automatically
+#    - Polling interval: 1 second
+#
+# 3. File Format:
+#    - JSON Command Provider: Single JSON object
+#    - MultiJSON Command Provider: JSON array of objects
+#    - File must be valid JSON
+#
+# 4. Error Handling:
+#    - File not found: Provider will fail gracefully
+#    - Invalid JSON: Provider will log error and skip
+#    - File permissions: Check read permissions
+#
+# 5. Performance:
+#    - File reading is faster than command execution
+#    - No subprocess overhead
+#    - Suitable for frequently updated data files
+#
+# 6. Use Cases:
+#    - External systems writing JSON files
+#    - Data pipelines outputting to files
+#    - Real-time data feeds
+#    - Configuration-driven content

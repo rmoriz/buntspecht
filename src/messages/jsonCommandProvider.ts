@@ -4,6 +4,8 @@ import { exec } from 'child_process';
 import { JsonTemplateProcessor, AttachmentConfig } from '../utils/jsonTemplateProcessor';
 import { promisify } from 'util';
 import type { TelemetryService } from '../services/telemetryInterface';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -11,7 +13,8 @@ const execAsync = promisify(exec);
  * Configuration for the JSON Command message provider
  */
 export interface JsonCommandProviderConfig extends MessageProviderConfig {
-  command: string;
+  command?: string; // Command to execute (mutually exclusive with file)
+  file?: string; // Path to JSON file (mutually exclusive with command)
   template: string;
   timeout?: number; // Timeout in milliseconds (default: 30000)
   cwd?: string; // Working directory for the command
@@ -30,7 +33,8 @@ export interface JsonCommandProviderConfig extends MessageProviderConfig {
  * with variables from the JSON data
  */
 export class JsonCommandProvider implements MessageProvider {
-  private command: string;
+  private command?: string;
+  private file?: string;
   private template: string;
   private timeout: number;
   private cwd?: string;
@@ -43,10 +47,16 @@ export class JsonCommandProvider implements MessageProvider {
   private attachmentDescriptionKey: string;
   private logger?: Logger;
   private templateProcessor: JsonTemplateProcessor;
+  private lastFileContent?: string;
 
   constructor(config: JsonCommandProviderConfig) {
-    if (!config.command) {
-      throw new Error('Command is required for JsonCommandProvider');
+    // Validate that either command or file is provided, but not both
+    if (!config.command && !config.file) {
+      throw new Error('Either command or file is required for JsonCommandProvider');
+    }
+    
+    if (config.command && config.file) {
+      throw new Error('Cannot specify both command and file for JsonCommandProvider');
     }
     
     if (!config.template) {
@@ -54,6 +64,7 @@ export class JsonCommandProvider implements MessageProvider {
     }
     
     this.command = config.command;
+    this.file = config.file;
     this.template = config.template;
     this.timeout = config.timeout || 30000; // 30 seconds default
     this.cwd = config.cwd;
@@ -77,42 +88,82 @@ export class JsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Generates the message with attachments by executing the configured command, parsing JSON output,
-   * and applying the template
+   * Generates the message with attachments by executing the configured command or reading the file,
+   * parsing JSON output, and applying the template
    */
   public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
-    this.logger?.debug(`Executing command: "${this.command}"`);
+    let jsonData: Record<string, unknown>;
     
-    try {
-      const options = {
-        timeout: this.timeout,
-        cwd: this.cwd,
-        env: this.env ? { ...process.env, ...this.env } : process.env,
-        maxBuffer: this.maxBuffer,
-      };
-
-      const { stdout, stderr } = await execAsync(this.command, options);
+    if (this.command) {
+      // Execute command
+      this.logger?.debug(`Executing command: "${this.command}"`);
       
-      if (stderr) {
-        this.logger?.warn(`Command stderr: ${stderr.trim()}`);
-      }
-
-      const output = stdout.trim();
-      
-      if (!output) {
-        throw new Error('Command produced no output');
-      }
-
-      this.logger?.debug(`Command output: "${output}"`);
-      
-      // Parse JSON output
-      let jsonData: Record<string, unknown>;
       try {
-        jsonData = JSON.parse(output);
-      } catch (parseError) {
-        const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
-        throw new Error(`Failed to parse command output as JSON: ${errorMessage}`);
+        const options = {
+          timeout: this.timeout,
+          cwd: this.cwd,
+          env: this.env ? { ...process.env, ...this.env } : process.env,
+          maxBuffer: this.maxBuffer,
+        };
+
+        const { stdout, stderr } = await execAsync(this.command, options);
+        
+        if (stderr) {
+          this.logger?.warn(`Command stderr: ${stderr.trim()}`);
+        }
+
+        const output = stdout.trim();
+        
+        if (!output) {
+          throw new Error('Command produced no output');
+        }
+
+        this.logger?.debug(`Command output: "${output}"`);
+        
+        // Parse JSON output
+        try {
+          jsonData = JSON.parse(output);
+        } catch (parseError) {
+          const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+          throw new Error(`Failed to parse command output as JSON: ${errorMessage}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger?.error(`JSON command execution failed: ${errorMessage}`);
+        throw new Error(`Failed to execute JSON command: ${errorMessage}`);
       }
+    } else if (this.file) {
+      // Read file
+      this.logger?.debug(`Reading JSON file: "${this.file}"`);
+      
+      try {
+        if (!fs.existsSync(this.file)) {
+          throw new Error(`File does not exist: ${this.file}`);
+        }
+        
+        const fileContent = fs.readFileSync(this.file, 'utf8');
+        
+        if (!fileContent.trim()) {
+          throw new Error('File is empty');
+        }
+
+        this.logger?.debug(`File content length: ${fileContent.length} characters`);
+        
+        // Parse JSON content
+        try {
+          jsonData = JSON.parse(fileContent);
+        } catch (parseError) {
+          const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+          throw new Error(`Failed to parse file content as JSON: ${errorMessage}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger?.error(`JSON file reading failed: ${errorMessage}`);
+        throw new Error(`Failed to read JSON file: ${errorMessage}`);
+      }
+    } else {
+      throw new Error('Neither command nor file is configured');
+    }
 
       // Apply template with JSON variables
       const message = this.templateProcessor.applyTemplate(this.template, jsonData);
@@ -132,16 +183,10 @@ export class JsonCommandProvider implements MessageProvider {
         this.logger?.debug(`Found ${attachments.length} attachments`);
       }
       
-      return {
-        text: message,
-        attachments: attachments.length > 0 ? attachments : undefined
-      };
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`JSON command execution failed: ${errorMessage}`);
-      throw new Error(`Failed to execute JSON command: ${errorMessage}`);
-    }
+    return {
+      text: message,
+      attachments: attachments.length > 0 ? attachments : undefined
+    };
   }
 
 
@@ -165,17 +210,91 @@ export class JsonCommandProvider implements MessageProvider {
    */
   public async initialize(logger: Logger, _telemetry?: TelemetryService): Promise<void> {
     this.logger = logger;
-    // JsonCommandProvider doesn't use telemetry currently
-    this.logger.info(`Initialized JsonCommandProvider with command: "${this.command}"`);
+    this.templateProcessor = new JsonTemplateProcessor(this.logger);
+    
+    if (this.command) {
+      this.logger.info(`Initialized JsonCommandProvider with command: "${this.command}"`);
+    } else if (this.file) {
+      this.logger.info(`Initialized JsonCommandProvider with file: "${this.file}"`);
+      
+      // Set up file watching if no cron schedule is provided
+      // Note: This assumes the provider will be used without cron scheduling
+      // The actual cron check should be done by the caller
+      this.setupFileWatcher();
+    }
+    
     this.logger.info(`Template: "${this.template}"`);
     
-    // Validate that the command can be executed by doing a dry run
+    // Validate that the provider can generate a message by doing a dry run
     try {
       await this.generateMessage();
-      this.logger.info('JSON command provider validation successful');
+      this.logger.info('JSON command/file provider validation successful');
     } catch (error) {
-      this.logger.warn(`JSON command provider validation failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`JSON command/file provider validation failed: ${error instanceof Error ? error.message : String(error)}`);
       // Don't throw here - let it fail during actual execution
+    }
+  }
+
+  /**
+   * Set up file watcher for automatic change detection
+   */
+  private setupFileWatcher(): void {
+    if (!this.file) {
+      return;
+    }
+
+    try {
+      this.logger?.info(`Setting up file watcher for: ${this.file}`);
+      
+      // Watch the file for changes
+      fs.watchFile(this.file, { interval: 1000 }, (curr, prev) => {
+        if (curr.mtime !== prev.mtime) {
+          this.logger?.info(`File changed: ${this.file}`);
+          // Note: File change detection is set up, but actual triggering of message generation
+          // should be handled by the scheduler/bot that manages this provider
+        }
+      });
+      
+      // Store initial file content for comparison
+      if (fs.existsSync(this.file)) {
+        this.lastFileContent = fs.readFileSync(this.file, 'utf8');
+      }
+      
+    } catch (error) {
+      this.logger?.error(`Failed to set up file watcher: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Check if file has changed since last read
+   */
+  public hasFileChanged(): boolean {
+    if (!this.file || !fs.existsSync(this.file)) {
+      return false;
+    }
+
+    try {
+      const currentContent = fs.readFileSync(this.file, 'utf8');
+      const hasChanged = currentContent !== this.lastFileContent;
+      
+      if (hasChanged) {
+        this.lastFileContent = currentContent;
+      }
+      
+      return hasChanged;
+    } catch (error) {
+      this.logger?.error(`Failed to check file changes: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  /**
+   * Cleanup resources
+   */
+  public cleanup(): void {
+    if (this.file) {
+      fs.unwatchFile(this.file);
+      this.logger?.info(`Stopped watching file: ${this.file}`);
     }
   }
 }

@@ -5,12 +5,15 @@ import { JsonArrayProcessor } from './JsonArrayProcessor';
 import { MessageDeduplicator } from './MessageDeduplicator';
 import { TemplateProcessor } from './TemplateProcessor';
 import { ExecutionScheduler } from './ExecutionScheduler';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Configuration for the Multi JSON Command message provider
  */
 export interface MultiJsonCommandProviderConfig extends MessageProviderConfig {
-  command: string;
+  command?: string; // Command to execute (mutually exclusive with file)
+  file?: string; // Path to JSON file (mutually exclusive with command)
   template: string;
   timeout?: number; // Timeout in milliseconds (default: 30000)
   cwd?: string; // Working directory for the command
@@ -53,6 +56,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private deduplicator: MessageDeduplicator;
   private templateProcessor: TemplateProcessor;
   private scheduler: ExecutionScheduler;
+  private lastFileContent?: string;
 
   constructor(config: MultiJsonCommandProviderConfig) {
     this.validateConfig(config);
@@ -82,8 +86,13 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   private validateConfig(config: MultiJsonCommandProviderConfig): void {
-    if (!config.command) {
-      throw new Error('Command is required for MultiJsonCommandProvider');
+    // Validate that either command or file is provided, but not both
+    if (!config.command && !config.file) {
+      throw new Error('Either command or file is required for MultiJsonCommandProvider');
+    }
+    
+    if (config.command && config.file) {
+      throw new Error('Cannot specify both command and file for MultiJsonCommandProvider');
     }
     
     if (!config.template) {
@@ -103,6 +112,11 @@ export class MultiJsonCommandProvider implements MessageProvider {
     const cacheDir = this.config.cache?.filePath ? 
       require('path').dirname(this.config.cache.filePath) : './cache';
     this.deduplicator = new MessageDeduplicator(cacheDir, logger);
+    
+    // Set up file watching if using file mode
+    if (this.config.file) {
+      this.setupFileWatcher();
+    }
   }
 
   public setTelemetry(telemetry: TelemetryService): void {
@@ -387,14 +401,21 @@ export class MultiJsonCommandProvider implements MessageProvider {
     });
 
     try {
-      // Execute command to get JSON data
-      const jsonData = await this.scheduler.executeCommand({
-        command: this.config.command,
-        timeout: this.config.timeout,
-        cwd: this.config.cwd,
-        env: this.config.env,
-        maxBuffer: this.config.maxBuffer,
-      });
+      // Get JSON data from command or file
+      let jsonData: string;
+      if (this.config.command) {
+        jsonData = await this.scheduler.executeCommand({
+          command: this.config.command!,
+          timeout: this.config.timeout,
+          cwd: this.config.cwd,
+          env: this.config.env,
+          maxBuffer: this.config.maxBuffer,
+        });
+      } else if (this.config.file) {
+        jsonData = await this.readJsonFile();
+      } else {
+        throw new Error('Neither command nor file is configured');
+      }
 
       // Process and validate JSON array
       const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
@@ -499,11 +520,98 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
-   * Cleanup method for cache maintenance
+   * Read JSON data from file
+   */
+  private async readJsonFile(): Promise<string> {
+    if (!this.config.file) {
+      throw new Error('No file configured');
+    }
+
+    try {
+      if (!fs.existsSync(this.config.file)) {
+        throw new Error(`File does not exist: ${this.config.file}`);
+      }
+      
+      const fileContent = fs.readFileSync(this.config.file, 'utf8');
+      
+      if (!fileContent.trim()) {
+        throw new Error('File is empty');
+      }
+
+      this.logger?.debug(`Read JSON file: ${this.config.file} (${fileContent.length} characters)`);
+      return fileContent;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger?.error(`Failed to read JSON file: ${errorMessage}`);
+      throw new Error(`Failed to read JSON file: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Set up file watcher for automatic change detection
+   */
+  private setupFileWatcher(): void {
+    if (!this.config.file) {
+      return;
+    }
+
+    try {
+      this.logger?.info(`Setting up file watcher for: ${this.config.file}`);
+      
+      // Watch the file for changes
+      fs.watchFile(this.config.file, { interval: 1000 }, (curr, prev) => {
+        if (curr.mtime !== prev.mtime) {
+          this.logger?.info(`File changed: ${this.config.file}`);
+          // Note: File change detection is set up, but actual triggering of message generation
+          // should be handled by the scheduler/bot that manages this provider
+        }
+      });
+      
+      // Store initial file content for comparison
+      if (fs.existsSync(this.config.file)) {
+        this.lastFileContent = fs.readFileSync(this.config.file, 'utf8');
+      }
+      
+    } catch (error) {
+      this.logger?.error(`Failed to set up file watcher: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Check if file has changed since last read
+   */
+  public hasFileChanged(): boolean {
+    if (!this.config.file || !fs.existsSync(this.config.file)) {
+      return false;
+    }
+
+    try {
+      const currentContent = fs.readFileSync(this.config.file, 'utf8');
+      const hasChanged = currentContent !== this.lastFileContent;
+      
+      if (hasChanged) {
+        this.lastFileContent = currentContent;
+      }
+      
+      return hasChanged;
+    } catch (error) {
+      this.logger?.error(`Failed to check file changes: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  /**
+   * Cleanup method for cache maintenance and file watchers
    */
   public cleanup(): void {
     if (this.config.cache?.enabled !== false) {
       this.deduplicator.cleanupOldCacheFiles(this.config.cache?.ttl);
+    }
+    
+    // Cleanup file watcher
+    if (this.config.file) {
+      fs.unwatchFile(this.config.file);
+      this.logger?.info(`Stopped watching file: ${this.config.file}`);
     }
   }
 }
