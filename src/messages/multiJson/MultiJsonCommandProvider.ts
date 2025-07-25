@@ -122,7 +122,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
     this.deduplicator = new MessageDeduplicator(cacheDir, logger);
     
     // Initialize message generator
-    this.messageGenerator = new MessageGenerator(logger, this.providerName, cacheDir, this.telemetry);
+    this.messageGenerator = new MessageGenerator(logger, this.providerName || 'multijsoncommand', cacheDir, this.telemetry);
     
     // Set up file watching if using file mode
     if (this.config.file) {
@@ -138,7 +138,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       // Update message generator with telemetry
       const cacheDir = this.config.cache?.filePath ? 
         require('path').dirname(this.config.cache.filePath) : './cache';
-      this.messageGenerator = new MessageGenerator(this.logger, this.providerName, cacheDir, telemetry);
+      this.messageGenerator = new MessageGenerator(this.logger, this.providerName || 'multijsoncommand', cacheDir, telemetry);
     }
   }
 
@@ -151,7 +151,8 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   private getCacheKey(accountName?: string): string {
-    return accountName ? `${this.providerName}:${accountName}` : this.providerName;
+    const providerName = this.providerName || 'multijsoncommand';
+    return accountName ? `${providerName}:${accountName}` : providerName;
   }
 
   /**
@@ -379,6 +380,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
     }
     if (providerName) {
       this.setProviderName(providerName);
+    }
+    // Ensure provider name is set to avoid empty cache keys
+    if (!this.providerName) {
+      this.providerName = 'multijsoncommand';
     }
   }
 

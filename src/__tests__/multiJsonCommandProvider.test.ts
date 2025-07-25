@@ -70,6 +70,19 @@ describe('MultiJsonCommandProvider', () => {
         // Ignore cleanup errors
       }
     });
+    
+    // Clean up temporary test cache directories
+    try {
+      const files = fs.readdirSync('.');
+      const tempDirs = files.filter(f => f.startsWith('tmp_test_cache_warm_'));
+      tempDirs.forEach(dir => {
+        if (fs.existsSync(dir)) {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      });
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   describe('constructor', () => {
@@ -685,9 +698,10 @@ describe('MultiJsonCommandProvider', () => {
       ];
       fs.writeFileSync('./tmp_rovodev_test_data.json', JSON.stringify(testData));
 
-      // Ensure cache directory exists
-      if (!fs.existsSync('./cache')) {
-        fs.mkdirSync('./cache', { recursive: true });
+      // Use a unique test cache directory to avoid legacy cache interference
+      const testCacheDir = './tmp_test_cache_warm_' + Date.now();
+      if (!fs.existsSync(testCacheDir)) {
+        fs.mkdirSync(testCacheDir, { recursive: true });
       }
 
       const config: MultiJsonCommandProviderConfig = {
@@ -695,24 +709,35 @@ describe('MultiJsonCommandProvider', () => {
         template: 'Message: {{message}}',
         cache: { 
           enabled: true,
-          filePath: './cache/tmp_rovodev_test_cache_file_warm.json'
+          filePath: `${testCacheDir}/cache.json`
         }
       };
 
-      const provider = new MultiJsonCommandProvider(config);
-      await provider.initialize(logger, undefined, 'test-provider-file-warm');
+      // Create fresh provider instance
+      const provider1 = new MultiJsonCommandProvider(config);
+      await provider1.initialize(logger, undefined, 'multijsoncommand');
 
-      // Warm cache
-      await provider.warmCache();
+      // First call should return a message (cache is empty)
+      const result1 = await provider1.generateMessage();
+      expect(result1).toBe('Message: Message 1');
 
-      // After warming cache, generateMessage should return empty
-      const result = await provider.generateMessage();
-      expect(result).toBe('');
+      // Clean up the first provider
+      provider1.cleanup();
 
-      // Clean up cache file
-      const cacheFile = './cache/test-provider-file-warm_processed.json';
-      if (fs.existsSync(cacheFile)) {
-        fs.unlinkSync(cacheFile);
+      // Create a new provider instance with same config to simulate fresh start
+      const provider2 = new MultiJsonCommandProvider(config);
+      await provider2.initialize(logger, undefined, 'multijsoncommand');
+
+      // Warm cache - this should mark all items as processed
+      await provider2.warmCache();
+
+      // Second call should return empty since all items are now cached
+      const result2 = await provider2.generateMessage();
+      expect(result2).toBe('');
+
+      // Clean up test cache directory
+      if (fs.existsSync(testCacheDir)) {
+        fs.rmSync(testCacheDir, { recursive: true, force: true });
       }
     });
 

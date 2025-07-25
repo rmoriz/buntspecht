@@ -17,7 +17,18 @@
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
       "Bash(git checkout:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(find:*)",
+      "Bash(gh run view:*)",
+      "Bash(rg:*)",
+      "Bash(rm:*)",
+      "Bash(__NEW_LINE__ - Fixed cache file cleanup to target actual cache file names based on provider names)",
+      "Bash(- Added missing cache file cleanup entries for various test provider names)",
+      "Bash(- Updated test cleanup to properly remove actual cache files created during tests)",
+      "Bash(__NEW_LINE__ This resolves the issue where the 'should warm cache from file' test was failing)",
+      "Bash(in CI due to stale cache files from previous test runs not being cleaned up.)",
+      "Bash(__NEW_LINE__ Tested with: Jest test runner, Claude Sonnet 4)",
+      "Bash(true)"
     ],
     "deny": []
   }
