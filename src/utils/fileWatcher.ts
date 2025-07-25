@@ -4,6 +4,12 @@ import { Logger } from './logger';
 /**
  * Utility class for watching file changes with debouncing and proper cleanup.
  * Eliminates code duplication between JsonCommandProvider and MultiJsonCommandProvider.
+ * 
+ * Features:
+ * - 3-second default debounce delay to wait for file writing completion
+ * - Automatic fallback to directory watching if file doesn't exist
+ * - Proper cleanup of resources and timeouts
+ * - Test environment detection to prevent Jest worker issues
  */
 export class FileWatcher {
   private filePath: string;
@@ -13,8 +19,9 @@ export class FileWatcher {
   private lastFileContent?: string;
   private onFileChanged?: () => void;
   private fileWatcher?: fs.FSWatcher;
+  private debounceTimeout?: NodeJS.Timeout;
 
-  constructor(filePath: string, logger: Logger, debounceMs: number = 1000) {
+  constructor(filePath: string, logger: Logger, debounceMs: number = 3000) {
     this.filePath = filePath;
     this.logger = logger;
     this.debounceMs = debounceMs;
@@ -114,27 +121,35 @@ export class FileWatcher {
   }
 
   /**
-   * Handles file change events with debouncing
+   * Handles file change events with debouncing and delay to wait for file writing completion
    */
   private handleFileChange(): void {
     const now = Date.now();
     
-    // Debounce rapid file changes
-    if (now - this.lastFileChangeTime < this.debounceMs) {
-      this.logger.debug(`Debouncing file change for ${this.filePath} (${now - this.lastFileChangeTime}ms since last)`);
-      return;
+    this.logger.debug(`File change detected: ${this.filePath}`);
+    
+    // Clear any existing timeout to reset the delay
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
     }
     
-    this.lastFileChangeTime = now;
-    this.logger.info(`File changed: ${this.filePath}`);
+    // Set up a new timeout to wait for file writing to complete
+    this.debounceTimeout = setTimeout(() => {
+      this.logger.info(`File change processed after ${this.debounceMs}ms delay: ${this.filePath}`);
+      
+      // Update the stored content
+      this.updateLastFileContent();
+      
+      // Trigger file change callback if available
+      if (this.onFileChanged) {
+        this.onFileChanged();
+      }
+      
+      this.lastFileChangeTime = Date.now();
+      this.debounceTimeout = undefined;
+    }, this.debounceMs);
     
-    // Update the stored content
-    this.updateLastFileContent();
-    
-    // Trigger file change callback if available
-    if (this.onFileChanged) {
-      this.onFileChanged();
-    }
+    this.logger.debug(`File change debounced for ${this.debounceMs}ms: ${this.filePath}`);
   }
 
   /**
@@ -210,6 +225,12 @@ export class FileWatcher {
    * Cleans up the file watcher and releases resources
    */
   public cleanup(): void {
+    // Clear any pending debounce timeout
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+      this.debounceTimeout = undefined;
+    }
+    
     if (this.fileWatcher) {
       this.fileWatcher.close();
       this.logger.info(`Stopped watching file: ${this.filePath}`);
@@ -223,5 +244,13 @@ export class FileWatcher {
    */
   public isWatching(): boolean {
     return !!this.fileWatcher;
+  }
+
+  /**
+   * Checks if there's a pending debounced file change
+   * @returns true if there's a pending change, false otherwise
+   */
+  public hasPendingChange(): boolean {
+    return !!this.debounceTimeout;
   }
 }
