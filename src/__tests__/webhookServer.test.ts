@@ -345,6 +345,12 @@ describe('WebhookServer', () => {
       // Setup bot mocks
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should use provider-specific secret when available', async () => {
@@ -491,6 +497,13 @@ describe('WebhookServer', () => {
       };
       (mockBot.getPushProvider as jest.Mock).mockReturnValue(mockPushProvider);
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
+      (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should accept request with valid HMAC signature', async () => {
@@ -576,7 +589,7 @@ describe('WebhookServer', () => {
         message: 'Test message'
       });
 
-      const signature = TestHelpers.createHmacSignature(payload, 'provider-hmac-secret');
+      const signature = TestHelpers.createHmacSignature(payload, 'provider-hmac-secret', 'sha512');
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
@@ -612,7 +625,7 @@ describe('WebhookServer', () => {
         message: 'Test message'
       });
 
-      const signature = TestHelpers.createHmacSignature(payload, 'test-hmac-secret');
+      const signature = TestHelpers.createHmacSignature(payload, 'test-hmac-secret', 'sha1');
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
@@ -644,6 +657,12 @@ describe('WebhookServer', () => {
       // Setup bot mocks
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProviderWithVisibilityAndAttachments as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should return 429 when push provider is rate limited', async () => {
@@ -838,6 +857,12 @@ describe('WebhookServer', () => {
 
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should reject payload that exceeds max size', async () => {
@@ -1095,6 +1120,12 @@ describe('WebhookServer', () => {
 
       (mockBot.isPushProvider as jest.Mock).mockReturnValue(true);
       (mockBot.triggerPushProvider as jest.Mock).mockResolvedValue(undefined);
+      (mockBot.getPushProviders as jest.Mock).mockReturnValue([
+        { name: 'test-provider', config: { defaultMessage: 'Test' } }
+      ]);
+      (mockBot.getProviderInfo as jest.Mock).mockReturnValue([
+        { name: 'test-provider', type: 'push', enabled: true }
+      ]);
     });
 
     it('should handle IPv6 localhost address', async () => {
@@ -1195,6 +1226,13 @@ describe('WebhookServer', () => {
         ...mockBot,
         triggerPushProviderWithVisibilityAndAttachments: undefined,
         triggerPushProviderWithVisibility: jest.fn().mockResolvedValue(undefined),
+        isPushProvider: jest.fn().mockReturnValue(true),
+        getPushProviders: jest.fn().mockReturnValue([
+          { name: 'test-provider', config: { defaultMessage: 'Test' } }
+        ]),
+        getProviderInfo: jest.fn().mockReturnValue([
+          { name: 'test-provider', type: 'push', enabled: true }
+        ]),
       } as unknown as MastodonPingBot;
 
       // Create new server with old bot
@@ -1226,6 +1264,13 @@ describe('WebhookServer', () => {
         triggerPushProviderWithVisibilityAndAttachments: undefined,
         triggerPushProviderWithVisibility: undefined,
         triggerPushProvider: jest.fn().mockResolvedValue(undefined),
+        isPushProvider: jest.fn().mockReturnValue(true),
+        getPushProviders: jest.fn().mockReturnValue([
+          { name: 'test-provider', config: { defaultMessage: 'Test' } }
+        ]),
+        getProviderInfo: jest.fn().mockReturnValue([
+          { name: 'test-provider', type: 'push', enabled: true }
+        ]),
       } as unknown as MastodonPingBot;
 
       // Create new server with very old bot

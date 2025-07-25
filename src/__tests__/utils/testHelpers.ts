@@ -232,9 +232,9 @@ export class TestHelpers {
   /**
    * Create HMAC signature for webhook testing
    */
-  static createHmacSignature(payload: string, secret: string): string {
+  static createHmacSignature(payload: string, secret: string, algorithm: 'sha1' | 'sha256' | 'sha512' = 'sha256'): string {
     const crypto = require('crypto');
-    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    return crypto.createHmac(algorithm, secret).update(payload).digest('hex');
   }
 
   /**
