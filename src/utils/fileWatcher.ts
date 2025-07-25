@@ -124,8 +124,6 @@ export class FileWatcher {
    * Handles file change events with debouncing and delay to wait for file writing completion
    */
   private handleFileChange(): void {
-    const now = Date.now();
-    
     this.logger.debug(`File change detected: ${this.filePath}`);
     
     // Clear any existing timeout to reset the delay

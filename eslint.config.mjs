@@ -29,6 +29,7 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        NodeJS: 'readonly',
         // Browser/Web globals
         fetch: 'readonly',
         URL: 'readonly',
@@ -103,6 +104,7 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        NodeJS: 'readonly',
         // Web API globals used in tests
         fetch: 'readonly',
         Response: 'readonly',
