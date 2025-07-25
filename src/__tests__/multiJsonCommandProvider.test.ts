@@ -42,6 +42,11 @@ describe('MultiJsonCommandProvider', () => {
       './test-provider_processed.json',
       './test-provider-cleanup_processed.json',
       './test-provider-external_processed.json',
+      './test-provider-basic_processed.json',
+      './test-provider-nested_processed.json',
+      './cache/test-provider_processed.json',
+      './cache/test-provider-basic_processed.json',
+      './cache/test-provider-nested_processed.json',
       // Clean up file mode test files
       './tmp_rovodev_test_data.json',
       './tmp_rovodev_test_data_multi.json',
@@ -49,7 +54,11 @@ describe('MultiJsonCommandProvider', () => {
       './tmp_rovodev_test_data_invalid.json',
       './tmp_rovodev_test_data_attachments.json',
       './cache/tmp_rovodev_test_cache_file_multi.json',
-      './cache/tmp_rovodev_test_cache_file_warm.json'
+      './cache/tmp_rovodev_test_cache_file_warm.json',
+      './cache/test-provider-file-warm_processed.json',
+      './cache/test-provider-file-multi_processed.json',
+      './test-provider-file-warm_processed.json',
+      './test-provider-file-multi_processed.json'
     ];
     
     testCacheFiles.forEach(file => {
@@ -701,7 +710,7 @@ describe('MultiJsonCommandProvider', () => {
       expect(result).toBe('');
 
       // Clean up cache file
-      const cacheFile = './cache/tmp_rovodev_test_cache_file_warm.json';
+      const cacheFile = './cache/test-provider-file-warm_processed.json';
       if (fs.existsSync(cacheFile)) {
         fs.unlinkSync(cacheFile);
       }
