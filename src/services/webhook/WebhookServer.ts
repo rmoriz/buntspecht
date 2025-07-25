@@ -69,7 +69,10 @@ export class WebhookServer extends BaseConfigurableService<WebhookConfig> {
     this.server = createServer((req, res) => {
       this.handleRequest(req, res).catch(error => {
         this.logger.error('Webhook request handling failed:', error);
-        this.sendErrorResponse(res, 500, 'Internal server error');
+        // Check if response has already been sent before sending error
+        if (!res.headersSent && !res.writableEnded) {
+          this.sendErrorResponse(res, 500, 'Internal server error');
+        }
       });
     });
 
