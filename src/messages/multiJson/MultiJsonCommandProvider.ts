@@ -8,6 +8,7 @@ import { JsonArrayProcessor } from './JsonArrayProcessor';
 import { MessageDeduplicator } from './MessageDeduplicator';
 import { TemplateProcessor } from './TemplateProcessor';
 import { ExecutionScheduler } from './ExecutionScheduler';
+import { MessageGenerator, MessageGenerationConfig } from './MessageGenerator';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -59,6 +60,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
   private deduplicator: MessageDeduplicator;
   private templateProcessor: TemplateProcessor;
   private scheduler: ExecutionScheduler;
+  private messageGenerator?: MessageGenerator;
   private fileWatcher?: FileWatcher;
   private pendingFileChangeCallback?: () => void;
   private fileReader?: FileReader;
@@ -119,6 +121,9 @@ export class MultiJsonCommandProvider implements MessageProvider {
       require('path').dirname(this.config.cache.filePath) : './cache';
     this.deduplicator = new MessageDeduplicator(cacheDir, logger);
     
+    // Initialize message generator
+    this.messageGenerator = new MessageGenerator(logger, this.providerName, cacheDir, this.telemetry);
+    
     // Set up file watching if using file mode
     if (this.config.file) {
       this.setupFileWatcher();
@@ -130,6 +135,10 @@ export class MultiJsonCommandProvider implements MessageProvider {
     // Update scheduler with telemetry
     if (this.logger) {
       this.scheduler = new ExecutionScheduler(this.logger, telemetry);
+      // Update message generator with telemetry
+      const cacheDir = this.config.cache?.filePath ? 
+        require('path').dirname(this.config.cache.filePath) : './cache';
+      this.messageGenerator = new MessageGenerator(this.logger, this.providerName, cacheDir, telemetry);
     }
   }
 
@@ -146,271 +155,81 @@ export class MultiJsonCommandProvider implements MessageProvider {
   }
 
   /**
+   * Create message generation config from provider config
+   */
+  private createMessageGenerationConfig(): MessageGenerationConfig {
+    return {
+      command: this.config.command,
+      file: this.config.file,
+      template: this.config.template,
+      timeout: this.config.timeout,
+      cwd: this.config.cwd,
+      env: this.config.env,
+      maxBuffer: this.config.maxBuffer,
+      uniqueKey: this.config.uniqueKey!,
+      attachmentsKey: this.config.attachmentsKey,
+      attachmentDataKey: this.config.attachmentDataKey!,
+      attachmentMimeTypeKey: this.config.attachmentMimeTypeKey!,
+      attachmentFilenameKey: this.config.attachmentFilenameKey!,
+      attachmentDescriptionKey: this.config.attachmentDescriptionKey!,
+      cache: this.config.cache
+    };
+  }
+
+  /**
    * Generates a message by executing the command and processing one unprocessed item
    */
   public async generateMessage(accountName?: string): Promise<string> {
-    if (!this.logger) {
+    if (!this.logger || !this.messageGenerator) {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
 
-    return await TelemetryHelper.executeWithSpan(
-      this.telemetry,
-      'multijson.generate_message',
-      {
-        'provider.name': this.providerName,
-        'provider.type': 'multijson',
-        'provider.account': accountName || 'default',
-      },
-      async (span) => {
-      // Execute command or read file to get JSON data
-      let jsonData: unknown;
-      if (this.config.command) {
-        jsonData = await this.scheduler.executeCommand({
-          command: this.config.command!,
-          timeout: this.config.timeout,
-          cwd: this.config.cwd,
-          env: this.config.env,
-          maxBuffer: this.config.maxBuffer
-        });
-      } else if (this.config.file) {
-        const fileContent = await this.readJsonFile();
-        if (fileContent === null) {
-          // File is empty or being written, skip this iteration gracefully
-          this.logger!.debug('File is temporarily empty, skipping message generation');
-          return '';
-        }
-        
-        // Parse the JSON content
-        try {
-          jsonData = JSON.parse(fileContent);
-        } catch (parseError) {
-          throw new Error(`Failed to parse JSON from file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-        }
-      } else {
-        throw new Error('No command or file specified in configuration');
-      }
-
-      // Validate JSON array
-      const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
-      
-      if (validItems.length === 0) {
-        this.logger!.info('No valid items found in JSON data');
-        return '';
-      }
-
-      // Validate unique keys
-      this.jsonProcessor.validateUniqueKeys(validItems, this.config.uniqueKey!);
-
-      // Load processed items from cache
-      const cacheKey = this.getCacheKey(accountName);
-      const processedItems = this.config.cache?.enabled !== false ? 
-        this.deduplicator.loadProcessedItems(cacheKey) : new Set<string>();
-
-      // Filter out already processed items
-      const { unprocessed, skipped } = this.deduplicator.filterUnprocessedItems(
-        validItems, 
-        processedItems, 
-        this.config.uniqueKey!
-      );
-
-      if (unprocessed.length === 0) {
-        this.logger!.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
-        return '';
-      }
-
-      // Process the first unprocessed item
-      const item = unprocessed[0];
-      this.logger!.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items for account: ${accountName || 'default'}`);
-      const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
-
-      // Create attachment configuration
-      const attachmentConfig = this.templateProcessor.createAttachmentConfig({
-        attachmentsKey: this.config.attachmentsKey,
-        attachmentDataKey: this.config.attachmentDataKey,
-        attachmentMimeTypeKey: this.config.attachmentMimeTypeKey,
-        attachmentFilenameKey: this.config.attachmentFilenameKey,
-        attachmentDescriptionKey: this.config.attachmentDescriptionKey
-      });
-
-      // Process the item with template
-      const messageData = this.templateProcessor.processItem(
-        item,
-        this.config.template,
-        attachmentConfig,
-        uniqueId
-      );
-
-      // Validate the generated message
-      if (!this.templateProcessor.isValidMessage(messageData)) {
-        this.logger!.info(`Generated empty message for item ${uniqueId}, skipping`);
-        // Mark as processed even if empty to avoid reprocessing
-        this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
-        if (this.config.cache?.enabled !== false) {
-          this.deduplicator.saveProcessedItems(cacheKey, processedItems);
-        }
-        return '';
-      }
-
-      // Mark item as processed and save cache
-      this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
-      if (this.config.cache?.enabled !== false) {
-        this.deduplicator.saveProcessedItems(cacheKey, processedItems);
-      }
-
-      this.logger!.info(`Generated message from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
-      
-      TelemetryHelper.setAttributes(span, {
-        'multijson.total_items': validItems.length,
-        'multijson.unprocessed_items': unprocessed.length,
-        'multijson.skipped_items': skipped,
-        'multijson.unique_id': uniqueId,
-        'multijson.message_length': messageData.text.length,
-        'multijson.has_attachments': !!messageData.attachments,
-        'multijson.attachments_count': messageData.attachments?.length || 0,
-      });
-
-      return messageData.text;
-      }
-    );
+    const config = this.createMessageGenerationConfig();
+    const result = await this.messageGenerator!.generateMessage(config, accountName);
+    
+    return result?.text || '';
   }
 
   /**
    * Generates a message with attachments by executing the command and processing one unprocessed item
    */
   public async generateMessageWithAttachments(accountName?: string): Promise<MessageWithAttachments> {
-    if (!this.logger) {
+    if (!this.logger || !this.messageGenerator) {
       throw new Error('Logger not set. Call setLogger() before using the provider.');
     }
 
-    const span = this.telemetry?.startSpan('multijson.generate_message_with_attachments', {
-      'provider.name': this.providerName,
-      'provider.type': 'multijson',
-      'provider.account': accountName || 'default',
-    });
-
-    try {
-      // Execute command or read file to get JSON data
-      let jsonData: unknown;
-      if (this.config.command) {
-        jsonData = await this.scheduler.executeCommand({
-          command: this.config.command!,
-          timeout: this.config.timeout,
-          cwd: this.config.cwd,
-          env: this.config.env,
-          maxBuffer: this.config.maxBuffer
-        });
-      } else if (this.config.file) {
-        const fileContent = await this.readJsonFile();
-        if (fileContent === null) {
-          // File is empty or being written, skip this iteration gracefully
-          this.logger.debug('File is temporarily empty, skipping message generation');
+    return await TelemetryHelper.executeWithSpan(
+      this.telemetry,
+      'multijson.generate_message_with_attachments',
+      {
+        'provider.name': this.providerName,
+        'provider.type': 'multijson',
+        'provider.account': accountName || 'default',
+      },
+      async (span) => {
+        const config = this.createMessageGenerationConfig();
+        const result = await this.messageGenerator!.generateMessage(config, accountName);
+        
+        if (!result) {
           return { text: '', attachments: undefined };
         }
-        
-        // Parse the JSON content
-        try {
-          jsonData = JSON.parse(fileContent);
-        } catch (parseError) {
-          throw new Error(`Failed to parse JSON from file: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-        }
-      } else {
-        throw new Error('No command or file specified in configuration');
+
+        // Set telemetry attributes from the result metadata
+        TelemetryHelper.setAttributes(span, {
+          'multijson.total_items': result.metadata.totalItems,
+          'multijson.unprocessed_items': result.metadata.unprocessedItems,
+          'multijson.unique_id': result.metadata.uniqueId,
+          'multijson.message_length': result.metadata.messageLength,
+          'multijson.has_attachments': result.metadata.hasAttachments,
+          'multijson.attachments_count': result.metadata.attachmentsCount,
+        });
+
+        return {
+          text: result.text,
+          attachments: result.attachments
+        };
       }
-
-      // Validate JSON array
-      const validItems = this.jsonProcessor.validateAndProcessJson(jsonData);
-      
-      if (validItems.length === 0) {
-        this.logger.info('No valid items found in JSON data');
-        span?.setStatus({ code: 1 }); // OK
-        return { text: '', attachments: undefined };
-      }
-
-      // Validate unique keys
-      this.jsonProcessor.validateUniqueKeys(validItems, this.config.uniqueKey!);
-
-      // Load processed items from cache
-      const cacheKey = this.getCacheKey(accountName);
-      const processedItems = this.config.cache?.enabled !== false ? 
-        this.deduplicator.loadProcessedItems(cacheKey) : new Set<string>();
-
-      // Filter out already processed items
-      const { unprocessed } = this.deduplicator.filterUnprocessedItems(
-        validItems, 
-        processedItems, 
-        this.config.uniqueKey!
-      );
-
-      if (unprocessed.length === 0) {
-        this.logger.info(`All ${validItems.length} items have been processed already for account: ${accountName || 'default'}`);
-        span?.setStatus({ code: 1 }); // OK
-        return { text: '', attachments: undefined };
-      }
-
-      // Process the first unprocessed item
-      const item = unprocessed[0];
-      const uniqueId = this.jsonProcessor.getUniqueId(item, this.config.uniqueKey!, 0);
-
-      // Create attachment configuration
-      const attachmentConfig = this.templateProcessor.createAttachmentConfig({
-        attachmentsKey: this.config.attachmentsKey,
-        attachmentDataKey: this.config.attachmentDataKey,
-        attachmentMimeTypeKey: this.config.attachmentMimeTypeKey,
-        attachmentFilenameKey: this.config.attachmentFilenameKey,
-        attachmentDescriptionKey: this.config.attachmentDescriptionKey
-      });
-
-      // Process the item with template
-      const messageData = this.templateProcessor.processItem(
-        item,
-        this.config.template,
-        attachmentConfig,
-        uniqueId
-      );
-
-      // Validate the generated message
-      if (!this.templateProcessor.isValidMessage(messageData)) {
-        this.logger.info(`Generated empty message for item ${uniqueId}, skipping`);
-        // Mark as processed even if empty to avoid reprocessing
-        this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
-        if (this.config.cache?.enabled !== false) {
-          this.deduplicator.saveProcessedItems(cacheKey, processedItems);
-        }
-        span?.setStatus({ code: 1 }); // OK
-        return { text: '', attachments: undefined };
-      }
-
-      // Mark item as processed and save cache
-      this.deduplicator.markItemAsProcessed(processedItems, uniqueId);
-      if (this.config.cache?.enabled !== false) {
-        this.deduplicator.saveProcessedItems(cacheKey, processedItems);
-      }
-
-      this.logger.info(`Generated message with attachments from item ${uniqueId} for account ${accountName || 'default'}: "${messageData.text}"`);
-      
-      span?.setAttributes({
-        'multijson.total_items': validItems.length,
-        'multijson.unprocessed_items': unprocessed.length,
-        'multijson.unique_id': uniqueId,
-        'multijson.message_length': messageData.text.length,
-        'multijson.has_attachments': !!messageData.attachments,
-        'multijson.attachments_count': messageData.attachments?.length || 0,
-      });
-      span?.setStatus({ code: 1 }); // OK
-
-      return messageData;
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`MultiJsonCommandProvider failed for account ${accountName || 'default'}: ${errorMessage}`);
-      
-      span?.recordException(error as Error);
-      span?.setStatus({ code: 2, message: errorMessage }); // ERROR
-      
-      throw error;
-    } finally {
-      span?.end();
-    }
+    );
   }
 
   /**
@@ -434,15 +253,15 @@ export class MultiJsonCommandProvider implements MessageProvider {
 
     try {
       // Get JSON data from command or file
-      let jsonData: string;
+      let jsonData: unknown;
       if (this.config.command) {
-        jsonData = String(await this.scheduler.executeCommand({
+        jsonData = await this.scheduler.executeCommand({
           command: this.config.command!,
           timeout: this.config.timeout,
           cwd: this.config.cwd,
           env: this.config.env,
           maxBuffer: this.config.maxBuffer,
-        }));
+        });
       } else if (this.config.file) {
         const fileContent = await this.readJsonFile();
         if (fileContent === null) {

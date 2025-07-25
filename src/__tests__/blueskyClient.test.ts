@@ -1,6 +1,5 @@
 import { BlueskyClient } from '../services/blueskyClient';
-import type { TelemetryService } from '../services/telemetryInterface';
-import { Logger } from '../utils/logger';
+import { TestHelpers, MockFactories } from './utils';
 import { BotConfig } from '../types/config';
 
 // Mock @atproto/api
@@ -8,32 +7,16 @@ jest.mock('@atproto/api', () => ({
   BskyAgent: jest.fn(),
 }));
 
-interface MockBskyAgent {
-  login: jest.Mock;
-  post: jest.Mock;
-  getProfile: jest.Mock;
-  session?: {
-    accessJwt: string;
-    refreshJwt: string;
-    handle: string;
-    did: string;
-  };
-}
-
 describe('BlueskyClient', () => {
-  let mockBskyAgent: MockBskyAgent;
+  let mockBskyAgent: ReturnType<typeof MockFactories.createMockBlueskyAgent>;
   let config: BotConfig;
-  let logger: Logger;
-  let telemetry: TelemetryService;
+  let logger: ReturnType<typeof TestHelpers.createTestLogger>;
+  let telemetry: ReturnType<typeof TestHelpers.createMockTelemetry>;
   let client: BlueskyClient;
 
   beforeEach(async () => {
     // Create mock Bluesky agent
-    mockBskyAgent = {
-      login: jest.fn(),
-      post: jest.fn(),
-      getProfile: jest.fn(),
-    };
+    mockBskyAgent = MockFactories.createMockBlueskyAgent();
 
     // Mock the BskyAgent constructor
     const { BskyAgent } = require('@atproto/api');
@@ -42,61 +25,20 @@ describe('BlueskyClient', () => {
     // Mock successful login by default
     mockBskyAgent.login.mockResolvedValue({});
 
-    config = {
-      accounts: [
-        {
-          name: 'test-bluesky',
-          type: 'bluesky',
-          instance: 'https://bsky.social',
-          accessToken: '',
-          identifier: 'test.bsky.social',
-          password: 'test-app-password'
-        }
-      ],
-      bot: {
-        providers: [
-          {
-            name: 'test-provider',
-            type: 'ping',
-            cronSchedule: '0 * * * *',
-            enabled: true,
-            accounts: ['test-bluesky'],
-            config: { message: 'TEST PING' }
-          }
-        ]
-      },
-      logging: { level: 'debug' }
-    };
-
-    logger = new Logger('debug');
-    telemetry = {
-      startSpan: jest.fn().mockReturnValue({
-        setStatus: jest.fn(),
-        recordException: jest.fn(),
-        end: jest.fn()
-      }),
-      recordPost: jest.fn(),
-      recordError: jest.fn(),
-      initialize: jest.fn(),
-      shutdown: jest.fn()
-    } as unknown as jest.Mocked<TelemetryService>;
-
-    // Set up mock session
-    mockBskyAgent.session = {
-      accessJwt: 'mock-jwt',
-      refreshJwt: 'mock-refresh',
-      handle: 'test.bsky.social',
-      did: 'did:plc:test'
-    };
+    // Create test environment
+    const testEnv = TestHelpers.setupTestEnvironment();
+    logger = testEnv.logger;
+    telemetry = testEnv.telemetry;
+    config = TestHelpers.createBlueskyTestConfig();
 
     client = new BlueskyClient(config, logger, telemetry);
     
     // Wait for async initialization to complete
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await TestHelpers.waitForAsync();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    TestHelpers.cleanupTestEnvironment();
   });
 
   describe('initialization', () => {

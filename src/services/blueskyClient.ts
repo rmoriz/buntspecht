@@ -2,6 +2,7 @@ import { BskyAgent } from '@atproto/api';
 import { BotConfig, AccountConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from './telemetryInterface';
+import { TelemetryHelper } from '../utils/telemetryHelper';
 import { BaseConfigurableService } from './baseService';
 
 interface BlueskyAccountClient {
@@ -325,14 +326,23 @@ export class BlueskyClient extends BaseConfigurableService<BotConfig> {
    * Posts a status message with attachments to specified Bluesky accounts
    */
   public async postStatusWithAttachments(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string): Promise<void> {
-    const span = this.telemetry.startSpan('bluesky.post_status', {
-      'bluesky.accounts_count': accountNames.length,
-      'bluesky.provider': provider || 'unknown',
-      'bluesky.message_length': messageData.text.length,
-      'bluesky.attachments_count': messageData.attachments?.length || 0,
-    });
+    return await TelemetryHelper.executeWithSpan(
+      this.telemetry,
+      'bluesky.post_status',
+      {
+        'bluesky.accounts_count': accountNames.length,
+        'bluesky.provider': provider || 'unknown',
+        'bluesky.message_length': messageData.text.length,
+        'bluesky.attachments_count': messageData.attachments?.length || 0,
+      },
+      () => this.executePostStatus(messageData, accountNames, provider)
+    );
+  }
 
-    try {
+  /**
+   * Internal method to execute status posting
+   */
+  private async executePostStatus(messageData: { text: string; attachments?: Array<{ data: string; mimeType: string; filename?: string; description?: string }> }, accountNames: string[], provider?: string): Promise<void> {
       if (accountNames.length === 0) {
         throw new Error('No accounts specified for posting');
       }
@@ -445,23 +455,12 @@ export class BlueskyClient extends BaseConfigurableService<BotConfig> {
       if (successfulPosts.length === 0) {
         // All posts failed
         const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
-        span?.setStatus({ code: 2, message: 'All posts failed' }); // ERROR
         throw new Error(`Failed to post to all Bluesky accounts: ${errors}`);
       } else if (failedPosts.length > 0) {
         // Some posts failed, log warning but don't throw
         const errors = failedPosts.map(r => `${r.account}: ${r.error}`).join(', ');
         this.logger.warn(`Some Bluesky posts failed: ${errors}`);
-        span?.setStatus({ code: 1, message: 'Some posts failed' }); // WARNING
-      } else {
-        span?.setStatus({ code: 1 }); // OK
       }
-    } catch (error) {
-      span?.recordException(error as Error);
-      span?.setStatus({ code: 2, message: (error as Error).message }); // ERROR
-      throw error;
-    } finally {
-      span?.end();
-    }
   }
 
   /**

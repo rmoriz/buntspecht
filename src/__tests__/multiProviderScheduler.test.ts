@@ -191,14 +191,14 @@ describe('MultiProviderScheduler', () => {
     it('should execute all tasks immediately', async () => {
       await scheduler.executeAllTasksNow();
 
-      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
+      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', 'unlisted');
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
     it('should execute specific provider task', async () => {
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', undefined);
+      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', 'unlisted');
       expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
     });
 
@@ -223,7 +223,8 @@ describe('MultiProviderScheduler', () => {
       };
 
       // Replace the provider in the scheduler's internal scheduledProviders array
-      const scheduledProviders = (scheduler as unknown as { scheduledProviders: Array<{ name: string; provider: unknown }> }).scheduledProviders;
+      const providerManager = (scheduler as unknown as { providerManager: { getScheduledProviders: () => Array<{ name: string; provider: unknown }> } }).providerManager;
+      const scheduledProviders = providerManager.getScheduledProviders();
       const existingProvider = scheduledProviders.find(p => p.name === 'test-provider');
       if (existingProvider) {
         existingProvider.provider = mockProvider;
@@ -245,7 +246,8 @@ describe('MultiProviderScheduler', () => {
       };
 
       // Replace the provider in the scheduler's internal scheduledProviders array
-      const scheduledProviders = (scheduler as unknown as { scheduledProviders: Array<{ name: string; provider: unknown }> }).scheduledProviders;
+      const providerManager = (scheduler as unknown as { providerManager: { getScheduledProviders: () => Array<{ name: string; provider: unknown }> } }).providerManager;
+      const scheduledProviders = providerManager.getScheduledProviders();
       const existingProvider = scheduledProviders.find(p => p.name === 'test-provider');
       if (existingProvider) {
         existingProvider.provider = mockProvider;

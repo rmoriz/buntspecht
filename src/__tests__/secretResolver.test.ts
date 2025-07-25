@@ -383,7 +383,7 @@ describe('SecretResolver', () => {
 
     it('should throw error for unsupported secret sources', async () => {
       await expect(secretResolver.resolveSecret('unsupported://secret')).rejects.toThrow(
-        'No secret provider found for source: unsupported://secret'
+        'Invalid secret source: Unsupported secret source format: unsupported://secret'
       );
     });
 

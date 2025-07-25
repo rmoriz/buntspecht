@@ -1,4 +1,6 @@
 import { WebhookServer, WebhookConfig } from '../services/webhookServer';
+import { MastodonPingBot } from '../bot';
+import { TestHelpers, MockFactories } from './utils';
 
 interface WebhookTestResponse {
   success: boolean;
@@ -17,48 +19,25 @@ interface HealthCheckResponse {
   webhook_path: string;
   webhook_port: number;
 }
-import { MastodonPingBot } from '../bot';
-import { Logger } from '../utils/logger';
-import { TelemetryService } from '../services/telemetryStub';
-import { createHmac } from 'crypto';
-
-// Mock the bot
-const mockBot = {
-  isPushProvider: jest.fn(),
-  triggerPushProvider: jest.fn(),
-  triggerPushProviderWithVisibility: jest.fn(),
-  triggerPushProviderWithVisibilityAndAttachments: jest.fn(),
-  getPushProviders: jest.fn(),
-  getProviderInfo: jest.fn(),
-  getPushProvider: jest.fn(),
-  getConfig: jest.fn()
-} as unknown as MastodonPingBot;
 
 describe('WebhookServer', () => {
-  let logger: Logger;
-  let telemetry: TelemetryService;
+  let logger: ReturnType<typeof TestHelpers.createTestLogger>;
+  let telemetry: ReturnType<typeof TestHelpers.createMockTelemetry>;
+  let mockBot: ReturnType<typeof MockFactories.createMockBot>;
   let webhookServer: WebhookServer;
 
   beforeEach(() => {
-    logger = new Logger('debug');
-    telemetry = new TelemetryService({ enabled: false, serviceName: 'test', serviceVersion: '1.0.0' }, logger);
-    
-    // Mock console methods to avoid test output
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'info').mockImplementation();
-    jest.spyOn(console, 'warn').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
-    jest.spyOn(console, 'debug').mockImplementation();
-
-    // Reset mocks
-    jest.clearAllMocks();
+    const testEnv = TestHelpers.setupTestEnvironment();
+    logger = testEnv.logger;
+    telemetry = testEnv.telemetry;
+    mockBot = MockFactories.createMockBot();
   });
 
   afterEach(async () => {
     if (webhookServer && webhookServer.isServerRunning()) {
       await webhookServer.stop();
     }
-    jest.restoreAllMocks();
+    TestHelpers.cleanupTestEnvironment();
   });
 
   describe('constructor', () => {
@@ -520,9 +499,7 @@ describe('WebhookServer', () => {
         message: 'Test message'
       });
 
-      const signature = createHmac('sha256', 'test-hmac-secret')
-        .update(payload, 'utf8')
-        .digest('hex');
+      const signature = TestHelpers.createHmacSignature(payload, 'test-hmac-secret');
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
@@ -599,9 +576,7 @@ describe('WebhookServer', () => {
         message: 'Test message'
       });
 
-      const signature = createHmac('sha512', 'provider-hmac-secret')
-        .update(payload, 'utf8')
-        .digest('hex');
+      const signature = TestHelpers.createHmacSignature(payload, 'provider-hmac-secret');
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
@@ -637,9 +612,7 @@ describe('WebhookServer', () => {
         message: 'Test message'
       });
 
-      const signature = createHmac('sha1', 'test-hmac-secret')
-        .update(payload, 'utf8')
-        .digest('hex');
+      const signature = TestHelpers.createHmacSignature(payload, 'test-hmac-secret');
 
       const response = await fetch(`http://localhost:${webhookServer.getConfig().port}/webhook`, {
         method: 'POST',
