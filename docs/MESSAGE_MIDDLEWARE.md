@@ -12,7 +12,7 @@ The middleware system processes messages in a chain, where each middleware can:
 
 ## Configuration
 
-Middleware is configured per provider in the TOML configuration file:
+Middleware is configured per provider in the TOML configuration file. Each provider can have its own independent middleware chain that doesn't interfere with other providers:
 
 ```toml
 [[bot.providers]]
@@ -147,9 +147,54 @@ skipReason = "Command validation failed"
 - `useEnvVar`: Pass message as `MESSAGE_TEXT` environment variable
 - `skipOnFailure`: Skip message if command fails (for validate mode)
 
+## Provider-Specific Middleware Isolation
+
+Each provider has its own independent middleware chain. This means:
+
+- **Isolation**: Middleware configured for one provider doesn't affect other providers
+- **Reusability**: The same middleware configuration can be used across multiple providers
+- **Independence**: Each provider's middleware chain executes separately
+- **Performance**: Only relevant middleware runs for each provider
+
+### Example: Different Middleware for Different Providers
+
+```toml
+# News provider with content filtering
+[[bot.providers]]
+name = "news-feed"
+type = "jsoncommand"
+accounts = ["main-account"]
+
+[[bot.providers.middleware]]
+name = "news-filter"
+type = "filter"
+[bot.providers.middleware.config]
+type = "contains"
+text = "breaking"
+action = "continue"
+
+# Dev updates with different middleware
+[[bot.providers]]
+name = "dev-updates"
+type = "command"
+accounts = ["dev-account"]
+
+[[bot.providers.middleware]]
+name = "dev-prefix"
+type = "text_transform"
+[bot.providers.middleware.config]
+transform = "prepend"
+prefix = "🔧 DEV: "
+```
+
+In this example:
+- The `news-feed` provider only runs the `news-filter` middleware
+- The `dev-updates` provider only runs the `dev-prefix` middleware
+- Neither provider is affected by the other's middleware
+
 ## Middleware Chain Execution
 
-Middleware is executed in the order defined in the configuration. Each middleware can:
+Middleware is executed in the order defined in the configuration for each provider. Each middleware can:
 
 1. **Transform the message**: Modify the text content
 2. **Skip the message**: Stop processing and don't post

@@ -48,7 +48,7 @@ export class ExecutionEngine {
   }
 
   /**
-   * Initializes middleware for all providers
+   * Initializes middleware for all providers (global and provider-specific)
    */
   public async initializeMiddleware(getProviderConfigs: () => ProviderConfig[]): Promise<void> {
     this.logger.debug('Initializing message middleware...');
@@ -56,37 +56,53 @@ export class ExecutionEngine {
     // Clear existing middleware
     this.middlewareManager.clear();
     
-    // Collect all unique middleware configurations from all providers
-    const middlewareConfigs = new Map<string, any>();
+    // Track created middleware instances to avoid duplicates
+    const createdMiddlewares = new Map<string, MessageMiddleware>();
     
     for (const providerConfig of getProviderConfigs()) {
       if (providerConfig.middleware && Array.isArray(providerConfig.middleware)) {
         for (const middlewareConfig of providerConfig.middleware) {
-          const key = `${middlewareConfig.name}_${middlewareConfig.type}`;
-          if (!middlewareConfigs.has(key)) {
-            middlewareConfigs.set(key, middlewareConfig);
+          const middlewareKey = `${middlewareConfig.name}_${middlewareConfig.type}_${JSON.stringify(middlewareConfig.config || {})}`;
+          
+          let middleware: MessageMiddleware;
+          
+          // Check if we already created this exact middleware
+          if (createdMiddlewares.has(middlewareKey)) {
+            middleware = createdMiddlewares.get(middlewareKey)!;
+            this.logger.debug(`Reusing existing middleware: ${middleware.name} for provider: ${providerConfig.name}`);
+          } else {
+            // Create new middleware instance
+            try {
+              middleware = this.middlewareFactory.create(middlewareConfig);
+              createdMiddlewares.set(middlewareKey, middleware);
+              this.logger.debug(`Created middleware: ${middleware.name} (${middlewareConfig.type})`);
+            } catch (error) {
+              this.logger.error(`Failed to create middleware ${middlewareConfig.name} for provider ${providerConfig.name}:`, error);
+              throw error;
+            }
           }
+          
+          // Register middleware for this specific provider
+          this.middlewareManager.useForProvider(providerConfig.name, middleware);
         }
-      }
-    }
-    
-    // Create and register middleware instances
-    for (const middlewareConfig of middlewareConfigs.values()) {
-      try {
-        const middleware = this.middlewareFactory.create(middlewareConfig);
-        this.middlewareManager.use(middleware);
-        this.logger.debug(`Registered middleware: ${middleware.name} (${middlewareConfig.type})`);
-      } catch (error) {
-        this.logger.error(`Failed to create middleware ${middlewareConfig.name}:`, error);
-        throw error;
       }
     }
     
     // Initialize all middleware
     await this.middlewareManager.initialize();
     
-    const middlewareCount = this.middlewareManager.getMiddlewareCount();
-    this.logger.info(`Initialized ${middlewareCount} message middleware(s)`);
+    const totalMiddlewareCount = this.middlewareManager.getMiddlewareCount();
+    const globalCount = this.middlewareManager.getGlobalMiddlewareCount();
+    const providersWithMiddleware = this.middlewareManager.getProvidersWithMiddleware();
+    
+    this.logger.info(`Initialized ${totalMiddlewareCount} message middleware instance(s): ${globalCount} global, ${totalMiddlewareCount - globalCount} provider-specific across ${providersWithMiddleware.length} provider(s)`);
+    
+    // Log provider-specific middleware details
+    for (const providerName of providersWithMiddleware) {
+      const providerMiddlewareCount = this.middlewareManager.getProviderMiddlewareCount(providerName);
+      const middlewareNames = this.middlewareManager.getProviderMiddlewareNames(providerName);
+      this.logger.debug(`Provider ${providerName} has ${providerMiddlewareCount} middleware(s): ${middlewareNames.join(', ')}`);
+    }
   }
 
   /**
@@ -128,16 +144,17 @@ export class ExecutionEngine {
   }
 
   /**
-   * Sets up middleware specific to a provider
+   * Sets up middleware specific to a provider (now handled during initialization)
    */
   private async setupProviderMiddleware(providerConfig: ProviderConfig): Promise<void> {
     if (!providerConfig.middleware || !Array.isArray(providerConfig.middleware)) {
       return;
     }
 
-    // For now, we use global middleware. In the future, we could implement
-    // provider-specific middleware chains if needed
-    this.logger.debug(`Provider ${providerConfig.name} has ${providerConfig.middleware.length} middleware(s) configured`);
+    // Provider-specific middleware is now set up during initialization
+    // This method is kept for compatibility and future per-execution setup if needed
+    const middlewareCount = this.middlewareManager.getProviderMiddlewareCount(providerConfig.name);
+    this.logger.debug(`Provider ${providerConfig.name} will execute ${middlewareCount} provider-specific middleware(s)`);
   }
 
   /**
