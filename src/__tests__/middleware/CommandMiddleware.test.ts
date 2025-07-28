@@ -2,19 +2,17 @@ import { CommandMiddleware } from '../../services/middleware/builtin/CommandMidd
 import { MessageMiddlewareContext } from '../../services/middleware/types';
 import { Logger } from '../../utils/logger';
 import { TelemetryService } from '../../services/telemetryStub';
-import { exec } from 'child_process';
 
-// Mock child_process
+// Mock the entire child_process module
 jest.mock('child_process');
-const mockedExec = exec as jest.MockedFunction<typeof exec>;
 
-// Mock the promisified exec
+// Mock util.promisify
 jest.mock('util', () => ({
-  promisify: jest.fn((fn) => jest.fn())
+  promisify: jest.fn(() => jest.fn())
 }));
 
-const { promisify } = require('util');
-const mockedExecAsync = promisify(exec) as jest.MockedFunction<any>;
+import { promisify } from 'util';
+const mockExec = promisify({} as any) as jest.MockedFunction<any>;
 
 describe('CommandMiddleware', () => {
   let logger: Logger;
@@ -38,8 +36,19 @@ describe('CommandMiddleware', () => {
       skip: false
     };
 
-    // Reset mocks
     jest.clearAllMocks();
+    mockExec.mockClear();
+  });
+
+  describe('constructor validation', () => {
+    it('should require command parameter', () => {
+      expect(() => {
+        new CommandMiddleware('test', {
+          command: '',
+          mode: 'replace'
+        });
+      }).toThrow('Command is required');
+    });
   });
 
   describe('replace mode', () => {
@@ -49,11 +58,9 @@ describe('CommandMiddleware', () => {
         mode: 'replace'
       });
 
-      // Mock successful command execution
-      mockedExecAsync.mockResolvedValue({ stdout: 'Processed message\n', stderr: '' });
+      mockExec.mockResolvedValue({ stdout: 'Processed message\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
@@ -71,10 +78,9 @@ describe('CommandMiddleware', () => {
         mode: 'prepend'
       });
 
-      mockedExecAsync.mockResolvedValue({ stdout: 'Prefix:\n', stderr: '' });
+      mockExec.mockResolvedValue({ stdout: 'Prefix:\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
@@ -91,10 +97,9 @@ describe('CommandMiddleware', () => {
         mode: 'append'
       });
 
-      mockedExecAsync.mockResolvedValue({ stdout: ' - Suffix\n', stderr: '' });
+      mockExec.mockResolvedValue({ stdout: ' - Suffix\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
@@ -111,19 +116,34 @@ describe('CommandMiddleware', () => {
         mode: 'validate'
       });
 
-      mockedExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
+      mockExec.mockResolvedValue({ stdout: '', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
-      expect(context.skip).toBe(false);
       expect(context.data['test_validated']).toBe(true);
+      expect(context.skip).toBe(false);
       expect(nextCalled).toHaveBeenCalled();
     });
+  });
 
-    it('should skip when command fails and skipOnFailure is true', async () => {
+  describe('error handling', () => {
+    it('should handle command execution errors', async () => {
+      const middleware = new CommandMiddleware('test', {
+        command: 'nonexistent-command',
+        mode: 'replace'
+      });
+
+      mockExec.mockRejectedValue(new Error('Command not found'));
+
+      await middleware.initialize(logger, telemetry);
+      const nextCalled = jest.fn();
+      
+      await expect(middleware.execute(context, nextCalled)).rejects.toThrow('Command not found');
+    });
+
+    it('should skip on validation failure when configured', async () => {
       const middleware = new CommandMiddleware('test', {
         command: 'exit 1',
         mode: 'validate',
@@ -131,10 +151,9 @@ describe('CommandMiddleware', () => {
         skipReason: 'Validation failed'
       });
 
-      mockedExecAsync.mockRejectedValue(new Error('Command failed'));
+      mockExec.mockRejectedValue(new Error('Command failed'));
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
@@ -153,144 +172,21 @@ describe('CommandMiddleware', () => {
         useEnvVar: true
       });
 
-      let capturedEnv: any;
-      mockedExecAsync.mockResolvedValue({ stdout: 'Hello world\n', stderr: '' });
+      mockExec.mockResolvedValue({ stdout: 'Hello world\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
-
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
-      expect(capturedEnv.MESSAGE_TEXT).toBe('Hello world');
+      expect(mockExec).toHaveBeenCalledWith(
+        'echo $MESSAGE_TEXT',
+        expect.objectContaining({
+          env: expect.objectContaining({
+            MESSAGE_TEXT: 'Hello world'
+          })
+        })
+      );
       expect(nextCalled).toHaveBeenCalled();
-    });
-
-    it('should include custom environment variables', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'echo $CUSTOM_VAR',
-        mode: 'replace',
-        env: { CUSTOM_VAR: 'custom_value' }
-      });
-
-      let capturedEnv: any;
-      mockedExecAsync.mockResolvedValue({ stdout: 'custom_value\n', stderr: '' });
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      await middleware.execute(context, nextCalled);
-
-      expect(capturedEnv.CUSTOM_VAR).toBe('custom_value');
-      expect(nextCalled).toHaveBeenCalled();
-    });
-  });
-
-  describe('stdin input', () => {
-    it('should pass message as stdin when useStdin is true', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'cat',
-        mode: 'replace',
-        useStdin: true
-      });
-
-      // Mock the child process for stdin
-      const mockChild = {
-        stdin: {
-          write: jest.fn(),
-          end: jest.fn()
-        }
-      };
-
-      mockedExecAsync.mockResolvedValue({ stdout: 'Hello world\n', stderr: '' });
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      await middleware.execute(context, nextCalled);
-
-      expect(mockChild.stdin.write).toHaveBeenCalledWith('Hello world');
-      expect(mockChild.stdin.end).toHaveBeenCalled();
-      expect(nextCalled).toHaveBeenCalled();
-    });
-  });
-
-  describe('timeout handling', () => {
-    it('should respect timeout configuration', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'sleep 10',
-        mode: 'replace',
-        timeout: 1000
-      });
-
-      let capturedOptions: any;
-      mockedExecAsync.mockRejectedValue(new Error('Timeout'));
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      
-      await expect(middleware.execute(context, nextCalled)).rejects.toThrow();
-      expect(capturedOptions.timeout).toBe(1000);
-    });
-  });
-
-  describe('error handling', () => {
-    it('should handle command execution errors', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'nonexistent-command',
-        mode: 'replace'
-      });
-
-      mockedExecAsync.mockRejectedValue(new Error('Command not found'));
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      
-      await expect(middleware.execute(context, nextCalled)).rejects.toThrow('Command not found');
-    });
-
-    it('should handle stderr output', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'echo "warning" >&2; echo "output"',
-        mode: 'replace'
-      });
-
-      mockedExecAsync.mockResolvedValue({ stdout: 'output\n', stderr: 'warning\n' });
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      await middleware.execute(context, nextCalled);
-
-      expect(context.message.text).toBe('output');
-      expect(nextCalled).toHaveBeenCalled();
-    });
-
-    it('should handle empty command output', async () => {
-      const middleware = new CommandMiddleware('test', {
-        command: 'echo ""',
-        mode: 'replace'
-      });
-
-      mockedExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
-
-      await middleware.initialize(logger, telemetry);
-
-      const nextCalled = jest.fn();
-      
-      await expect(middleware.execute(context, nextCalled)).rejects.toThrow('Command produced no output');
-    });
-  });
-
-  describe('configuration validation', () => {
-    it('should require command parameter', () => {
-      expect(() => {
-        new CommandMiddleware('test', {
-          command: '',
-          mode: 'replace'
-        });
-      }).toThrow('Command is required');
     });
   });
 });

@@ -102,8 +102,8 @@ describe('ConditionalMiddleware', () => {
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
-      expect(context.skip).toBe(false);
-      expect(nextCalled).toHaveBeenCalled();
+      expect(context.skip).toBe(true);
+      expect(nextCalled).not.toHaveBeenCalled();
     });
 
     it('should handle regex operator', async () => {

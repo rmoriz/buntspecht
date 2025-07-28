@@ -81,11 +81,11 @@ export class CommandMiddleware implements MessageMiddleware {
         commandResult = await execAsync(this.config.command, options);
       }
 
-      if (commandResult.stderr) {
+      if (commandResult?.stderr) {
         this.logger?.warn(`CommandMiddleware ${this.name} stderr: ${commandResult.stderr.trim()}`);
       }
 
-      const output = commandResult.stdout.trim();
+      const output = commandResult?.stdout?.trim() || '';
 
       // Process based on mode
       switch (this.config.mode) {
