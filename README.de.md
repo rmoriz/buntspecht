@@ -25,7 +25,7 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - ⚙️ Flexible Konfiguration über TOML-Dateien
 - 🔍 Mehrere Konfigurationspfade mit Prioritätsreihenfolge
 - 📝 **Erweiterte Logging-Funktionen**: Umfassendes Logging mit Zeichenanzahl-Anzeige
-- 🧪 Vollständige Testabdeckung (300+ Tests)
+- 🧪 Vollständige Testabdeckung (660+ Tests)
 - 🐳 Docker-Support für CI/CD
 - 🛡️ TypeScript für Typsicherheit
 - 📡 Moderne API-Integration mit masto.js (Mastodon) und @atproto/api (Bluesky)
@@ -170,6 +170,8 @@ Buntspecht enthält ein mächtiges Middleware-System, das es ermöglicht, Nachri
 
 ### Verfügbare Middleware-Typen
 
+Buntspecht enthält 9 eingebaute Middleware-Typen, die die meisten gängigen Nachrichtenverarbeitungsanforderungen abdecken:
+
 #### AttachmentMiddleware
 Verwalten Sie Dateianhänge mit umfassenden Operationen:
 
@@ -232,14 +234,179 @@ fallbackOnError = "continue"  # skip, continue, use_original
 skipReason = "KI-Verbesserung fehlgeschlagen"
 ```
 
-#### Andere Middleware-Typen
-- **FilterMiddleware**: Nachrichten basierend auf Inhalt, Länge oder Mustern filtern
-- **TemplateMiddleware**: Template-Variablen in Nachrichten verarbeiten
-- **TextTransformMiddleware**: Text transformieren (Großbuchstaben, Kleinbuchstaben, trimmen, etc.)
-- **ConditionalMiddleware**: Bedingungen basierend auf Kontext anwenden
-- **ScheduleMiddleware**: Timing und Planung kontrollieren
-- **RateLimitMiddleware**: Rate Limiting implementieren
-- **CommandMiddleware**: Externe Kommandos für Validierung oder Transformation ausführen
+#### FilterMiddleware
+Nachrichten basierend auf Inhalt, Länge oder Mustern filtern:
+
+```toml
+[[bot.providers.middleware]]
+name = "content-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "contains"  # contains, not_contains, starts_with, ends_with, regex, length, empty
+text = "spam"
+caseSensitive = false
+action = "skip"  # skip, continue
+skipReason = "Nachricht enthält Spam-Inhalt"
+
+# Für Regex-Filter:
+pattern = "\\b(spam|werbung)\\b"
+flags = "i"
+
+# Für Längen-Filter:
+minLength = 10
+maxLength = 500
+```
+
+#### TemplateMiddleware
+Template-Variablen in Nachrichten mit dynamischen Daten verarbeiten:
+
+```toml
+[[bot.providers.middleware]]
+name = "template-processor"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "Hallo {{name}}! Heute ist {{date}}"
+data = { name = "Welt", date = "2024-01-01" }
+# Oder externe Datenquelle verwenden:
+dataSource = "file:///pfad/zu/daten.json"
+# dataSource = "command://python3 /pfad/zu/get-data.py"
+```
+
+#### TextTransformMiddleware
+Text transformieren (Großbuchstaben, Kleinbuchstaben, trimmen, etc.):
+
+```toml
+[[bot.providers.middleware]]
+name = "text-transformer"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "uppercase"  # uppercase, lowercase, capitalize, trim, replace, prepend, append
+
+# Für replace:
+search = "alter text"
+replacement = "neuer text"
+useRegex = false
+
+# Für prepend/append:
+prefix = "📢 "
+suffix = " #hashtag"
+```
+
+#### ConditionalMiddleware
+Verschiedene Middleware basierend auf Bedingungen anwenden:
+
+```toml
+[[bot.providers.middleware]]
+name = "conditional-processor"
+type = "conditional"
+enabled = true
+
+[bot.providers.middleware.config]
+condition = "contains"  # contains, not_contains, starts_with, ends_with, regex, length
+text = "dringend"
+caseSensitive = false
+
+# Aktionen wenn Bedingung erfüllt ist
+[[bot.providers.middleware.config.onTrue]]
+type = "text_transform"
+config = { transform = "prepend", prefix = "🚨 DRINGEND: " }
+
+# Aktionen wenn Bedingung nicht erfüllt ist
+[[bot.providers.middleware.config.onFalse]]
+type = "text_transform"
+config = { transform = "prepend", prefix = "ℹ️ " }
+```
+
+#### ScheduleMiddleware
+Timing und Planung von Nachrichten kontrollieren:
+
+```toml
+[[bot.providers.middleware]]
+name = "schedule-controller"
+type = "schedule"
+enabled = true
+
+[bot.providers.middleware.config]
+# Zeitbasierte Regeln
+allowedHours = [9, 10, 11, 12, 13, 14, 15, 16, 17]  # Geschäftszeiten
+allowedDays = [1, 2, 3, 4, 5]  # Montag bis Freitag
+quietHours = { start = "22:00", end = "06:00" }
+skipDates = ["2024-12-25", "2024-01-01"]  # Feiertage überspringen
+
+# Frequenz-Limits
+minInterval = 3600000  # Mindestens 1 Stunde zwischen Nachrichten
+maxPerHour = 5
+maxPerDay = 20
+
+# Verzögerungsoptionen
+delay = 5000  # Nachricht um 5 Sekunden verzögern
+randomDelay = { min = 1000, max = 10000 }  # Zufällige Verzögerung 1-10 Sekunden
+```
+
+#### RateLimitMiddleware
+Erweiterte Rate-Limiting-Strategien implementieren:
+
+```toml
+[[bot.providers.middleware]]
+name = "rate-limiter"
+type = "rate_limit"
+enabled = true
+
+[bot.providers.middleware.config]
+strategy = "sliding_window"  # sliding_window, fixed_window, token_bucket
+maxRequests = 10
+windowSize = 3600000  # 1 Stunde in Millisekunden
+
+# Für token_bucket Strategie:
+bucketSize = 10
+refillRate = 1  # Token pro Sekunde
+refillInterval = 1000
+
+# Verhalten bei Überschreitung
+onExceeded = "skip"  # skip, delay, queue
+skipReason = "Rate-Limit überschritten"
+maxDelay = 300000  # Maximale Verzögerung 5 Minuten
+```
+
+#### CommandMiddleware
+Externe Kommandos für Validierung oder Transformation ausführen:
+
+```toml
+[[bot.providers.middleware]]
+name = "external-validator"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "python3 /pfad/zu/script.py"
+mode = "replace"  # replace, prepend, append, validate
+timeout = 10000
+useStdin = true
+useEnvVar = false
+skipOnFailure = true
+skipReason = "Kommando-Validierung fehlgeschlagen"
+```
+
+### Middleware-Verkettung
+
+Middleware wird in der Reihenfolge ausgeführt, wie sie in der Konfiguration definiert ist. Jede Middleware kann:
+1. **Nachricht transformieren**: Textinhalt ändern
+2. **Nachricht überspringen**: Verarbeitung stoppen und nicht posten
+3. **Verarbeitung fortsetzen**: An nächste Middleware weiterleiten
+
+### Provider-spezifische Middleware-Isolation
+
+Jeder Provider hat seine eigene unabhängige Middleware-Kette:
+- **Isolation**: Middleware eines Providers beeinflusst andere Provider nicht
+- **Wiederverwendbarkeit**: Gleiche Middleware-Konfiguration für mehrere Provider
+- **Unabhängigkeit**: Jede Provider-Middleware-Kette läuft separat
+- **Performance**: Nur relevante Middleware läuft für jeden Provider
 
 Für vollständige Middleware-Dokumentation siehe [docs/MESSAGE_MIDDLEWARE.md](docs/MESSAGE_MIDDLEWARE.md).
 
