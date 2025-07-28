@@ -4,6 +4,7 @@ import { CommandProvider } from '../messages/commandProvider';
 import { JsonCommandProvider } from '../messages/jsonCommandProvider';
 import { MultiJsonCommandProvider } from '../messages/multiJson/index';
 import { PushProvider } from '../messages/pushProvider';
+import { RSSFeedProvider } from '../messages/rssFeedProvider';
 import { Logger } from '../utils/logger';
 
 describe('MessageProviderFactory', () => {
@@ -77,6 +78,28 @@ describe('MessageProviderFactory', () => {
       expect(provider.getProviderName()).toBe('push');
     });
 
+    it('should create rssfeed provider', async () => {
+      const provider = await MessageProviderFactory.createProvider(
+        'rssfeed',
+        { feedUrl: 'https://example.com/feed.xml' },
+        logger
+      );
+
+      expect(provider).toBeInstanceOf(RSSFeedProvider);
+      expect(provider.getProviderName()).toBe('rssfeed');
+    });
+
+    it('should create rss provider with alias', async () => {
+      const provider = await MessageProviderFactory.createProvider(
+        'rss',
+        { feedUrl: 'https://example.com/feed.xml' },
+        logger
+      );
+
+      expect(provider).toBeInstanceOf(RSSFeedProvider);
+      expect(provider.getProviderName()).toBe('rssfeed');
+    });
+
     it('should handle case insensitive provider types', async () => {
       const provider = await MessageProviderFactory.createProvider(
         'COMMAND',
@@ -114,7 +137,7 @@ describe('MessageProviderFactory', () => {
   describe('getAvailableProviders', () => {
     it('should return list of available providers', () => {
       const providers = MessageProviderFactory.getAvailableProviders();
-      expect(providers).toEqual(['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push']);
+      expect(providers).toEqual(['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push', 'rssfeed']);
     });
   });
 });

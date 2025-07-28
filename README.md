@@ -278,6 +278,59 @@ level = "info"
 
 Buntspecht supports various message sources through an extensible provider system. Each provider runs independently with its own schedule and can be individually enabled/disabled.
 
+### Available Provider Types
+
+- **ping**: Simple static message posting
+- **command**: Execute shell commands and post output  
+- **jsoncommand**: Execute commands that return JSON, with template formatting
+- **multijsoncommand**: Process JSON arrays with individual message generation
+- **push**: Accept external messages via HTTP API
+- **rssfeed** (or **rss**): Fetch and post content from RSS/Atom feeds
+
+### RSS/Atom Feed Provider
+
+Automatically fetches and posts content from RSS and Atom feeds with intelligent deduplication and error handling:
+
+```toml
+[[bot.providers]]
+name = "tech-news"
+type = "rssfeed"  # or "rss" as alias
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["mastodon-main", "bluesky-main"]
+
+[bot.providers.config]
+feedUrl = "https://feeds.feedburner.com/TechCrunch"
+timeout = 30000      # Request timeout (default: 30000ms)
+maxItems = 10        # Max items per fetch (default: 10)
+retries = 3          # Retry attempts (default: 3)
+userAgent = "Buntspecht RSS Reader/1.0"  # Custom user agent
+
+# Cache configuration (optional)
+[bot.providers.config.cache]
+enabled = true       # Enable deduplication (default: true)
+ttl = 7200          # Cache TTL in seconds (default: 3600)
+filePath = "./cache/tech-news-rss.json"
+```
+
+**Key Features:**
+- ✅ **RSS 2.0 and Atom support** - Works with both feed formats
+- ✅ **Automatic deduplication** - Prevents posting duplicate items
+- ✅ **Retry mechanism** - Configurable retry with exponential backoff
+- ✅ **Content cleaning** - Removes HTML tags from feed content
+- ✅ **Error resilience** - Graceful handling of network failures
+- ✅ **Flexible scheduling** - Use any cron expression
+
+**Content Processing:**
+Each feed item is formatted as:
+```
+{title}
+{link}
+{content}
+```
+
+HTML tags are automatically stripped from content, and the provider intelligently selects the best content field (contentSnippet, content, or description).
+
 ### Ping Provider
 
 Posts static messages:

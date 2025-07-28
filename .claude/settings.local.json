@@ -28,7 +28,8 @@
       "Bash(__NEW_LINE__ This resolves the issue where the 'should warm cache from file' test was failing)",
       "Bash(in CI due to stale cache files from previous test runs not being cleaned up.)",
       "Bash(__NEW_LINE__ Tested with: Jest test runner, Claude Sonnet 4)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(gh release list:*)"
     ],
     "deny": []
   }

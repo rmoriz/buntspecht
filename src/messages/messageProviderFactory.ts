@@ -4,6 +4,7 @@ import { CommandProvider, CommandProviderConfig } from './commandProvider';
 import { JsonCommandProvider, JsonCommandProviderConfig } from './jsonCommandProvider';
 import { MultiJsonCommandProvider, MultiJsonCommandProviderConfig } from './multiJson/index';
 import { PushProvider, PushProviderConfig } from './pushProvider';
+import { RSSFeedProvider, RSSFeedProviderConfig } from './rssFeedProvider';
 import { Logger } from '../utils/logger';
 import type { TelemetryService } from '../services/telemetryInterface';
 
@@ -50,6 +51,11 @@ export class MessageProviderFactory {
         provider = new PushProvider(config as PushProviderConfig);
         break;
       
+      case 'rssfeed':
+      case 'rss':
+        provider = new RSSFeedProvider(config as RSSFeedProviderConfig);
+        break;
+      
       default:
         logger.warn(`Unknown message provider type: ${providerType}, falling back to ping`);
         provider = new PingProvider(config as PingProviderConfig);
@@ -75,6 +81,6 @@ export class MessageProviderFactory {
    * @returns Array of available provider type names
    */
   public static getAvailableProviders(): string[] {
-    return ['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push'];
+    return ['ping', 'command', 'jsoncommand', 'multijsoncommand', 'push', 'rssfeed'];
   }
 }

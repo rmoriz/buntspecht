@@ -1,0 +1,84 @@
+# RSS/Atom Feed Provider Configuration Examples
+# This file demonstrates various RSS feed provider configurations
+
+# Basic RSS feed configuration
+[[providers]]
+name = "tech-news"
+type = "rssfeed"
+feedUrl = "https://feeds.feedburner.com/TechCrunch"
+schedule = "0 */2 * * *"  # Every 2 hours
+
+# RSS feed with custom settings
+[[providers]]
+name = "bbc-news"
+type = "rss"  # Alternative alias
+feedUrl = "https://feeds.bbci.co.uk/news/rss.xml"
+schedule = "0 */1 * * *"  # Every hour
+timeout = 15000          # 15 second timeout
+maxItems = 5             # Process max 5 items
+retries = 2              # Retry twice on failure
+userAgent = "MyBot/1.0"  # Custom user agent
+
+# RSS feed with caching configuration
+[[providers]]
+name = "hacker-news"
+type = "rssfeed"
+feedUrl = "https://hnrss.org/frontpage"
+schedule = "0 */30 * * *"  # Every 30 minutes
+
+[providers.cache]
+enabled = true
+ttl = 3600               # Cache TTL in seconds
+maxSize = 1000           # Max cache entries
+filePath = "./cache/hackernews-rss.json"
+
+# RSS feed with disabled caching
+[[providers]]
+name = "reddit-programming"
+type = "rssfeed"
+feedUrl = "https://www.reddit.com/r/programming/.rss"
+schedule = "0 */15 * * *"  # Every 15 minutes
+
+[providers.cache]
+enabled = false
+
+# Multiple RSS feeds for different topics
+[[providers]]
+name = "dev-blogs"
+type = "rssfeed"
+feedUrl = "https://dev.to/feed"
+schedule = "0 8,12,18 * * *"  # 3 times a day
+
+[[providers]]
+name = "github-releases"
+type = "rssfeed"
+feedUrl = "https://github.com/microsoft/vscode/releases.atom"
+schedule = "0 */6 * * *"  # Every 6 hours
+timeout = 20000
+maxItems = 3
+
+# Example social media accounts configuration
+[[accounts]]
+name = "mastodon-tech"
+type = "mastodon"
+instanceUrl = "https://mastodon.social"
+accessToken = "your-mastodon-token"
+
+[[accounts]]
+name = "bluesky-news"
+type = "bluesky"
+handle = "your-handle.bsky.social"
+password = "your-app-password"
+
+# Provider-to-account mappings
+[[schedules]]
+provider = "tech-news"
+accounts = ["mastodon-tech", "bluesky-news"]
+
+[[schedules]]
+provider = "bbc-news"
+accounts = ["mastodon-tech"]
+
+[[schedules]]
+provider = "hacker-news"
+accounts = ["bluesky-news"]

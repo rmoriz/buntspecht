@@ -1,0 +1,195 @@
+import { MessageProvider, MessageProviderConfig, MessageWithAttachments } from './messageProvider';
+import { Logger } from '../utils/logger';
+import { TelemetryService } from '../services/telemetryInterface';
+import { MessageDeduplicator } from './multiJson/MessageDeduplicator';
+import Parser from 'rss-parser';
+
+export interface RSSFeedProviderConfig extends MessageProviderConfig {
+  feedUrl: string;
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    maxSize?: number;
+    filePath?: string;
+  };
+  timeout?: number; // Request timeout in milliseconds
+  userAgent?: string; // Custom user agent
+  maxItems?: number; // Maximum number of items to process (default: 10)
+  retries?: number; // Number of retry attempts on failure (default: 3)
+}
+
+export class RSSFeedProvider implements MessageProvider {
+  private config: RSSFeedProviderConfig;
+  private logger?: Logger;
+  private telemetry?: TelemetryService;
+  private deduplicator: MessageDeduplicator;
+  private providerName = 'rssfeed';
+
+  constructor(config: RSSFeedProviderConfig) {
+    if (!config.feedUrl) throw new Error('feedUrl is required');
+    if (!this.isValidUrl(config.feedUrl)) throw new Error('feedUrl must be a valid HTTP/HTTPS URL');
+    
+    // Set defaults
+    this.config = {
+      timeout: 30000, // 30 seconds
+      maxItems: 10,
+      retries: 3,
+      userAgent: 'Buntspecht RSS Reader/1.0',
+      ...config
+    };
+    
+    const cacheDir = config.cache?.filePath ? require('path').dirname(config.cache.filePath) : './cache';
+    this.deduplicator = new MessageDeduplicator(cacheDir, console as any);
+  }
+
+  private isValidUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
+    this.logger = logger;
+    this.telemetry = telemetry;
+    const cacheDir = this.config.cache?.filePath ? require('path').dirname(this.config.cache.filePath) : './cache';
+    this.deduplicator = new MessageDeduplicator(cacheDir, logger);
+    this.logger.info(`Initialized RSSFeedProvider for ${this.config.feedUrl}`);
+  }
+
+  public getProviderName(): string {
+    return this.providerName;
+  }
+
+  public async generateMessage(): Promise<string> {
+    const items = await this.fetchFeedItems();
+    if (!items.length) return '';
+    const latest = items[0];
+    return this.formatItem(latest);
+  }
+
+  public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
+    return { text: await this.generateMessage() };
+  }
+
+  private async fetchFeedItems(): Promise<any[]> {
+    const maxRetries = this.config.retries || 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const parser = new Parser({
+          timeout: this.config.timeout || 30000,
+          headers: {
+            'User-Agent': this.config.userAgent || 'Buntspecht RSS Reader/1.0'
+          }
+        });
+
+        this.logger?.debug(`Fetching RSS feed from ${this.config.feedUrl} (attempt ${attempt}/${maxRetries})`);
+        const feed = await parser.parseURL(this.config.feedUrl);
+        
+        if (!feed) {
+          throw new Error('Feed parsing returned null or undefined');
+        }
+
+        let items = feed.items || [];
+        if (!Array.isArray(items)) {
+          this.logger?.warn('Feed items is not an array, treating as empty feed');
+          items = [];
+        }
+
+        // Limit items
+        const maxItems = this.config.maxItems || 10;
+        items = items.slice(0, maxItems);
+
+        // Filter processed items if caching is enabled
+        const processed = this.config.cache?.enabled !== false 
+          ? this.deduplicator.loadProcessedItems(this.providerName) 
+          : new Set<string>();
+        
+        items = items.filter(item => {
+          if (!item) return false; // Skip null/undefined items
+          const key = this.getItemKey(item);
+          return key && !processed.has(key);
+        });
+
+        this.logger?.debug(`Fetched ${items.length} new items from RSS feed`);
+        return items;
+
+      } catch (error) {
+        lastError = error as Error;
+        this.logger?.warn(`RSS feed fetch attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          this.logger?.debug(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed
+    this.logger?.error(`Failed to fetch RSS feed after ${maxRetries} attempts: ${lastError?.message}`);
+    throw lastError || new Error('RSS feed fetch failed');
+  }
+
+  private getItemKey(item: any): string | null {
+    return item?.pubDate || item?.isoDate || item?.id || null;
+  }
+
+  private formatItem(item: any): string {
+    if (!item) return '';
+    
+    const title = item.title || 'Untitled';
+    const link = item.link || '';
+    const content = item.contentSnippet || item.content || item.description || '';
+    
+    // Clean up content (remove HTML tags if present)
+    const cleanContent = content.replace(/<[^>]*>/g, '').trim();
+    
+    return `${title}\n${link}\n${cleanContent}`;
+  }
+
+  public async warmCache(): Promise<void> {
+    this.logger?.info(`Warming RSS cache for provider: ${this.providerName}`);
+    
+    try {
+      const parser = new Parser({
+        timeout: this.config.timeout || 30000,
+        headers: {
+          'User-Agent': this.config.userAgent || 'Buntspecht RSS Reader/1.0'
+        }
+      });
+      
+      const feed = await parser.parseURL(this.config.feedUrl);
+      const processed = this.config.cache?.enabled !== false 
+        ? this.deduplicator.loadProcessedItems(this.providerName) 
+        : new Set<string>();
+      
+      let added = 0;
+      const maxItems = this.config.maxItems || 10;
+      const items = (feed?.items || []).slice(0, maxItems);
+      
+      for (const item of items) {
+        if (!item) continue;
+        const key = this.getItemKey(item);
+        if (key && !processed.has(key)) {
+          this.deduplicator.markItemAsProcessed(processed, key);
+          added++;
+        }
+      }
+      
+      if (this.config.cache?.enabled !== false) {
+        this.deduplicator.saveProcessedItems(this.providerName, processed);
+      }
+      
+      this.logger?.info(`Cache warmed for RSSFeedProvider: ${added} items added.`);
+    } catch (error) {
+      this.logger?.error(`Failed to warm RSS cache: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+}
