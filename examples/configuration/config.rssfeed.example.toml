@@ -8,6 +8,14 @@ type = "rssfeed"
 feedUrl = "https://feeds.feedburner.com/TechCrunch"
 schedule = "0 */2 * * *"  # Every 2 hours
 
+# RSS feed with custom template
+[[providers]]
+name = "news-with-template"
+type = "rssfeed"
+feedUrl = "https://feeds.bbci.co.uk/news/rss.xml"
+schedule = "0 */1 * * *"  # Every hour
+template = "📰 {{title}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n#news"
+
 # RSS feed with custom settings
 [[providers]]
 name = "bbc-news"

@@ -261,4 +261,158 @@ describe('RSSFeedProvider', () => {
       expect(formatted).toContain('Content without title');
     });
   });
+
+  describe('Template functionality', () => {
+    it('uses default formatting when no template is provided', () => {
+      const item = {
+        title: 'Test Title',
+        link: 'https://test.com/link',
+        description: 'Test description'
+      };
+      const formatted = provider['formatItem'](item);
+      expect(formatted).toBe('Test Title\nhttps://test.com/link\nTest description');
+    });
+
+    it('formats items using custom template', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '📰 {{title}}\n🔗 {{link}}\n📝 {{content}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      const item = {
+        title: 'Breaking News',
+        link: 'https://news.com/breaking',
+        contentSnippet: 'This is breaking news content'
+      };
+
+      const formatted = templateProvider['formatItem'](item);
+      expect(formatted).toBe('📰 Breaking News\n🔗 https://news.com/breaking\n📝 This is breaking news content');
+    });
+
+    it('handles template with trim functions', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '{{title|trim:20}}: {{content|trim:50}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      const item = {
+        title: 'This is a very long title that should be trimmed',
+        link: 'https://test.com',
+        description: 'This is a very long description that should definitely be trimmed because it exceeds the limit'
+      };
+
+      const formatted = templateProvider['formatItem'](item);
+      expect(formatted).toContain('This is a very lo...');
+      expect(formatted).toContain('This is a very long description that should def...');
+    });
+
+    it('provides access to all RSS item fields in template', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '{{title}} by {{author}} in {{categories}} ({{pubDate}})',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      const item = {
+        title: 'Tech Article',
+        author: 'John Doe',
+        categories: ['Technology', 'Programming'],
+        pubDate: '2023-01-01',
+        link: 'https://test.com'
+      };
+
+      const formatted = templateProvider['formatItem'](item);
+      expect(formatted).toBe('Tech Article by John Doe in Technology,Programming (2023-01-01)');
+    });
+
+    it('cleans HTML from template data', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '{{title}}: {{description}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      const item = {
+        title: 'HTML Article',
+        description: '<p>This has <strong>HTML</strong> tags</p>',
+        link: 'https://test.com'
+      };
+
+      const formatted = templateProvider['formatItem'](item);
+      expect(formatted).toBe('HTML Article: This has HTML tags');
+      expect(formatted).not.toContain('<p>');
+      expect(formatted).not.toContain('<strong>');
+    });
+
+    it('handles missing template variables gracefully', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '{{title}} - {{nonexistent}} - {{author}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      const item = {
+        title: 'Test Article',
+        link: 'https://test.com'
+        // author is missing
+      };
+
+      const formatted = templateProvider['formatItem'](item);
+      expect(formatted).toBe('Test Article - {{nonexistent}} - ');
+    });
+
+    it('uses content priority: contentSnippet > content > description', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '{{content}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      // Test contentSnippet priority
+      const item1 = {
+        title: 'Test',
+        contentSnippet: 'Snippet content',
+        content: 'Full content',
+        description: 'Description content'
+      };
+      expect(templateProvider['formatItem'](item1)).toBe('Snippet content');
+
+      // Test content fallback
+      const item2 = {
+        title: 'Test',
+        content: 'Full content',
+        description: 'Description content'
+      };
+      expect(templateProvider['formatItem'](item2)).toBe('Full content');
+
+      // Test description fallback
+      const item3 = {
+        title: 'Test',
+        description: 'Description content'
+      };
+      expect(templateProvider['formatItem'](item3)).toBe('Description content');
+    });
+
+    it('generates message with template', async () => {
+      const templateProvider = new RSSFeedProvider({
+        feedUrl: 'https://example.com/feed.xml',
+        template: '🔥 {{title}}\n{{link}}',
+        cache: { enabled: false }
+      });
+      await templateProvider.initialize(logger);
+
+      mockParser.parseURL.mockResolvedValue(sampleFeed);
+      const message = await templateProvider.generateMessage();
+      expect(message).toContain('🔥 A');
+      expect(message).toContain('https://test/a');
+    });
+  });
 });

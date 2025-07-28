@@ -2,10 +2,12 @@ import { MessageProvider, MessageProviderConfig, MessageWithAttachments } from '
 import { Logger } from '../utils/logger';
 import { TelemetryService } from '../services/telemetryInterface';
 import { MessageDeduplicator } from './multiJson/MessageDeduplicator';
+import { JsonTemplateProcessor } from '../utils/jsonTemplateProcessor';
 import Parser from 'rss-parser';
 
 export interface RSSFeedProviderConfig extends MessageProviderConfig {
   feedUrl: string;
+  template?: string; // Template for formatting feed items (optional)
   cache?: {
     enabled?: boolean;
     ttl?: number;
@@ -143,6 +145,49 @@ export class RSSFeedProvider implements MessageProvider {
   private formatItem(item: any): string {
     if (!item) return '';
     
+    // If template is provided, use it
+    if (this.config.template) {
+      // Prepare item data for template processing
+      const templateData = {
+        title: item.title || 'Untitled',
+        link: item.link || '',
+        content: item.contentSnippet || item.content || item.description || '',
+        description: item.description || '',
+        contentSnippet: item.contentSnippet || '',
+        pubDate: item.pubDate || '',
+        isoDate: item.isoDate || '',
+        id: item.id || '',
+        author: item.author || item.creator || '',
+        categories: Array.isArray(item.categories) ? item.categories.join(', ') : (item.categories || ''),
+        // Include the raw item for advanced template usage
+        ...item
+      };
+      
+      // Override with cleaned content fields to ensure priority
+      if (item.contentSnippet) {
+        templateData.content = item.contentSnippet;
+      } else if (item.content) {
+        templateData.content = item.content;
+      } else if (item.description) {
+        templateData.content = item.description;
+      }
+      
+      // Clean HTML from content fields
+      if (templateData.content) {
+        templateData.content = templateData.content.replace(/<[^>]*>/g, '').trim();
+      }
+      if (templateData.description) {
+        templateData.description = templateData.description.replace(/<[^>]*>/g, '').trim();
+      }
+      if (templateData.contentSnippet) {
+        templateData.contentSnippet = templateData.contentSnippet.replace(/<[^>]*>/g, '').trim();
+      }
+      
+      const processor = new JsonTemplateProcessor(this.logger || console as any);
+      return processor.applyTemplate(this.config.template, templateData);
+    }
+    
+    // Default formatting (backward compatibility)
     const title = item.title || 'Untitled';
     const link = item.link || '';
     const content = item.contentSnippet || item.content || item.description || '';

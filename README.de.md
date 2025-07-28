@@ -320,14 +320,31 @@ filePath = "./cache/tech-news-rss.json"
 - ✅ **Flexible Zeitplanung** - Beliebige Cron-Ausdrücke verwenden
 
 **Inhaltsverarbeitung:**
-Jedes Feed-Element wird formatiert als:
+Ohne Template wird jedes Feed-Element formatiert als:
 ```
 {titel}
 {link}
 {inhalt}
 ```
 
-HTML-Tags werden automatisch aus dem Inhalt entfernt, und der Provider wählt intelligent das beste Inhaltsfeld aus (contentSnippet, content oder description).
+Mit einem benutzerdefinierten Template haben Sie volle Kontrolle über die Formatierung:
+```toml
+template = "📰 {{title|trim:50}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n👤 {{author}}\n📅 {{pubDate}}\n🏷️ {{categories}}"
+```
+
+**Verfügbare Template-Variablen:**
+- `{{title}}` - Artikel-Titel
+- `{{link}}` - Artikel-URL
+- `{{content}}` - Inhalt (Priorität: contentSnippet > content > description)
+- `{{description}}` - Ursprüngliches Beschreibungsfeld
+- `{{contentSnippet}}` - Sauberer Text-Ausschnitt
+- `{{author}}` - Autorenname
+- `{{pubDate}}` - Veröffentlichungsdatum (RSS-Format)
+- `{{isoDate}}` - Veröffentlichungsdatum (ISO-Format)
+- `{{categories}}` - Kategorien (kommagetrennt)
+- `{{id}}` - Eindeutige Element-ID
+
+HTML-Tags werden automatisch aus Inhaltsfeldern entfernt, und Sie können Template-Funktionen wie `{{content|trim:200}}` für Längenkontrolle verwenden.
 
 ### Ping Provider
 

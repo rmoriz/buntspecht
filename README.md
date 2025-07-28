@@ -301,6 +301,7 @@ accounts = ["mastodon-main", "bluesky-main"]
 
 [bot.providers.config]
 feedUrl = "https://feeds.feedburner.com/TechCrunch"
+template = "📰 {{title}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n#news"  # Optional template
 timeout = 30000      # Request timeout (default: 30000ms)
 maxItems = 10        # Max items per fetch (default: 10)
 retries = 3          # Retry attempts (default: 3)
@@ -322,14 +323,31 @@ filePath = "./cache/tech-news-rss.json"
 - ✅ **Flexible scheduling** - Use any cron expression
 
 **Content Processing:**
-Each feed item is formatted as:
+Without a template, each feed item is formatted as:
 ```
 {title}
 {link}
 {content}
 ```
 
-HTML tags are automatically stripped from content, and the provider intelligently selects the best content field (contentSnippet, content, or description).
+With a custom template, you have full control over formatting:
+```toml
+template = "📰 {{title|trim:50}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n👤 {{author}}\n📅 {{pubDate}}\n🏷️ {{categories}}"
+```
+
+**Available Template Variables:**
+- `{{title}}` - Article title
+- `{{link}}` - Article URL
+- `{{content}}` - Content (priority: contentSnippet > content > description)
+- `{{description}}` - Original description field
+- `{{contentSnippet}}` - Clean text snippet
+- `{{author}}` - Author name
+- `{{pubDate}}` - Publication date (RSS format)
+- `{{isoDate}}` - Publication date (ISO format)
+- `{{categories}}` - Categories (comma-separated)
+- `{{id}}` - Unique item identifier
+
+HTML tags are automatically stripped from content fields, and you can use template functions like `{{content|trim:200}}` for length control.
 
 ### Ping Provider
 
