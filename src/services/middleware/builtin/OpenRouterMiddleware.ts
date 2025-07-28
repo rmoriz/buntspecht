@@ -169,7 +169,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       context.data[`${this.name}_model`] = this.config.model;
 
       // Record telemetry
-      this.telemetry?.recordMiddlewareExecution?.(this.name, executionTime);
+      this.telemetry?.recordProviderExecution?.(this.name, executionTime);
 
       // Continue to next middleware
       await next();
@@ -258,7 +258,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data: OpenRouterResponse = await response.json();
+    const data = await response.json() as OpenRouterResponse;
     
     if (!data.choices || data.choices.length === 0) {
       throw new Error('No response choices returned from OpenRouter API');
