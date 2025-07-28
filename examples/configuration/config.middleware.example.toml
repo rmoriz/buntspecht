@@ -1,0 +1,124 @@
+# Example configuration for message middleware
+# This shows how to configure middleware for message transformation and filtering
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-access-token-here"
+
+# Provider with middleware configuration
+[[bot.providers]]
+name = "example-with-middleware"
+type = "command"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = true
+accounts = ["mastodon-account"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "echo 'Hello from command provider!'"
+
+# Middleware chain for this provider
+[[bot.providers.middleware]]
+name = "text-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "contains"
+text = "error"
+action = "skip"
+skipReason = "Message contains error keyword"
+
+[[bot.providers.middleware]]
+name = "add-hashtag"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "append"
+suffix = " #bot #automated"
+
+[[bot.providers.middleware]]
+name = "validate-length"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "length"
+maxLength = 500
+action = "skip"
+skipReason = "Message too long"
+
+# Another provider with different middleware
+[[bot.providers]]
+name = "json-with-transform"
+type = "jsoncommand"
+cronSchedule = "0 */12 * * *"  # Every 12 hours
+enabled = true
+accounts = ["mastodon-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.github.com/repos/octocat/Hello-World/commits?per_page=1"
+template = "New commit: {{.[0].commit.message}} by {{.[0].commit.author.name}}"
+
+# Middleware for JSON provider
+[[bot.providers.middleware]]
+name = "uppercase-transform"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "uppercase"
+
+[[bot.providers.middleware]]
+name = "external-validation"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "python3 /path/to/validate_message.py"
+mode = "validate"
+useStdin = true
+skipOnFailure = true
+skipReason = "Message failed external validation"
+timeout = 5000
+
+# Provider with command middleware for message transformation
+[[bot.providers]]
+name = "command-transform-example"
+type = "command"
+cronSchedule = "0 8 * * *"  # Daily at 8 AM
+enabled = true
+accounts = ["mastodon-account"]
+
+[bot.providers.config]
+command = "fortune"
+
+# Transform message using external command
+[[bot.providers.middleware]]
+name = "fortune-formatter"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "sed 's/^/📝 /' | head -c 400"  # Add emoji and limit length
+mode = "replace"
+useStdin = true
+timeout = 3000
+
+[[bot.providers.middleware]]
+name = "add-timestamp"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "append"
+suffix = "\n\n🕐 Posted at $(date '+%H:%M')"
+
+# Logging configuration
+[logging]
+level = "info"
