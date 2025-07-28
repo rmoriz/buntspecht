@@ -10,6 +10,7 @@ import { ScheduledProvider } from './ProviderManager';
 import { ProviderConfig } from '../../types/config';
 import { SocialMediaClient } from '../socialMediaClient';
 import { MessageMiddlewareManager, DefaultMessageMiddlewareFactory } from '../middleware';
+import { MessageMiddleware } from '../middleware/types';
 
 /**
  * Handles task execution, push provider management, and rate limiting
