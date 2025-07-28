@@ -1,6 +1,7 @@
 import { MessageMiddleware, MessageMiddlewareContext } from '../types';
 import { Logger } from '../../../utils/logger';
 import { TelemetryService } from '../../telemetryInterface';
+import { createHash } from 'crypto';
 
 export interface OpenRouterConfig {
   /** OpenRouter API key */
@@ -192,7 +193,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
     if (this.config.includeContext) {
       const contextInfo = this.config.contextTemplate || this.getDefaultContextTemplate();
       
-      // Replace context variables
+      // Replace context variables safely
       const contextData = {
         providerName: context.providerName,
         accountNames: context.accountNames.join(', '),
@@ -203,7 +204,10 @@ export class OpenRouterMiddleware implements MessageMiddleware {
 
       let processedContext = contextInfo;
       for (const [key, value] of Object.entries(contextData)) {
-        processedContext = processedContext.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+        // Escape special regex characters in the key and value
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedValue = String(value).replace(/\$/g, '$$$$');
+        processedContext = processedContext.replace(new RegExp(`{{${escapedKey}}}`, 'g'), escapedValue);
       }
 
       userMessage = `${processedContext}\n\nMessage to process:\n${originalText}`;
@@ -329,9 +333,8 @@ export class OpenRouterMiddleware implements MessageMiddleware {
 
   private getCacheKey(userMessage: string): string {
     // Create a hash of the user message and config for caching
-    const crypto = require('crypto');
     const content = `${this.config.model}:${this.config.prompt}:${userMessage}:${this.config.temperature}:${this.config.maxTokens}`;
-    return crypto.createHash('sha256').update(content).digest('hex');
+    return createHash('sha256').update(content).digest('hex');
   }
 
   private cleanupCache(): void {

@@ -8,13 +8,12 @@ global.fetch = jest.fn();
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 
 // Mock crypto
-const mockCrypto = {
+jest.mock('crypto', () => ({
   createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn().mockReturnValue('mocked-hash')
   })
-};
-jest.mock('crypto', () => mockCrypto);
+}));
 
 describe('OpenRouterMiddleware', () => {
   let logger: Logger;

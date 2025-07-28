@@ -156,7 +156,7 @@ export class CommandMiddleware implements MessageMiddleware {
     return env as Record<string, string>;
   }
 
-  private async executeWithStdin(command: string, input: string, options: any): Promise<{ stdout: string; stderr: string }> {
+  private async executeWithStdin(command: string, input: string, options: Record<string, unknown>): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       const child = exec(command, options, (error, stdout, stderr) => {
         if (error) {
