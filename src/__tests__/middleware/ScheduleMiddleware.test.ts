@@ -70,7 +70,7 @@ describe('ScheduleMiddleware', () => {
       await middleware.execute(context, nextCalled);
 
       expect(context.skip).toBe(true);
-      expect(context.skipReason).toBe('Current hour 0 not in allowed hours: 1');
+      expect(context.skipReason).toBe(`Current hour ${currentHour} not in allowed hours: ${disallowedHour}`);
       expect(nextCalled).not.toHaveBeenCalled();
     });
   });
@@ -514,7 +514,7 @@ describe('ScheduleMiddleware', () => {
       await middleware.execute(context, nextCalled);
 
       expect(context.data['test_scheduled_skip']).toBe(true);
-      expect(context.data['test_skip_reason']).toBe('Current hour 0 not in allowed hours: 1');
+      expect(context.data['test_skip_reason']).toBe(`Current hour ${currentHour} not in allowed hours: ${disallowedHour}`);
     });
   });
 
