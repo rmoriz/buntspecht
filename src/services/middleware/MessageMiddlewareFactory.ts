@@ -2,6 +2,11 @@ import { MessageMiddleware, MessageMiddlewareFactory, MessageMiddlewareConfig } 
 import { TextTransformMiddleware, TextTransformConfig } from './builtin/TextTransformMiddleware';
 import { FilterMiddleware, FilterConfig } from './builtin/FilterMiddleware';
 import { CommandMiddleware, CommandConfig } from './builtin/CommandMiddleware';
+import { TemplateMiddleware, TemplateConfig } from './builtin/TemplateMiddleware';
+import { RateLimitMiddleware, RateLimitConfig } from './builtin/RateLimitMiddleware';
+import { ScheduleMiddleware, ScheduleConfig } from './builtin/ScheduleMiddleware';
+import { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalMiddleware';
+import { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -10,7 +15,12 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
   private static readonly SUPPORTED_TYPES = [
     'text_transform',
     'filter', 
-    'command'
+    'command',
+    'template',
+    'rate_limit',
+    'schedule',
+    'conditional',
+    'attachment'
   ];
 
   /**
@@ -38,6 +48,41 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new CommandMiddleware(
           config.name,
           config.config as CommandConfig,
+          enabled
+        );
+
+      case 'template':
+        return new TemplateMiddleware(
+          config.name,
+          config.config as TemplateConfig,
+          enabled
+        );
+
+      case 'rate_limit':
+        return new RateLimitMiddleware(
+          config.name,
+          config.config as RateLimitConfig,
+          enabled
+        );
+
+      case 'schedule':
+        return new ScheduleMiddleware(
+          config.name,
+          config.config as ScheduleConfig,
+          enabled
+        );
+
+      case 'conditional':
+        return new ConditionalMiddleware(
+          config.name,
+          config.config as ConditionalConfig,
+          enabled
+        );
+
+      case 'attachment':
+        return new AttachmentMiddleware(
+          config.name,
+          config.config as AttachmentConfig,
           enabled
         );
 

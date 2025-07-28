@@ -13,3 +13,8 @@ export {
 export { TextTransformMiddleware, TextTransformConfig } from './builtin/TextTransformMiddleware';
 export { FilterMiddleware, FilterConfig } from './builtin/FilterMiddleware';
 export { CommandMiddleware, CommandConfig } from './builtin/CommandMiddleware';
+export { TemplateMiddleware, TemplateConfig } from './builtin/TemplateMiddleware';
+export { RateLimitMiddleware, RateLimitConfig } from './builtin/RateLimitMiddleware';
+export { ScheduleMiddleware, ScheduleConfig } from './builtin/ScheduleMiddleware';
+export { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalMiddleware';
+export { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
