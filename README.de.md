@@ -276,6 +276,59 @@ level = "info"
 
 Buntspecht unterstützt verschiedene Nachrichtenquellen über ein erweiterbares Provider-System. Jeder Provider läuft unabhängig mit seinem eigenen Zeitplan und kann individuell aktiviert/deaktiviert werden.
 
+### Verfügbare Provider-Typen
+
+- **ping**: Einfache statische Nachrichten
+- **command**: Shell-Befehle ausführen und Ausgabe posten
+- **jsoncommand**: Befehle ausführen, die JSON zurückgeben, mit Template-Formatierung
+- **multijsoncommand**: JSON-Arrays verarbeiten mit individueller Nachrichtenerstellung
+- **push**: Externe Nachrichten über HTTP-API empfangen
+- **rssfeed** (oder **rss**): Inhalte aus RSS/Atom-Feeds abrufen und posten
+
+### RSS/Atom Feed Provider
+
+Ruft automatisch Inhalte aus RSS- und Atom-Feeds ab und postet sie mit intelligenter Duplikatserkennung und Fehlerbehandlung:
+
+```toml
+[[bot.providers]]
+name = "tech-news"
+type = "rssfeed"  # oder "rss" als Alias
+cronSchedule = "0 */2 * * *"  # Alle 2 Stunden
+enabled = true
+accounts = ["mastodon-main", "bluesky-main"]
+
+[bot.providers.config]
+feedUrl = "https://feeds.feedburner.com/TechCrunch"
+timeout = 30000      # Request-Timeout (Standard: 30000ms)
+maxItems = 10        # Max. Elemente pro Abruf (Standard: 10)
+retries = 3          # Wiederholungsversuche (Standard: 3)
+userAgent = "Buntspecht RSS Reader/1.0"  # Benutzerdefinierter User-Agent
+
+# Cache-Konfiguration (optional)
+[bot.providers.config.cache]
+enabled = true       # Duplikatserkennung aktivieren (Standard: true)
+ttl = 7200          # Cache-TTL in Sekunden (Standard: 3600)
+filePath = "./cache/tech-news-rss.json"
+```
+
+**Hauptfunktionen:**
+- ✅ **RSS 2.0 und Atom-Unterstützung** - Funktioniert mit beiden Feed-Formaten
+- ✅ **Automatische Duplikatserkennung** - Verhindert doppelte Posts
+- ✅ **Wiederholungsmechanismus** - Konfigurierbare Wiederholung mit exponentiellem Backoff
+- ✅ **Inhaltsbereinigung** - Entfernt HTML-Tags aus Feed-Inhalten
+- ✅ **Fehlerresilienz** - Elegante Behandlung von Netzwerkfehlern
+- ✅ **Flexible Zeitplanung** - Beliebige Cron-Ausdrücke verwenden
+
+**Inhaltsverarbeitung:**
+Jedes Feed-Element wird formatiert als:
+```
+{titel}
+{link}
+{inhalt}
+```
+
+HTML-Tags werden automatisch aus dem Inhalt entfernt, und der Provider wählt intelligent das beste Inhaltsfeld aus (contentSnippet, content oder description).
+
 ### Ping Provider
 
 Postet statische Nachrichten:
