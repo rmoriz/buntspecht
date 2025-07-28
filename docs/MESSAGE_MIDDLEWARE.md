@@ -44,6 +44,8 @@ suffix = " #bot #automated"
 
 ## Built-in Middleware Types
 
+Buntspecht includes 9 built-in middleware types that cover most common message processing needs:
+
 ### 1. Text Transform Middleware (`text_transform`)
 
 Transforms message text using various operations.
@@ -146,6 +148,205 @@ skipReason = "Command validation failed"
 - `useStdin`: Pass message as stdin to command
 - `useEnvVar`: Pass message as `MESSAGE_TEXT` environment variable
 - `skipOnFailure`: Skip message if command fails (for validate mode)
+
+### 4. Template Middleware (`template`)
+
+Processes message templates with dynamic data injection.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-template"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "Hello {{name}}! Today is {{date}}"
+data = { name = "World", date = "2024-01-01" }
+# Or use external data source:
+dataSource = "file:///path/to/data.json"
+# dataSource = "command://python3 /path/to/get-data.py"
+```
+
+**Features:**
+- Mustache-style template syntax (`{{variable}}`)
+- Static data injection from config
+- Dynamic data from files or commands
+- Nested object support (`{{user.name}}`)
+
+### 5. Conditional Middleware (`conditional`)
+
+Applies different middleware based on conditions.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-conditional"
+type = "conditional"
+enabled = true
+
+[bot.providers.middleware.config]
+condition = "contains"  # or "not_contains", "starts_with", "ends_with", "regex", "length"
+text = "urgent"
+caseSensitive = false
+# For regex:
+pattern = "\\b(urgent|breaking)\\b"
+flags = "i"
+# For length:
+minLength = 100
+maxLength = 500
+
+# Actions when condition is met
+[[bot.providers.middleware.config.onTrue]]
+type = "text_transform"
+config = { transform = "prepend", prefix = "🚨 URGENT: " }
+
+[[bot.providers.middleware.config.onTrue]]
+type = "filter"
+config = { type = "length", maxLength = 280, action = "skip" }
+
+# Actions when condition is not met
+[[bot.providers.middleware.config.onFalse]]
+type = "text_transform"
+config = { transform = "prepend", prefix = "ℹ️ " }
+```
+
+### 6. Schedule Middleware (`schedule`)
+
+Controls when messages can be posted based on time and frequency rules.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-schedule"
+type = "schedule"
+enabled = true
+
+[bot.providers.middleware.config]
+# Time-based rules
+allowedHours = [9, 10, 11, 12, 13, 14, 15, 16, 17]  # Business hours
+allowedDays = [1, 2, 3, 4, 5]  # Monday to Friday (1=Monday, 7=Sunday)
+quietHours = { start = "22:00", end = "06:00" }
+skipDates = ["2024-12-25", "2024-01-01"]  # Skip holidays
+skipDateRanges = [
+  { start = "2024-12-24", end = "2024-12-26" }
+]
+
+# Frequency limits
+minInterval = 3600000  # Minimum 1 hour between messages (in ms)
+maxPerHour = 5
+maxPerDay = 20
+
+# Delay options
+delay = 5000  # Delay message by 5 seconds
+randomDelay = { min = 1000, max = 10000 }  # Random delay between 1-10 seconds
+```
+
+### 7. Rate Limit Middleware (`rate_limit`)
+
+Advanced rate limiting with multiple strategies and time windows.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-rate-limit"
+type = "rate_limit"
+enabled = true
+
+[bot.providers.middleware.config]
+strategy = "sliding_window"  # or "fixed_window", "token_bucket"
+maxRequests = 10
+windowSize = 3600000  # 1 hour in milliseconds
+
+# For token_bucket strategy:
+bucketSize = 10
+refillRate = 1  # tokens per second
+refillInterval = 1000  # milliseconds
+
+# Behavior when rate limit exceeded
+onExceeded = "skip"  # or "delay", "queue"
+skipReason = "Rate limit exceeded"
+maxDelay = 300000  # Maximum delay in ms (5 minutes)
+```
+
+**Strategies:**
+- `sliding_window`: Tracks requests in a sliding time window
+- `fixed_window`: Resets counter at fixed intervals
+- `token_bucket`: Token bucket algorithm with refill rate
+
+### 8. Attachment Middleware (`attachment`)
+
+Processes and validates message attachments.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-attachment"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+# Validation rules
+maxFileSize = 10485760  # 10MB in bytes
+allowedTypes = ["image/jpeg", "image/png", "image/gif"]
+allowedExtensions = [".jpg", ".jpeg", ".png", ".gif"]
+maxAttachments = 4
+
+# Processing options
+resizeImages = true
+maxWidth = 1920
+maxHeight = 1080
+quality = 85  # JPEG quality (1-100)
+
+# Alt text generation
+generateAltText = true
+altTextCommand = "python3 /path/to/alt-text-generator.py"
+altTextTimeout = 10000
+
+# Behavior on validation failure
+onValidationFailure = "skip"  # or "remove_invalid", "continue"
+skipReason = "Invalid attachment detected"
+```
+
+### 9. OpenRouter Middleware (`openrouter`)
+
+AI-powered message enhancement using OpenRouter API.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-openrouter"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "your-openrouter-api-key"
+# Or use secret source:
+apiKeySource = "vault://secret/openrouter/api-key"
+
+model = "anthropic/claude-3-sonnet"
+prompt = "Improve this social media post for better engagement: {{message}}"
+maxTokens = 150
+temperature = 0.7
+timeout = 30000
+
+# Caching
+enableCache = true
+cacheTimeout = 3600000  # 1 hour
+
+# Error handling
+onError = "continue"  # or "skip", "retry"
+maxRetries = 3
+retryDelay = 1000
+skipReason = "AI processing failed"
+```
+
+**Supported Models:**
+- `anthropic/claude-3-sonnet`
+- `anthropic/claude-3-haiku`
+- `openai/gpt-4`
+- `openai/gpt-3.5-turbo`
+- And many more via OpenRouter
 
 ## Provider-Specific Middleware Isolation
 
