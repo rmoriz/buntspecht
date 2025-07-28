@@ -194,7 +194,7 @@ export class MessageMiddlewareManager {
         
         // Record middleware execution time
         const middlewareExecutionTime = Date.now() - middlewareStartTime;
-        this.telemetry.recordMiddlewareExecution?.(middleware.name, middlewareExecutionTime);
+        this.telemetry.recordProviderExecution?.(middleware.name, middlewareExecutionTime);
         
         this.logger.debug(`${middlewareType} message middleware ${middleware.name} completed in ${middlewareExecutionTime}ms`);
       } catch (err) {

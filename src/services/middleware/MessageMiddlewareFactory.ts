@@ -35,63 +35,63 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
       case 'text_transform':
         return new TextTransformMiddleware(
           config.name,
-          config.config as TextTransformConfig,
+          config.config as unknown as TextTransformConfig,
           enabled
         );
 
       case 'filter':
         return new FilterMiddleware(
           config.name,
-          config.config as FilterConfig,
+          config.config as unknown as FilterConfig,
           enabled
         );
 
       case 'command':
         return new CommandMiddleware(
           config.name,
-          config.config as CommandConfig,
+          config.config as unknown as CommandConfig,
           enabled
         );
 
       case 'template':
         return new TemplateMiddleware(
           config.name,
-          config.config as TemplateConfig,
+          config.config as unknown as TemplateConfig,
           enabled
         );
 
       case 'rate_limit':
         return new RateLimitMiddleware(
           config.name,
-          config.config as RateLimitConfig,
+          config.config as unknown as RateLimitConfig,
           enabled
         );
 
       case 'schedule':
         return new ScheduleMiddleware(
           config.name,
-          config.config as ScheduleConfig,
+          config.config as unknown as ScheduleConfig,
           enabled
         );
 
       case 'conditional':
         return new ConditionalMiddleware(
           config.name,
-          config.config as ConditionalConfig,
+          config.config as unknown as ConditionalConfig,
           enabled
         );
 
       case 'attachment':
         return new AttachmentMiddleware(
           config.name,
-          config.config as AttachmentConfig,
+          config.config as unknown as AttachmentConfig,
           enabled
         );
 
       case 'openrouter':
         return new OpenRouterMiddleware(
           config.name,
-          config.config as OpenRouterConfig,
+          config.config as unknown as OpenRouterConfig,
           enabled
         );
 
