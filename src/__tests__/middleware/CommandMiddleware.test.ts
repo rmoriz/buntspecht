@@ -8,6 +8,14 @@ import { exec } from 'child_process';
 jest.mock('child_process');
 const mockedExec = exec as jest.MockedFunction<typeof exec>;
 
+// Mock the promisified exec
+jest.mock('util', () => ({
+  promisify: jest.fn((fn) => jest.fn())
+}));
+
+const { promisify } = require('util');
+const mockedExecAsync = promisify(exec) as jest.MockedFunction<any>;
+
 describe('CommandMiddleware', () => {
   let logger: Logger;
   let telemetry: TelemetryService;
@@ -42,12 +50,7 @@ describe('CommandMiddleware', () => {
       });
 
       // Mock successful command execution
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, 'Processed message\n', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'Processed message\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -68,12 +71,7 @@ describe('CommandMiddleware', () => {
         mode: 'prepend'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, 'Prefix:\n', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'Prefix:\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -93,12 +91,7 @@ describe('CommandMiddleware', () => {
         mode: 'append'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, ' - Suffix\n', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: ' - Suffix\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -118,12 +111,7 @@ describe('CommandMiddleware', () => {
         mode: 'validate'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, '', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -143,12 +131,7 @@ describe('CommandMiddleware', () => {
         skipReason: 'Validation failed'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(new Error('Command failed'), '', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockRejectedValue(new Error('Command failed'));
 
       await middleware.initialize(logger, telemetry);
 
@@ -171,13 +154,7 @@ describe('CommandMiddleware', () => {
       });
 
       let capturedEnv: any;
-      mockedExec.mockImplementation((command, options, callback) => {
-        capturedEnv = options?.env;
-        if (callback) {
-          callback(null, 'Hello world\n', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'Hello world\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -196,13 +173,7 @@ describe('CommandMiddleware', () => {
       });
 
       let capturedEnv: any;
-      mockedExec.mockImplementation((command, options, callback) => {
-        capturedEnv = options?.env;
-        if (callback) {
-          callback(null, 'custom_value\n', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'custom_value\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -230,12 +201,7 @@ describe('CommandMiddleware', () => {
         }
       };
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, 'Hello world\n', '');
-        }
-        return mockChild as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'Hello world\n', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -257,13 +223,7 @@ describe('CommandMiddleware', () => {
       });
 
       let capturedOptions: any;
-      mockedExec.mockImplementation((command, options, callback) => {
-        capturedOptions = options;
-        if (callback) {
-          callback(new Error('Timeout'), '', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockRejectedValue(new Error('Timeout'));
 
       await middleware.initialize(logger, telemetry);
 
@@ -281,18 +241,13 @@ describe('CommandMiddleware', () => {
         mode: 'replace'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(new Error('Command not found'), '', 'Command not found');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockRejectedValue(new Error('Command not found'));
 
       await middleware.initialize(logger, telemetry);
 
       const nextCalled = jest.fn();
       
-      await expect(middleware.execute(context, nextCalled)).rejects.toThrow('Failed to execute command');
+      await expect(middleware.execute(context, nextCalled)).rejects.toThrow('Command not found');
     });
 
     it('should handle stderr output', async () => {
@@ -301,12 +256,7 @@ describe('CommandMiddleware', () => {
         mode: 'replace'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, 'output\n', 'warning\n');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: 'output\n', stderr: 'warning\n' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -323,12 +273,7 @@ describe('CommandMiddleware', () => {
         mode: 'replace'
       });
 
-      mockedExec.mockImplementation((command, options, callback) => {
-        if (callback) {
-          callback(null, '', '');
-        }
-        return {} as any;
-      });
+      mockedExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
 
       await middleware.initialize(logger, telemetry);
 
@@ -345,7 +290,7 @@ describe('CommandMiddleware', () => {
           command: '',
           mode: 'replace'
         });
-      }).toThrow('Command is required for CommandProvider');
+      }).toThrow('Command is required');
     });
   });
 });

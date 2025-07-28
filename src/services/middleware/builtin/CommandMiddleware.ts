@@ -41,6 +41,11 @@ export class CommandMiddleware implements MessageMiddleware {
   constructor(name: string, config: CommandConfig, enabled: boolean = true) {
     this.name = name;
     this.enabled = enabled;
+    
+    if (!config.command || config.command.trim() === '') {
+      throw new Error('Command is required');
+    }
+    
     this.config = {
       timeout: 10000,
       maxBuffer: 1024 * 1024,

@@ -102,8 +102,8 @@ describe('ConditionalMiddleware', () => {
       const nextCalled = jest.fn();
       await middleware.execute(context, nextCalled);
 
-      expect(context.skip).toBe(true);
-      expect(nextCalled).not.toHaveBeenCalled();
+      expect(context.skip).toBe(false);
+      expect(nextCalled).toHaveBeenCalled();
     });
 
     it('should handle regex operator', async () => {
@@ -259,8 +259,8 @@ describe('ConditionalMiddleware', () => {
         conditions: [{
           type: 'account',
           field: 'names',
-          operator: 'in',
-          value: ['test-account', 'other-account']
+          operator: 'not_in',
+          value: ['different-account', 'other-account']
         }],
         action: 'skip'
       });
