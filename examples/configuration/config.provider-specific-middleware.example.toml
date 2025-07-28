@@ -1,0 +1,256 @@
+# Example configuration demonstrating provider-specific middleware isolation
+# Each provider has its own middleware chain that doesn't interfere with others
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-main"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-access-token-here"
+
+[[accounts]]
+name = "mastodon-dev"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-dev-mastodon-access-token-here"
+
+# Provider 1: News aggregator with content filtering
+[[bot.providers]]
+name = "news-aggregator"
+type = "jsoncommand"
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["mastodon-main"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.example.com/news"
+template = "📰 {{title}}: {{summary}}"
+
+# Middleware chain for news aggregator
+[[bot.providers.middleware]]
+name = "news-content-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "contains"
+text = "breaking"
+caseSensitive = false
+action = "continue"  # Let breaking news through
+
+[[bot.providers.middleware]]
+name = "spam-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "regex"
+pattern = "\\b(spam|advertisement|click here)\\b"
+flags = "i"
+action = "skip"
+skipReason = "Content appears to be spam"
+
+[[bot.providers.middleware]]
+name = "news-formatter"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "append"
+suffix = "\n\n#news #updates"
+
+# Provider 2: Development updates with different middleware
+[[bot.providers]]
+name = "dev-updates"
+type = "command"
+cronSchedule = "0 9,17 * * 1-5"  # Weekdays at 9 AM and 5 PM
+enabled = true
+accounts = ["mastodon-dev"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "git log --oneline -n 1"
+
+# Different middleware chain for dev updates
+[[bot.providers.middleware]]
+name = "dev-prefix"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "prepend"
+prefix = "🔧 DEV UPDATE: "
+
+[[bot.providers.middleware]]
+name = "commit-validator"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "python3 /scripts/validate-commit.py"
+mode = "validate"
+useStdin = true
+skipOnFailure = true
+skipReason = "Commit validation failed"
+timeout = 5000
+
+[[bot.providers.middleware]]
+name = "dev-hashtags"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "append"
+suffix = " #development #git"
+
+# Provider 3: Status updates with minimal middleware
+[[bot.providers]]
+name = "system-status"
+type = "command"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = true
+accounts = ["mastodon-main"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "uptime | awk '{print \"System uptime: \" $3 \" \" $4}'"
+
+# Simple middleware chain for system status
+[[bot.providers.middleware]]
+name = "status-emoji"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "prepend"
+prefix = "📊 "
+
+[[bot.providers.middleware]]
+name = "status-length-check"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "length"
+maxLength = 200
+action = "skip"
+skipReason = "Status message too long"
+
+# Provider 4: External content with heavy processing
+[[bot.providers]]
+name = "external-content"
+type = "jsoncommand"
+cronSchedule = "0 12 * * *"  # Daily at noon
+enabled = true
+accounts = ["mastodon-main"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.quotegarden.com/api/v3/quotes/random"
+template = "💭 \"{{data.quoteText}}\" - {{data.quoteAuthor}}"
+
+# Complex middleware chain for external content
+[[bot.providers.middleware]]
+name = "content-sanitizer"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "replace"
+search = "[\\r\\n\\t]+"
+replacement = " "
+useRegex = true
+regexFlags = "g"
+
+[[bot.providers.middleware]]
+name = "profanity-filter"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "/usr/local/bin/profanity-check"
+mode = "validate"
+useStdin = true
+skipOnFailure = true
+skipReason = "Content failed profanity check"
+
+[[bot.providers.middleware]]
+name = "quote-formatter"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "python3 /scripts/format-quote.py"
+mode = "replace"
+useStdin = true
+timeout = 3000
+
+[[bot.providers.middleware]]
+name = "length-limiter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "length"
+maxLength = 400
+action = "skip"
+skipReason = "Quote too long for social media"
+
+[[bot.providers.middleware]]
+name = "quote-hashtags"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "append"
+suffix = "\n\n#quotes #inspiration #wisdom"
+
+# Provider 5: Push provider with webhook-specific middleware
+[[bot.providers]]
+name = "webhook-alerts"
+type = "push"
+enabled = true
+accounts = ["mastodon-dev"]
+visibility = "direct"
+webhookPath = "/webhook/alerts"
+
+[bot.providers.config]
+rateLimit = 10
+rateLimitWindow = 3600
+
+# Middleware for webhook alerts
+[[bot.providers.middleware]]
+name = "alert-severity-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "contains"
+text = "CRITICAL"
+action = "continue"  # Only allow critical alerts
+
+[[bot.providers.middleware]]
+name = "alert-formatter"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "prepend"
+prefix = "🚨 ALERT: "
+
+[[bot.providers.middleware]]
+name = "alert-deduplicator"
+type = "command"
+enabled = true
+
+[bot.providers.middleware.config]
+command = "/scripts/check-duplicate-alert.sh"
+mode = "validate"
+useEnvVar = true
+skipOnFailure = true
+skipReason = "Duplicate alert detected"
+
+# Logging configuration
+[logging]
+level = "debug"  # Use debug to see middleware execution details

@@ -3,6 +3,7 @@ import { ProviderConfig } from '../../types/config';
 import { Logger } from '../../utils/logger';
 import type { TelemetryService } from '../telemetryInterface';
 import { SocialMediaClient } from '../socialMediaClient';
+import { MessageMiddlewareManager } from '../middleware';
 
 /**
  * Context object containing all dependencies needed for provider execution
@@ -12,6 +13,7 @@ export interface ExecutionContext {
   telemetry: TelemetryService;
   socialMediaClient: SocialMediaClient;
   getProviderConfigs: () => ProviderConfig[];
+  middlewareManager?: MessageMiddlewareManager;
 }
 
 /**

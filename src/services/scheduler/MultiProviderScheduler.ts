@@ -38,6 +38,11 @@ export class MultiProviderScheduler extends BaseConfigurableService<BotConfig> {
    */
   public async initialize(): Promise<void> {
     await this.providerManager.initialize();
+    
+    // Initialize middleware after providers are loaded
+    await this.executionEngine.initializeMiddleware(
+      () => this.providerManager.getProviderConfigs()
+    );
   }
 
   /**

@@ -9,6 +9,8 @@ import { AttachmentProviderStrategy } from '../execution/AttachmentProviderStrat
 import { ScheduledProvider } from './ProviderManager';
 import { ProviderConfig } from '../../types/config';
 import { SocialMediaClient } from '../socialMediaClient';
+import { MessageMiddlewareManager, DefaultMessageMiddlewareFactory } from '../middleware';
+import { MessageMiddleware } from '../middleware/types';
 
 /**
  * Handles task execution, push provider management, and rate limiting
@@ -18,6 +20,8 @@ export class ExecutionEngine {
   private telemetry: TelemetryService;
   private socialMediaClient: SocialMediaClient;
   private strategyFactory: ProviderExecutionStrategyFactory;
+  private middlewareManager: MessageMiddlewareManager;
+  private middlewareFactory: DefaultMessageMiddlewareFactory;
 
   constructor(
     logger: Logger,
@@ -29,14 +33,77 @@ export class ExecutionEngine {
     this.telemetry = telemetry;
     this.socialMediaClient = socialMediaClient;
     
-    // Initialize strategy factory
+    // Initialize middleware system
+    this.middlewareManager = new MessageMiddlewareManager(logger, telemetry);
+    this.middlewareFactory = new DefaultMessageMiddlewareFactory();
+    
+    // Initialize strategy factory with middleware manager
     const executionContext: ExecutionContext = {
       logger: this.logger,
       telemetry: this.telemetry,
       socialMediaClient: this.socialMediaClient,
-      getProviderConfigs: getProviderConfigs
+      getProviderConfigs: getProviderConfigs,
+      middlewareManager: this.middlewareManager
     };
     this.strategyFactory = new ProviderExecutionStrategyFactory(executionContext);
+  }
+
+  /**
+   * Initializes middleware for all providers (global and provider-specific)
+   */
+  public async initializeMiddleware(getProviderConfigs: () => ProviderConfig[]): Promise<void> {
+    this.logger.debug('Initializing message middleware...');
+    
+    // Clear existing middleware
+    this.middlewareManager.clear();
+    
+    // Track created middleware instances to avoid duplicates
+    const createdMiddlewares = new Map<string, MessageMiddleware>();
+    
+    for (const providerConfig of getProviderConfigs()) {
+      if (providerConfig.middleware && Array.isArray(providerConfig.middleware)) {
+        for (const middlewareConfig of providerConfig.middleware) {
+          const middlewareKey = `${middlewareConfig.name}_${middlewareConfig.type}_${JSON.stringify(middlewareConfig.config || {})}`;
+          
+          let middleware: MessageMiddleware;
+          
+          // Check if we already created this exact middleware
+          if (createdMiddlewares.has(middlewareKey)) {
+            middleware = createdMiddlewares.get(middlewareKey)!;
+            this.logger.debug(`Reusing existing middleware: ${middleware.name} for provider: ${providerConfig.name}`);
+          } else {
+            // Create new middleware instance
+            try {
+              middleware = this.middlewareFactory.create(middlewareConfig);
+              createdMiddlewares.set(middlewareKey, middleware);
+              this.logger.debug(`Created middleware: ${middleware.name} (${middlewareConfig.type})`);
+            } catch (error) {
+              this.logger.error(`Failed to create middleware ${middlewareConfig.name} for provider ${providerConfig.name}:`, error);
+              throw error;
+            }
+          }
+          
+          // Register middleware for this specific provider
+          this.middlewareManager.useForProvider(providerConfig.name, middleware);
+        }
+      }
+    }
+    
+    // Initialize all middleware
+    await this.middlewareManager.initialize();
+    
+    const totalMiddlewareCount = this.middlewareManager.getMiddlewareCount();
+    const globalCount = this.middlewareManager.getGlobalMiddlewareCount();
+    const providersWithMiddleware = this.middlewareManager.getProvidersWithMiddleware();
+    
+    this.logger.info(`Initialized ${totalMiddlewareCount} message middleware instance(s): ${globalCount} global, ${totalMiddlewareCount - globalCount} provider-specific across ${providersWithMiddleware.length} provider(s)`);
+    
+    // Log provider-specific middleware details
+    for (const providerName of providersWithMiddleware) {
+      const providerMiddlewareCount = this.middlewareManager.getProviderMiddlewareCount(providerName);
+      const middlewareNames = this.middlewareManager.getProviderMiddlewareNames(providerName);
+      this.logger.debug(`Provider ${providerName} has ${providerMiddlewareCount} middleware(s): ${middlewareNames.join(', ')}`);
+    }
   }
 
   /**
@@ -64,6 +131,9 @@ export class ExecutionEngine {
       throw new Error(`Provider configuration not found for: ${providerName}`);
     }
 
+    // Setup provider-specific middleware if configured
+    await this.setupProviderMiddleware(providerConfig);
+
     // Get the appropriate strategy and execute
     const strategy = this.strategyFactory.getStrategy(provider);
     const result = await strategy.execute(providerName, provider, providerConfig);
@@ -72,6 +142,20 @@ export class ExecutionEngine {
       // Don't throw here to prevent other providers from being affected
       // Error logging and telemetry is handled by the strategy
     }
+  }
+
+  /**
+   * Sets up middleware specific to a provider (now handled during initialization)
+   */
+  private async setupProviderMiddleware(providerConfig: ProviderConfig): Promise<void> {
+    if (!providerConfig.middleware || !Array.isArray(providerConfig.middleware)) {
+      return;
+    }
+
+    // Provider-specific middleware is now set up during initialization
+    // This method is kept for compatibility and future per-execution setup if needed
+    const middlewareCount = this.middlewareManager.getProviderMiddlewareCount(providerConfig.name);
+    this.logger.debug(`Provider ${providerConfig.name} will execute ${middlewareCount} provider-specific middleware(s)`);
   }
 
   /**

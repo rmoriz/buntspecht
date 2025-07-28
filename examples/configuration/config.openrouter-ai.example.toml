@@ -1,0 +1,132 @@
+# OpenRouter AI Middleware Configuration Examples
+# This file demonstrates AI-powered message enhancement scenarios
+
+[bot]
+interval = 60000
+
+[[bot.providers]]
+name = "ai-enhanced-posts"
+type = "ping"
+accounts = ["social-account"]
+
+# Example 1: Replace message with AI-enhanced version
+[[bot.providers.middleware]]
+name = "ai-enhancer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"  # Use environment variable
+model = "anthropic/claude-3-sonnet"
+prompt = "You are a professional social media manager. Enhance this message to be more engaging, add relevant hashtags, and make it more likely to get engagement. Keep it under 280 characters for Twitter compatibility."
+mode = "replace"
+maxTokens = 150
+temperature = 0.7
+
+# Context inclusion
+includeContext = true
+contextTemplate = "Platform: {{providerName}}, Visibility: {{visibility}}, Target: {{accountNames}}"
+
+# Caching for efficiency
+enableCaching = true
+cacheDuration = 3600000  # 1 hour
+
+# Error handling
+fallbackOnError = "use_original"
+timeout = 30000
+
+# Example 2: Prepend AI-generated introduction
+[[bot.providers.middleware]]
+name = "ai-intro"
+type = "openrouter"
+enabled = false
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "openai/gpt-4-turbo"
+prompt = "Generate a catchy, engaging introduction (max 50 characters) for this social media post. Return ONLY the introduction text, no quotes or explanations."
+mode = "prepend"
+maxTokens = 50
+temperature = 0.8
+fallbackOnError = "continue"
+
+# Example 3: Append AI-generated hashtags
+[[bot.providers.middleware]]
+name = "ai-hashtags"
+type = "openrouter"
+enabled = false
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "meta-llama/llama-3.1-8b-instruct"
+prompt = "Generate 3-5 relevant hashtags for this social media post. Return only the hashtags separated by spaces, starting each with #."
+mode = "append"
+maxTokens = 100
+temperature = 0.6
+fallbackOnError = "continue"
+
+# Example 4: Content moderation and enhancement
+[[bot.providers.middleware]]
+name = "ai-moderator"
+type = "openrouter"
+enabled = false
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-haiku"
+prompt = "Review this message for appropriateness and enhance it if needed. If inappropriate, return 'SKIP'. If appropriate, enhance it to be more professional and engaging while keeping the core message."
+mode = "enhance"
+maxTokens = 200
+temperature = 0.5
+fallbackOnError = "skip"
+skipReason = "Content moderation failed"
+
+# Example 5: Multi-language support
+[[bot.providers.middleware]]
+name = "ai-translator"
+type = "openrouter"
+enabled = false
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "google/gemma-2-9b-it"
+prompt = "Translate this message to German and make it sound natural and engaging for German social media users."
+mode = "replace"
+maxTokens = 300
+temperature = 0.3
+includeContext = false
+fallbackOnError = "use_original"
+
+# Example 6: Conditional AI enhancement based on content length
+[[bot.providers.middleware]]
+name = "conditional-ai"
+type = "conditional"
+enabled = false
+
+[bot.providers.middleware.config]
+action = "continue"
+
+[[bot.providers.middleware.config.conditions]]
+type = "text"
+field = "length"
+operator = "less_than"
+value = 50
+
+[[bot.providers.middleware]]
+name = "expand-short-messages"
+type = "openrouter"
+enabled = false
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-sonnet"
+prompt = "This message is quite short. Expand it to be more detailed and engaging while keeping the original meaning. Add context and make it more informative."
+mode = "replace"
+maxTokens = 200
+temperature = 0.6
+
+[[bot.accounts]]
+name = "social-account"
+type = "mastodon"
+server = "https://mastodon.social"
+access_token = "your-access-token"

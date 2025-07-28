@@ -56,9 +56,43 @@ export class StandardProviderStrategy extends ProviderExecutionStrategy {
           // Determine visibility
           const finalVisibility = providerConfig.visibility || 'unlisted';
 
+          // Process message through middleware chain
+          const messageData = { text: message };
+          let finalMessageData = messageData;
+          let shouldSkip = false;
+          let skipReason = '';
+
+          if (this.context.middlewareManager) {
+            const middlewareResult = await this.context.middlewareManager.execute(
+              messageData,
+              providerName,
+              providerConfig,
+              providerConfig.accounts,
+              finalVisibility
+            );
+
+            if (!middlewareResult.success) {
+              throw new Error(`Middleware execution failed: ${middlewareResult.error?.message}`);
+            }
+
+            finalMessageData = middlewareResult.message;
+            shouldSkip = middlewareResult.skip;
+            skipReason = middlewareResult.skipReason || '';
+          }
+
+          // Check if middleware requested to skip the message
+          if (shouldSkip) {
+            this.context.logger.info(`Provider "${providerName}" message skipped by middleware: ${skipReason}`);
+            return {
+              success: true,
+              message: `Message skipped: ${skipReason}`,
+              duration: Date.now() - startTime
+            };
+          }
+
           // Post message
-          await this.context.socialMediaClient.postStatus(
-            message,
+          await this.context.socialMediaClient.postStatusWithAttachments(
+            finalMessageData,
             providerConfig.accounts,
             providerName,
             finalVisibility

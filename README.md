@@ -35,6 +35,9 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 📊 **OpenTelemetry integration**: Monitoring, tracing, and metrics for observability
 - ⚡ **Bun runtime**: Faster performance and native TypeScript support
 - 📦 **Single binary**: Standalone executables for all platforms without dependencies
+- 🔧 **Message Middleware System**: Transform, filter, and enhance messages with powerful middleware
+- 📎 **Attachment Management**: Add, remove, validate, and modify file attachments
+- 🤖 **AI Message Enhancement**: Integrate with OpenRouter for AI-powered message processing
 
 ## Installation
 
@@ -162,6 +165,85 @@ bun run build
 # Optional: Create your own binary
 bun run build:binary
 ```
+
+## Message Middleware System
+
+Buntspecht includes a powerful middleware system that allows you to transform, filter, and validate messages before they are posted. Middleware can be chained together to create complex message processing pipelines.
+
+### Available Middleware Types
+
+#### AttachmentMiddleware
+Manage file attachments with comprehensive operations:
+
+```toml
+[[bot.providers.middleware]]
+name = "attachment-manager"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "add"  # add, remove, validate, modify
+
+# Add attachments
+[[bot.providers.middleware.config.attachments]]
+data = "base64encodeddata"  # or file path with isFilePath = true
+mimeType = "image/jpeg"
+filename = "image.jpg"
+description = "Sample image"
+
+# Remove attachments by criteria
+[bot.providers.middleware.config.removeFilter]
+mimeType = "image/*"  # Remove all images
+maxSize = 1048576     # Remove files larger than 1MB
+indices = [0, 2]      # Remove specific attachments by index
+
+# Validate attachments
+[bot.providers.middleware.config.validation]
+maxCount = 5
+maxSize = 5242880     # 5MB limit
+allowedTypes = ["image/jpeg", "image/png", "text/plain"]
+```
+
+#### OpenRouterMiddleware
+Enhance messages with AI using OpenRouter's API:
+
+```toml
+[[bot.providers.middleware]]
+name = "ai-enhancer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "your-openrouter-api-key"
+model = "anthropic/claude-3-sonnet"
+prompt = "You are a helpful social media assistant. Enhance this message to be more engaging while keeping it concise."
+mode = "replace"  # replace, prepend, append, enhance
+maxTokens = 1000
+temperature = 0.7
+
+# Context inclusion
+includeContext = true
+contextTemplate = "Provider: {{providerName}}, Visibility: {{visibility}}"
+
+# Caching for efficiency
+enableCaching = true
+cacheDuration = 3600000  # 1 hour in milliseconds
+
+# Error handling
+fallbackOnError = "continue"  # skip, continue, use_original
+skipReason = "AI enhancement failed"
+```
+
+#### Other Middleware Types
+- **FilterMiddleware**: Filter messages based on content, length, or patterns
+- **TemplateMiddleware**: Process template variables in messages
+- **TextTransformMiddleware**: Transform text (uppercase, lowercase, trim, etc.)
+- **ConditionalMiddleware**: Apply conditions based on context
+- **ScheduleMiddleware**: Control timing and scheduling
+- **RateLimitMiddleware**: Implement rate limiting
+- **CommandMiddleware**: Execute external commands for validation or transformation
+
+For complete middleware documentation, see [docs/MESSAGE_MIDDLEWARE.md](docs/MESSAGE_MIDDLEWARE.md).
 
 ## Configuration
 

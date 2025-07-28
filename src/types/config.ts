@@ -28,6 +28,15 @@ export interface ProviderConfig {
   templates?: { [key: string]: string }; // Named templates (e.g., "github.push", "gitlab.pipeline")
   // Webhook configuration for push providers
   webhookPath?: string; // Custom webhook path for this provider (e.g., "/webhook/github")
+  // Message middleware configuration
+  middleware?: MessageMiddlewareConfig[];
+}
+
+export interface MessageMiddlewareConfig {
+  name: string;
+  type: string;
+  enabled?: boolean;
+  config?: { [key: string]: unknown };
 }
 
 export interface TelemetryConfig {

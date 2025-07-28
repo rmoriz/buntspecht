@@ -1,0 +1,304 @@
+# Advanced middleware examples showcasing all built-in middleware types
+# This configuration demonstrates the full capabilities of Buntspecht's middleware system
+
+# Social Media Accounts
+[[accounts]]
+name = "main-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-access-token"
+
+[[accounts]]
+name = "dev-account"
+type = "mastodon"
+instance = "https://fosstodon.org"
+accessToken = "your-dev-mastodon-access-token"
+
+# Provider 1: Template-based content generation
+[[bot.providers]]
+name = "template-demo"
+type = "command"
+cronSchedule = "0 9 * * *"  # Daily at 9 AM
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "echo 'Daily update from our system'"
+
+# Template middleware example
+[[bot.providers.middleware]]
+name = "daily-template"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "🌅 Good morning! {{messageText}}\n\n📅 Today is {{date}}\n🤖 Posted by {{providerName}}\n\n#dailyupdate #{{providerName}}"
+dataSource = "metadata"
+
+# Provider 2: Rate-limited announcements
+[[bot.providers]]
+name = "announcements"
+type = "jsoncommand"
+cronSchedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.example.com/announcements"
+template = "📢 {{title}}: {{content}}"
+
+# Rate limiting middleware
+[[bot.providers.middleware]]
+name = "announcement-rate-limit"
+type = "rate_limit"
+enabled = true
+
+[bot.providers.middleware.config]
+maxMessages = 5
+windowMs = 3600000  # 1 hour
+scope = "provider"
+action = "skip"
+skipReason = "Too many announcements this hour"
+
+# Provider 3: Scheduled development updates
+[[bot.providers]]
+name = "dev-updates"
+type = "command"
+cronSchedule = "0 */30 * * * *"  # Every 30 minutes
+enabled = true
+accounts = ["dev-account"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "git log --oneline -n 1"
+
+# Schedule middleware for business hours only
+[[bot.providers.middleware]]
+name = "business-hours-only"
+type = "schedule"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "skip"
+skipReason = "Outside business hours"
+
+[bot.providers.middleware.config.timeRules]
+allowedHours = [9, 10, 11, 12, 13, 14, 15, 16, 17]  # 9 AM to 5 PM
+allowedDays = [1, 2, 3, 4, 5]  # Monday to Friday
+quietHours = { start = 18, end = 8 }  # 6 PM to 8 AM
+
+[bot.providers.middleware.config.frequencyRules]
+maxPerHour = 2
+minInterval = 900000  # 15 minutes
+
+# Provider 4: Conditional content posting
+[[bot.providers]]
+name = "conditional-content"
+type = "command"
+cronSchedule = "0 12 * * *"  # Daily at noon
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.weather.com/current | jq -r '.temperature'"
+
+# Conditional middleware - only post if temperature is interesting
+[[bot.providers.middleware]]
+name = "temperature-filter"
+type = "conditional"
+enabled = true
+
+[bot.providers.middleware.config]
+operator = "or"
+action = "skip"
+skipReason = "Temperature not noteworthy"
+
+[[bot.providers.middleware.config.conditions]]
+type = "text"
+operator = "gt"
+value = 30  # Hot weather
+
+[[bot.providers.middleware.config.conditions]]
+type = "text"
+operator = "lt"
+value = 0   # Freezing weather
+
+# Template for weather updates
+[[bot.providers.middleware]]
+name = "weather-template"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "🌡️ Current temperature: {{messageText}}°C\n\n{{#if (gt messageText 30)}}🔥 It's hot out there!{{/if}}{{#if (lt messageText 0)}}🥶 Bundle up, it's freezing!{{/if}}\n\n#weather #temperature"
+dataSource = "static"
+
+# Provider 5: Content with attachments
+[[bot.providers]]
+name = "image-posts"
+type = "command"
+cronSchedule = "0 15 * * *"  # Daily at 3 PM
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "echo 'Check out our latest screenshot!'"
+
+# Add attachment middleware
+[[bot.providers.middleware]]
+name = "add-screenshot"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "add"
+
+[[bot.providers.middleware.config.attachments]]
+data = "/path/to/daily-screenshot.png"
+mimeType = "image/png"
+filename = "daily-screenshot.png"
+description = "Daily screenshot of our application"
+isFilePath = true
+
+# Validate attachments
+[[bot.providers.middleware]]
+name = "validate-images"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "validate"
+skipOnValidationFailure = true
+skipReason = "Image validation failed"
+
+[bot.providers.middleware.config.validation]
+maxSize = 5242880  # 5MB
+allowedTypes = ["image/png", "image/jpeg", "image/gif"]
+maxCount = 4
+
+# Provider 6: Complex chained middleware example
+[[bot.providers]]
+name = "complex-chain"
+type = "jsoncommand"
+cronSchedule = "0 18 * * 5"  # Fridays at 6 PM
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.github.com/repos/myorg/myrepo/releases/latest"
+template = "{{name}}: {{body}}"
+
+# Step 1: Conditional check for releases
+[[bot.providers.middleware]]
+name = "release-condition"
+type = "conditional"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "skip"
+skipReason = "No significant release"
+
+[[bot.providers.middleware.config.conditions]]
+type = "text"
+operator = "not_contains"
+value = "patch"
+caseSensitive = false
+
+# Step 2: Rate limiting for releases
+[[bot.providers.middleware]]
+name = "release-rate-limit"
+type = "rate_limit"
+enabled = true
+
+[bot.providers.middleware.config]
+maxMessages = 1
+windowMs = 86400000  # 24 hours
+scope = "provider"
+action = "skip"
+skipReason = "Already posted a release today"
+
+# Step 3: Schedule check for appropriate timing
+[[bot.providers.middleware]]
+name = "release-schedule"
+type = "schedule"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "delay"
+maxDelayMs = 7200000  # 2 hours max delay
+
+[bot.providers.middleware.config.timeRules]
+allowedHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+allowedDays = [1, 2, 3, 4, 5]  # Weekdays only
+
+# Step 4: Content enhancement
+[[bot.providers.middleware]]
+name = "release-template"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "🚀 NEW RELEASE: {{messageText}}\n\n📅 Released on {{date}}\n⏰ Posted at {{time}}\n\n#release #software #update"
+dataSource = "metadata"
+
+# Step 5: Text transformation
+[[bot.providers.middleware]]
+name = "release-transform"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+transform = "replace"
+search = "\\n\\n+"
+replacement = "\n\n"
+useRegex = true
+
+# Step 6: Final validation
+[[bot.providers.middleware]]
+name = "final-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+type = "length"
+maxLength = 500
+action = "skip"
+skipReason = "Release announcement too long"
+
+# Provider 7: Environment-based template
+[[bot.providers]]
+name = "environment-demo"
+type = "command"
+cronSchedule = "0 8 * * 1"  # Mondays at 8 AM
+enabled = true
+accounts = ["dev-account"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "echo 'Weekly system status'"
+env = { SYSTEM_NAME = "Production", ENVIRONMENT = "PROD", TEAM = "DevOps" }
+
+# Environment-based template
+[[bot.providers.middleware]]
+name = "env-template"
+type = "template"
+enabled = true
+
+[bot.providers.middleware.config]
+template = "📊 Weekly {{system_name}} Status\n\n🏷️ Environment: {{environment}}\n👥 Team: {{team}}\n📝 {{messageText}}\n\n#{{environment}} #{{team}}"
+dataSource = "environment"
+envPrefix = ""
+
+[bot.providers.middleware.config.defaults]
+system_name = "Unknown System"
+environment = "DEV"
+team = "Engineering"
+
+# Logging configuration
+[logging]
+level = "debug"  # Use debug to see all middleware execution details

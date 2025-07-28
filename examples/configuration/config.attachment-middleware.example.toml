@@ -1,0 +1,105 @@
+# Attachment Middleware Configuration Examples
+# This file demonstrates various attachment management scenarios
+
+[bot]
+interval = 60000
+
+[[bot.providers]]
+name = "attachment-demo"
+type = "ping"
+accounts = ["demo-account"]
+
+# Example 1: Add attachments from base64 data
+[[bot.providers.middleware]]
+name = "add-logo"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "add"
+
+[[bot.providers.middleware.config.attachments]]
+data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+mimeType = "image/png"
+filename = "logo.png"
+description = "Company logo"
+
+# Example 2: Add attachments from file paths
+[[bot.providers.middleware]]
+name = "add-from-file"
+type = "attachment"
+enabled = false
+
+[bot.providers.middleware.config]
+action = "add"
+
+[[bot.providers.middleware.config.attachments]]
+data = "/path/to/document.pdf"
+mimeType = "application/pdf"
+filename = "report.pdf"
+isFilePath = true
+
+# Example 3: Remove large attachments
+[[bot.providers.middleware]]
+name = "remove-large-files"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "remove"
+
+[bot.providers.middleware.config.removeFilter]
+maxSize = 5242880  # 5MB limit
+
+# Example 4: Remove specific file types
+[[bot.providers.middleware]]
+name = "remove-videos"
+type = "attachment"
+enabled = false
+
+[bot.providers.middleware.config]
+action = "remove"
+
+[bot.providers.middleware.config.removeFilter]
+mimeType = "video/*"
+
+# Example 5: Validate attachments
+[[bot.providers.middleware]]
+name = "validate-attachments"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "validate"
+skipOnValidationFailure = true
+skipReason = "Attachment validation failed"
+
+[bot.providers.middleware.config.validation]
+maxCount = 3
+maxSize = 10485760  # 10MB per file
+allowedTypes = ["image/jpeg", "image/png", "image/gif", "text/plain", "application/pdf"]
+
+# Example 6: Image modification (placeholder for future features)
+[[bot.providers.middleware]]
+name = "resize-images"
+type = "attachment"
+enabled = false
+
+[bot.providers.middleware.config]
+action = "modify"
+
+[bot.providers.middleware.config.modifications.resize]
+maxWidth = 1920
+maxHeight = 1080
+quality = 85
+
+[bot.providers.middleware.config.modifications.watermark]
+text = "© 2024 Company"
+position = "bottom-right"
+opacity = 0.7
+
+[[bot.accounts]]
+name = "demo-account"
+type = "mastodon"
+server = "https://mastodon.social"
+access_token = "your-access-token"

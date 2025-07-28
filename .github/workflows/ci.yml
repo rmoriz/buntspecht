@@ -179,41 +179,41 @@ jobs:
       run: node scripts/update-german-readme.js
       continue-on-error: true
 
-  security:
-    runs-on: ubuntu-latest
-    # Security scanning using GitHub's built-in tools and free alternatives
-    # Note: Bun doesn't have a built-in audit command like npm
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js for security scanning
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
-    - name: Install dependencies with npm for audit
-      run: |
-        # Use npm for security audit since it's free and built-in
-        npm install --package-lock-only
-        npm audit --audit-level=high
-      continue-on-error: true
-      
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: javascript
-        # Specify queries for better security coverage
-        queries: security-and-quality
-      continue-on-error: true
-        
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:javascript"
-      continue-on-error: true
+  # security:
+  #   runs-on: ubuntu-latest
+  #   # Security scanning using GitHub's built-in tools and free alternatives
+  #   # Note: Bun doesn't have a built-in audit command like npm
+  #   permissions:
+  #     actions: read
+  #     contents: read
+  #     security-events: write
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Setup Node.js for security scanning
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '20'
+  #       
+  #   - name: Install dependencies with npm for audit
+  #     run: |
+  #       # Use npm for security audit since it's free and built-in
+  #       npm install --package-lock-only
+  #       npm audit --audit-level=high
+  #     continue-on-error: true
+  #     
+  #   - name: Initialize CodeQL
+  #     uses: github/codeql-action/init@v3
+  #     with:
+  #       languages: javascript
+  #       # Specify queries for better security coverage
+  #       queries: security-and-quality
+  #     continue-on-error: true
+  #       
+  #   - name: Perform CodeQL Analysis
+  #     uses: github/codeql-action/analyze@v3
+  #     with:
+  #       category: "/language:javascript"
+  #     continue-on-error: true

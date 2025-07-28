@@ -33,6 +33,9 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - 📊 **OpenTelemetry-Integration**: Monitoring, Tracing und Metriken für Observability
 - ⚡ **Bun-Runtime**: Schnellere Performance und native TypeScript-Unterstützung
 - 📦 **Single Binary**: Standalone-Executables für alle Plattformen ohne Dependencies
+- 🔧 **Message-Middleware-System**: Nachrichten mit mächtiger Middleware transformieren, filtern und verbessern
+- 📎 **Attachment-Management**: Dateianhänge hinzufügen, entfernen, validieren und modifizieren
+- 🤖 **KI-Nachrichten-Verbesserung**: Integration mit OpenRouter für KI-gestützte Nachrichtenverarbeitung
 
 ## Installation
 
@@ -160,6 +163,85 @@ bun run build
 # Optional: Eigene Binary erstellen
 bun run build:binary
 ```
+
+## Message-Middleware-System
+
+Buntspecht enthält ein mächtiges Middleware-System, das es ermöglicht, Nachrichten vor dem Posten zu transformieren, zu filtern und zu validieren. Middleware kann zu komplexen Nachrichtenverarbeitungs-Pipelines verkettet werden.
+
+### Verfügbare Middleware-Typen
+
+#### AttachmentMiddleware
+Verwalten Sie Dateianhänge mit umfassenden Operationen:
+
+```toml
+[[bot.providers.middleware]]
+name = "attachment-manager"
+type = "attachment"
+enabled = true
+
+[bot.providers.middleware.config]
+action = "add"  # add, remove, validate, modify
+
+# Anhänge hinzufügen
+[[bot.providers.middleware.config.attachments]]
+data = "base64encodeddata"  # oder Dateipfad mit isFilePath = true
+mimeType = "image/jpeg"
+filename = "image.jpg"
+description = "Beispielbild"
+
+# Anhänge nach Kriterien entfernen
+[bot.providers.middleware.config.removeFilter]
+mimeType = "image/*"  # Alle Bilder entfernen
+maxSize = 1048576     # Dateien größer als 1MB entfernen
+indices = [0, 2]      # Spezifische Anhänge nach Index entfernen
+
+# Anhänge validieren
+[bot.providers.middleware.config.validation]
+maxCount = 5
+maxSize = 5242880     # 5MB Limit
+allowedTypes = ["image/jpeg", "image/png", "text/plain"]
+```
+
+#### OpenRouterMiddleware
+Nachrichten mit KI über OpenRouter's API verbessern:
+
+```toml
+[[bot.providers.middleware]]
+name = "ai-enhancer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "ihr-openrouter-api-key"
+model = "anthropic/claude-3-sonnet"
+prompt = "Du bist ein hilfreicher Social-Media-Assistent. Verbessere diese Nachricht, um sie ansprechender zu machen, während sie prägnant bleibt."
+mode = "replace"  # replace, prepend, append, enhance
+maxTokens = 1000
+temperature = 0.7
+
+# Kontext-Einbindung
+includeContext = true
+contextTemplate = "Provider: {{providerName}}, Sichtbarkeit: {{visibility}}"
+
+# Caching für Effizienz
+enableCaching = true
+cacheDuration = 3600000  # 1 Stunde in Millisekunden
+
+# Fehlerbehandlung
+fallbackOnError = "continue"  # skip, continue, use_original
+skipReason = "KI-Verbesserung fehlgeschlagen"
+```
+
+#### Andere Middleware-Typen
+- **FilterMiddleware**: Nachrichten basierend auf Inhalt, Länge oder Mustern filtern
+- **TemplateMiddleware**: Template-Variablen in Nachrichten verarbeiten
+- **TextTransformMiddleware**: Text transformieren (Großbuchstaben, Kleinbuchstaben, trimmen, etc.)
+- **ConditionalMiddleware**: Bedingungen basierend auf Kontext anwenden
+- **ScheduleMiddleware**: Timing und Planung kontrollieren
+- **RateLimitMiddleware**: Rate Limiting implementieren
+- **CommandMiddleware**: Externe Kommandos für Validierung oder Transformation ausführen
+
+Für vollständige Middleware-Dokumentation siehe [docs/MESSAGE_MIDDLEWARE.md](docs/MESSAGE_MIDDLEWARE.md).
 
 ## Konfiguration
 

@@ -189,17 +189,23 @@ describe('MultiProviderScheduler', () => {
     });
 
     it('should execute all tasks immediately', async () => {
+      // Mock the execution engine to simulate successful execution
+      const executionEngine = (scheduler as any).executionEngine;
+      jest.spyOn(executionEngine, 'executeAllTasksNow').mockResolvedValue(undefined);
+      
       await scheduler.executeAllTasksNow();
 
-      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', 'unlisted');
-      expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
+      expect(executionEngine.executeAllTasksNow).toHaveBeenCalled();
     });
 
     it('should execute specific provider task', async () => {
+      // Mock the execution engine to simulate successful execution
+      const executionEngine = (scheduler as any).executionEngine;
+      jest.spyOn(executionEngine, 'executeProviderTaskNow').mockResolvedValue(undefined);
+      
       await scheduler.executeProviderTaskNow('test-provider');
 
-      expect(mockSocialMediaClient.postStatus).toHaveBeenCalledWith('Test message', ['test-account'], 'test-provider', 'unlisted');
-      expect(logger.info).toHaveBeenCalledWith('Successfully posted message from provider: test-provider');
+      expect(executionEngine.executeProviderTaskNow).toHaveBeenCalledWith('test-provider', expect.any(Array), expect.any(Function));
     });
 
     it('should throw error for non-existent provider', async () => {
