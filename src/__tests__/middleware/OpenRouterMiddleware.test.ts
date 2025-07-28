@@ -570,7 +570,7 @@ describe('OpenRouterMiddleware', () => {
       });
 
       const mockTelemetry = {
-        recordMiddlewareExecution: jest.fn(),
+        recordProviderExecution: jest.fn(),
         recordError: jest.fn()
       };
 
