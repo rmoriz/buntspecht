@@ -148,7 +148,7 @@ export class CommandMiddleware implements MessageMiddleware {
       env.MESSAGE_TEXT = messageText;
     }
     
-    return env;
+    return env as Record<string, string>;
   }
 
   private async executeWithStdin(command: string, input: string, options: any): Promise<{ stdout: string; stderr: string }> {
@@ -157,7 +157,7 @@ export class CommandMiddleware implements MessageMiddleware {
         if (error) {
           reject(error);
         } else {
-          resolve({ stdout, stderr });
+          resolve({ stdout: stdout.toString(), stderr: stderr.toString() });
         }
       });
 

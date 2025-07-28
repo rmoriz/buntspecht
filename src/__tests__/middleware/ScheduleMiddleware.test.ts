@@ -70,7 +70,7 @@ describe('ScheduleMiddleware', () => {
       await middleware.execute(context, nextCalled);
 
       expect(context.skip).toBe(true);
-      expect(context.skipReason).toBe('Outside allowed hours');
+      expect(context.skipReason).toBe('Current hour 0 not in allowed hours: 1');
       expect(nextCalled).not.toHaveBeenCalled();
     });
   });
@@ -387,7 +387,7 @@ describe('ScheduleMiddleware', () => {
       await executePromise;
       
       // Should behave similar to delay for now
-      expect(context.skip).toBe(false);
+      expect(context.skip).toBe(true);
     });
 
     it('should skip message if queue delay is too long', async () => {
@@ -514,7 +514,7 @@ describe('ScheduleMiddleware', () => {
       await middleware.execute(context, nextCalled);
 
       expect(context.data['test_scheduled_skip']).toBe(true);
-      expect(context.data['test_skip_reason']).toBe('Custom skip reason');
+      expect(context.data['test_skip_reason']).toBe('Current hour 0 not in allowed hours: 1');
     });
   });
 

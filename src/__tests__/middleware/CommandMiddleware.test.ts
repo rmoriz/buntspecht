@@ -44,7 +44,7 @@ describe('CommandMiddleware', () => {
       // Mock successful command execution
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: 'Processed message\n', stderr: '' } as any);
+          callback(null, 'Processed message\n', '');
         }
         return {} as any;
       });
@@ -70,7 +70,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: 'Prefix:\n', stderr: '' } as any);
+          callback(null, 'Prefix:\n', '');
         }
         return {} as any;
       });
@@ -95,7 +95,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: ' - Suffix\n', stderr: '' } as any);
+          callback(null, ' - Suffix\n', '');
         }
         return {} as any;
       });
@@ -120,7 +120,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: '', stderr: '' } as any);
+          callback(null, '', '');
         }
         return {} as any;
       });
@@ -145,7 +145,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(new Error('Command failed'), { stdout: '', stderr: '' } as any);
+          callback(new Error('Command failed'), '', '');
         }
         return {} as any;
       });
@@ -174,7 +174,7 @@ describe('CommandMiddleware', () => {
       mockedExec.mockImplementation((command, options, callback) => {
         capturedEnv = options?.env;
         if (callback) {
-          callback(null, { stdout: 'Hello world\n', stderr: '' } as any);
+          callback(null, 'Hello world\n', '');
         }
         return {} as any;
       });
@@ -199,7 +199,7 @@ describe('CommandMiddleware', () => {
       mockedExec.mockImplementation((command, options, callback) => {
         capturedEnv = options?.env;
         if (callback) {
-          callback(null, { stdout: 'custom_value\n', stderr: '' } as any);
+          callback(null, 'custom_value\n', '');
         }
         return {} as any;
       });
@@ -232,7 +232,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: 'Hello world\n', stderr: '' } as any);
+          callback(null, 'Hello world\n', '');
         }
         return mockChild as any;
       });
@@ -260,7 +260,7 @@ describe('CommandMiddleware', () => {
       mockedExec.mockImplementation((command, options, callback) => {
         capturedOptions = options;
         if (callback) {
-          callback(new Error('Timeout'), { stdout: '', stderr: '' } as any);
+          callback(new Error('Timeout'), '', '');
         }
         return {} as any;
       });
@@ -283,7 +283,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(new Error('Command not found'), { stdout: '', stderr: 'Command not found' } as any);
+          callback(new Error('Command not found'), '', 'Command not found');
         }
         return {} as any;
       });
@@ -303,7 +303,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: 'output\n', stderr: 'warning\n' } as any);
+          callback(null, 'output\n', 'warning\n');
         }
         return {} as any;
       });
@@ -325,7 +325,7 @@ describe('CommandMiddleware', () => {
 
       mockedExec.mockImplementation((command, options, callback) => {
         if (callback) {
-          callback(null, { stdout: '', stderr: '' } as any);
+          callback(null, '', '');
         }
         return {} as any;
       });

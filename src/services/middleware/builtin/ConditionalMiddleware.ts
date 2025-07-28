@@ -139,10 +139,10 @@ export class ConditionalMiddleware implements MessageMiddleware {
         return Number(actualValue) <= Number(expectedValue);
       
       case 'in':
-        return Array.isArray(expectedValue) && expectedValue.includes(actualValue);
+        return Array.isArray(expectedValue) && expectedValue.includes(actualValue as never);
       
       case 'not_in':
-        return Array.isArray(expectedValue) && !expectedValue.includes(actualValue);
+        return Array.isArray(expectedValue) && !expectedValue.includes(actualValue as never);
       
       default:
         this.logger?.warn(`Unknown operator: ${condition.operator}`);
