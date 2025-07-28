@@ -7,6 +7,7 @@ import { RateLimitMiddleware, RateLimitConfig } from './builtin/RateLimitMiddlew
 import { ScheduleMiddleware, ScheduleConfig } from './builtin/ScheduleMiddleware';
 import { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalMiddleware';
 import { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
+import { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -20,7 +21,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'rate_limit',
     'schedule',
     'conditional',
-    'attachment'
+    'attachment',
+    'openrouter'
   ];
 
   /**
@@ -83,6 +85,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new AttachmentMiddleware(
           config.name,
           config.config as AttachmentConfig,
+          enabled
+        );
+
+      case 'openrouter':
+        return new OpenRouterMiddleware(
+          config.name,
+          config.config as OpenRouterConfig,
           enabled
         );
 

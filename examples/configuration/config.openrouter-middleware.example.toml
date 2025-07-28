@@ -1,0 +1,356 @@
+# OpenRouter AI Middleware Examples
+# This configuration demonstrates AI-powered message processing using OpenRouter
+
+# Social Media Accounts
+[[accounts]]
+name = "main-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-mastodon-access-token"
+
+[[accounts]]
+name = "creative-account"
+type = "mastodon"
+instance = "https://mastodon.art"
+accessToken = "your-creative-mastodon-access-token"
+
+# Provider 1: AI-Enhanced Blog Posts
+[[bot.providers]]
+name = "blog-posts-ai"
+type = "rssfeed"
+cronSchedule = "0 */3 * * *"  # Every 3 hours
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+url = "https://blog.example.com/feed.xml"
+template = "{{title}}: {{description}}"
+
+# AI enhancement for blog posts
+[[bot.providers.middleware]]
+name = "blog-enhancer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"  # Use environment variable
+model = "anthropic/claude-3-sonnet"
+mode = "replace"
+maxTokens = 500
+temperature = 0.7
+includeContext = true
+
+prompt = """You are a social media expert helping to create engaging posts for Mastodon. 
+
+Your task is to transform blog post summaries into compelling social media content that:
+- Is engaging and encourages interaction
+- Uses appropriate emojis and hashtags
+- Maintains the key information from the original
+- Fits well within social media character limits
+- Has a conversational, friendly tone
+
+Keep the post informative but make it more social and engaging."""
+
+# Provider 2: AI-Powered News Summarization
+[[bot.providers]]
+name = "news-summary"
+type = "jsoncommand"
+cronSchedule = "0 8,12,18 * * *"  # 3 times daily
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://newsapi.org/v2/top-headlines?country=us&apiKey=${NEWS_API_KEY}"
+template = "{{#each articles}}{{title}}: {{description}}\n{{/each}}"
+
+# AI summarization and formatting
+[[bot.providers.middleware]]
+name = "news-summarizer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "openai/gpt-4-turbo"
+mode = "replace"
+maxTokens = 800
+temperature = 0.3
+includeContext = true
+enableCaching = true
+cacheDuration = 1800000  # 30 minutes
+
+prompt = """You are a news curator for social media. Your task is to:
+
+1. Analyze the provided news articles
+2. Select the 3-5 most important and interesting stories
+3. Create a concise, engaging summary for each
+4. Format them as a social media post with:
+   - Clear, attention-grabbing headlines
+   - Brief but informative summaries
+   - Appropriate emojis
+   - Relevant hashtags
+   - Professional but accessible tone
+
+Focus on stories that would be most relevant and interesting to a general audience."""
+
+# Provider 3: Creative Content Generation
+[[bot.providers]]
+name = "creative-content"
+type = "command"
+cronSchedule = "0 15 * * *"  # Daily at 3 PM
+enabled = true
+accounts = ["creative-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "echo 'Daily creative inspiration'"
+
+# AI creative content generation
+[[bot.providers.middleware]]
+name = "creative-generator"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-haiku"
+mode = "replace"
+maxTokens = 300
+temperature = 0.9
+includeContext = false
+
+prompt = """You are a creative content generator for an art and creativity social media account.
+
+Create an inspiring, original post that includes:
+- A thought-provoking quote about creativity, art, or inspiration
+- A brief reflection or tip related to creative work
+- Encouraging words for fellow creators
+- Appropriate artistic emojis
+- Relevant hashtags like #creativity #art #inspiration
+
+Make it uplifting, authentic, and engaging for the creative community."""
+
+# Provider 4: Technical Content Simplification
+[[bot.providers]]
+name = "tech-updates"
+type = "jsoncommand"
+cronSchedule = "0 10 * * 1-5"  # Weekdays at 10 AM
+enabled = true
+accounts = ["main-account"]
+visibility = "unlisted"
+
+[bot.providers.config]
+command = "curl -s https://api.github.com/repos/myorg/myproject/releases/latest"
+template = "{{name}}: {{body}}"
+
+# AI simplification for technical content
+[[bot.providers.middleware]]
+name = "tech-simplifier"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "openai/gpt-3.5-turbo"
+mode = "replace"
+maxTokens = 400
+temperature = 0.4
+includeContext = true
+fallbackOnError = "continue"
+skipReason = "AI processing failed, using original content"
+
+prompt = """You are a technical communicator who makes complex software updates accessible to a general audience.
+
+Transform the technical release notes into:
+- Clear, jargon-free language that anyone can understand
+- Highlight the benefits and improvements for users
+- Explain what the changes mean in practical terms
+- Use a friendly, approachable tone
+- Include relevant emojis
+- Add appropriate hashtags
+
+Focus on why users should care about this update rather than technical implementation details."""
+
+# Provider 5: Multi-language Content Translation
+[[bot.providers]]
+name = "multilingual-content"
+type = "command"
+cronSchedule = "0 14 * * *"  # Daily at 2 PM
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "echo 'Hello world! This is our daily international update.'"
+
+# AI translation and localization
+[[bot.providers.middleware]]
+name = "multilingual-ai"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-sonnet"
+mode = "replace"
+maxTokens = 600
+temperature = 0.2
+includeContext = true
+contextTemplate = """Context:
+- Target audience: International community
+- Platform: {{visibility}} post on Mastodon
+- Provider: {{providerName}}
+- Time: {{timestamp}}"""
+
+prompt = """You are a multilingual content creator specializing in international communication.
+
+Take the provided English content and:
+1. Create an engaging multilingual post that includes:
+   - The original English text (improved if needed)
+   - A Spanish translation
+   - A French translation
+   - A German translation
+
+2. Format it clearly with language indicators (🇺🇸 🇪🇸 🇫🇷 🇩🇪)
+3. Ensure cultural appropriateness for each language
+4. Add universal emojis that work across cultures
+5. Include hashtags in multiple languages where appropriate
+
+Keep each translation concise and natural-sounding."""
+
+# Provider 6: Sentiment-Aware Response Generation
+[[bot.providers]]
+name = "sentiment-responses"
+type = "push"
+enabled = true
+accounts = ["main-account"]
+visibility = "direct"
+webhookPath = "/webhook/sentiment"
+
+[bot.providers.config]
+rateLimit = 10
+rateLimitWindow = 3600
+
+# AI sentiment analysis and response
+[[bot.providers.middleware]]
+name = "sentiment-analyzer"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "openai/gpt-4"
+mode = "replace"
+maxTokens = 300
+temperature = 0.6
+includeContext = true
+fallbackOnError = "skip"
+skipReason = "Unable to process sentiment, skipping response"
+
+prompt = """You are an empathetic social media manager who responds to user messages with appropriate tone and sentiment.
+
+Analyze the incoming message and:
+1. Determine the sentiment (positive, negative, neutral, urgent, etc.)
+2. Craft an appropriate response that:
+   - Matches the tone and urgency of the original message
+   - Is helpful and professional
+   - Shows empathy when needed
+   - Provides value or next steps when appropriate
+   - Uses appropriate emojis for the sentiment
+   - Is concise but complete
+
+Respond as if you're a friendly, knowledgeable team member who cares about the user's experience."""
+
+# Provider 7: AI Content Moderation
+[[bot.providers]]
+name = "moderated-content"
+type = "command"
+cronSchedule = "0 */4 * * *"  # Every 4 hours
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "curl -s https://api.example.com/user-submissions"
+
+# AI content moderation and filtering
+[[bot.providers.middleware]]
+name = "content-moderator"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-sonnet"
+mode = "enhance"
+maxTokens = 200
+temperature = 0.1
+includeContext = true
+fallbackOnError = "skip"
+skipReason = "Content moderation failed"
+
+prompt = """You are a content moderator for a family-friendly social media account.
+
+Analyze the provided content and:
+1. Check for inappropriate content (profanity, hate speech, spam, etc.)
+2. If content is appropriate: enhance it slightly for better engagement
+3. If content is inappropriate: return "CONTENT_REJECTED" with a brief reason
+
+For appropriate content, make minor improvements like:
+- Adding relevant emojis
+- Improving clarity
+- Suggesting better hashtags
+- Maintaining the original message's intent
+
+Be conservative - when in doubt, reject rather than risk inappropriate content."""
+
+# Provider 8: Personalized Content Based on Time/Context
+[[bot.providers]]
+name = "contextual-content"
+type = "command"
+cronSchedule = "0 */6 * * *"  # Every 6 hours
+enabled = true
+accounts = ["main-account"]
+visibility = "public"
+
+[bot.providers.config]
+command = "date"
+
+# AI contextual content generation
+[[bot.providers.middleware]]
+name = "context-aware-ai"
+type = "openrouter"
+enabled = true
+
+[bot.providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-haiku"
+mode = "replace"
+maxTokens = 250
+temperature = 0.8
+includeContext = true
+contextTemplate = """Context:
+- Current time: {{timestamp}}
+- Posting to: {{accountNames}}
+- Visibility: {{visibility}}
+- Provider: {{providerName}}
+- Day of week: Based on timestamp
+- Time of day: Based on timestamp"""
+
+prompt = """You are a social media manager who creates time-appropriate, contextual content.
+
+Based on the current time and context, create a relevant post that:
+- Acknowledges the time of day (morning motivation, afternoon check-in, evening reflection, etc.)
+- Is appropriate for the day of the week
+- Includes seasonal or temporal references when relevant
+- Encourages community engagement
+- Uses time-appropriate emojis
+- Includes relevant hashtags
+
+Make it feel natural and timely, as if a human is posting at just the right moment."""
+
+# Logging configuration
+[logging]
+level = "info"  # Set to debug to see AI API calls and responses

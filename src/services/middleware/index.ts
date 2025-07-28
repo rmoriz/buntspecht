@@ -18,3 +18,4 @@ export { RateLimitMiddleware, RateLimitConfig } from './builtin/RateLimitMiddlew
 export { ScheduleMiddleware, ScheduleConfig } from './builtin/ScheduleMiddleware';
 export { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalMiddleware';
 export { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
+export { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMiddleware';
