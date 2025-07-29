@@ -13,8 +13,8 @@ export class StandardProviderStrategy extends ProviderExecutionStrategy {
 
   public canHandle(provider: MessageProvider): boolean {
     const providerName = provider.getProviderName();
-    return providerName !== 'multijsoncommand' && 
-           typeof (provider as any).generateMessageWithAttachments !== 'function';
+    // Handle all providers except multijsoncommand and jsoncommand (which has its own strategy)
+    return providerName !== 'multijsoncommand' && providerName !== 'jsoncommand';
   }
 
   public getStrategyName(): string {
