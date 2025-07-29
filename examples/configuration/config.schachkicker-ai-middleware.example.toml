@@ -178,9 +178,10 @@ type = "rate_limit"
 enabled = true
 
 [providers.middleware.config]
-maxRequests = 50
+maxMessages = 50
 windowMs = 3600000  # 1 hour
-skipOnLimit = true
+scope = "global"
+action = "skip"
 skipReason = "AI API rate limit reached"
 
 # OpenRouter configuration
