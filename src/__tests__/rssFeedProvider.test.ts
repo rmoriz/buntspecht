@@ -159,7 +159,100 @@ describe('RSSFeedProvider', () => {
       const items = await providerNoCache['fetchFeedItems']();
       expect(items.length).toBe(sampleFeed.items.length);
     });
+  });
 
+  describe('Chronological processing', () => {
+    it('processes items in chronological order (oldest first)', async () => {
+      const chronologicalFeed = {
+        items: [
+          { title: 'Newest', link: 'https://test/newest', pubDate: '2021-01-03T10:00:00Z', description: 'Newest item' },
+          { title: 'Middle', link: 'https://test/middle', pubDate: '2021-01-02T10:00:00Z', description: 'Middle item' },
+          { title: 'Oldest', link: 'https://test/oldest', pubDate: '2021-01-01T10:00:00Z', description: 'Oldest item' },
+        ]
+      };
+      
+      mockParser.parseURL.mockResolvedValue(chronologicalFeed);
+      const chronoProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: false } 
+      });
+      await chronoProvider.initialize(logger);
+
+      // First call should return the oldest item
+      const message1 = await chronoProvider.generateMessage();
+      expect(message1).toContain('Oldest');
+      expect(message1).toContain('https://test/oldest');
+    });
+
+    it('sorts items correctly with mixed date formats', async () => {
+      const mixedDateFeed = {
+        items: [
+          { title: 'Item 1', pubDate: 'Wed, 03 Jan 2021 10:00:00 GMT', description: 'Item 1' },
+          { title: 'Item 2', isoDate: '2021-01-01T10:00:00Z', description: 'Item 2' },
+          { title: 'Item 3', pubDate: 'Fri, 02 Jan 2021 10:00:00 GMT', description: 'Item 3' },
+        ]
+      };
+      
+      mockParser.parseURL.mockResolvedValue(mixedDateFeed);
+      const mixedProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: false } 
+      });
+      await mixedProvider.initialize(logger);
+
+      const items = await mixedProvider['fetchFeedItems']();
+      
+      // Should be sorted oldest first: Item 2 (Jan 1), Item 3 (Jan 2), Item 1 (Jan 3)
+      expect(items[0].title).toBe('Item 2');
+      expect(items[1].title).toBe('Item 3');
+      expect(items[2].title).toBe('Item 1');
+    });
+
+    it('handles items without dates gracefully', async () => {
+      const noDateFeed = {
+        items: [
+          { title: 'With Date', pubDate: '2021-01-01T10:00:00Z', description: 'Has date' },
+          { title: 'No Date 1', description: 'No date 1' },
+          { title: 'No Date 2', description: 'No date 2' },
+        ]
+      };
+      
+      mockParser.parseURL.mockResolvedValue(noDateFeed);
+      const noDateProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: false } 
+      });
+      await noDateProvider.initialize(logger);
+
+      const items = await noDateProvider['fetchFeedItems']();
+      
+      // Items with dates should come first, then items without dates
+      expect(items[0].title).toBe('With Date');
+      expect(items[1].title).toBe('No Date 1');
+      expect(items[2].title).toBe('No Date 2');
+    });
+
+    it('handles invalid dates gracefully', async () => {
+      const invalidDateFeed = {
+        items: [
+          { title: 'Valid Date', pubDate: '2021-01-01T10:00:00Z', description: 'Valid' },
+          { title: 'Invalid Date', pubDate: 'not-a-date', description: 'Invalid' },
+        ]
+      };
+      
+      mockParser.parseURL.mockResolvedValue(invalidDateFeed);
+      const invalidProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: false } 
+      });
+      await invalidProvider.initialize(logger);
+
+      const items = await invalidProvider['fetchFeedItems']();
+      
+      // Valid date should come first, invalid date treated as no date
+      expect(items[0].title).toBe('Valid Date');
+      expect(items[1].title).toBe('Invalid Date');
+    });
   });
 
   describe('Different feed formats', () => {

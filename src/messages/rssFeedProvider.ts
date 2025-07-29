@@ -68,12 +68,12 @@ export class RSSFeedProvider implements MessageProvider {
   public async generateMessage(): Promise<string> {
     const items = await this.fetchFeedItems();
     if (!items.length) return '';
-    const latest = items[0];
+    const oldest = items[0]; // Items are now sorted oldest first
     
     // Mark the item as processed and save cache
     if (this.config.cache?.enabled !== false) {
       const processed = this.deduplicator.loadProcessedItems(this.providerName);
-      const key = this.getItemKey(latest);
+      const key = this.getItemKey(oldest);
       if (key) {
         this.deduplicator.markItemAsProcessed(processed, key);
         this.deduplicator.saveProcessedItems(this.providerName, processed);
@@ -81,18 +81,18 @@ export class RSSFeedProvider implements MessageProvider {
       }
     }
     
-    return this.formatItem(latest);
+    return this.formatItem(oldest);
   }
 
   public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
     const items = await this.fetchFeedItems();
     if (!items.length) return { text: '' };
-    const latest = items[0];
+    const oldest = items[0]; // Items are now sorted oldest first
     
     // Mark the item as processed and save cache
     if (this.config.cache?.enabled !== false) {
       const processed = this.deduplicator.loadProcessedItems(this.providerName);
-      const key = this.getItemKey(latest);
+      const key = this.getItemKey(oldest);
       if (key) {
         this.deduplicator.markItemAsProcessed(processed, key);
         this.deduplicator.saveProcessedItems(this.providerName, processed);
@@ -100,7 +100,7 @@ export class RSSFeedProvider implements MessageProvider {
       }
     }
     
-    return { text: this.formatItem(latest) };
+    return { text: this.formatItem(oldest) };
   }
 
   private async fetchFeedItems(): Promise<any[]> {
@@ -144,6 +144,9 @@ export class RSSFeedProvider implements MessageProvider {
           return key && !processed.has(key);
         });
 
+        // Sort items by date (oldest first) for chronological processing
+        items = this.sortItemsByDate(items);
+
         this.logger?.debug(`Fetched ${items.length} new items from RSS feed`);
         return items;
 
@@ -166,7 +169,48 @@ export class RSSFeedProvider implements MessageProvider {
   }
 
   private getItemKey(item: any): string | null {
-    return item?.pubDate || item?.isoDate || item?.id || null;
+    return item?.pubDate || item?.isoDate || item?.id || item?.title || item?.link || null;
+  }
+
+  /**
+   * Sort RSS items by date (oldest first) for chronological processing
+   */
+  private sortItemsByDate(items: any[]): any[] {
+    return items.sort((a, b) => {
+      const dateA = this.getItemDate(a);
+      const dateB = this.getItemDate(b);
+      
+      // If both have dates, sort by date (oldest first)
+      if (dateA && dateB) {
+        return dateA.getTime() - dateB.getTime();
+      }
+      
+      // Items without dates go to the end
+      if (!dateA && dateB) return 1;
+      if (dateA && !dateB) return -1;
+      
+      // If neither has a date, maintain original order
+      return 0;
+    });
+  }
+
+  /**
+   * Extract and parse date from RSS item
+   */
+  private getItemDate(item: any): Date | null {
+    if (!item) return null;
+    
+    // Try different date fields in order of preference
+    const dateStr = item.pubDate || item.isoDate || item.date;
+    if (!dateStr) return null;
+    
+    try {
+      const date = new Date(dateStr);
+      // Check if date is valid
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
   }
 
   private formatItem(item: any): string {
