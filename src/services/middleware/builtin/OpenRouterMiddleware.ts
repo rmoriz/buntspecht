@@ -89,9 +89,9 @@ export class OpenRouterMiddleware implements MessageMiddleware {
     this.name = name;
     this.enabled = enabled;
     this.config = {
-      maxTokens: 1000,
+      maxTokens: 10000,
       temperature: 0.7,
-      timeout: 30000,
+      timeout: 90000,
       includeContext: true,
       fallbackOnError: 'continue',
       enableCaching: true,
@@ -138,9 +138,13 @@ export class OpenRouterMiddleware implements MessageMiddleware {
   }
 
   public async execute(context: MessageMiddlewareContext, next: () => Promise<void>): Promise<void> {
+    const originalText = context.message.text;
+    
     try {
-      const originalText = context.message.text;
       const startTime = Date.now();
+
+      // Store original text early for error recovery
+      context.data[`${this.name}_original_text`] = originalText;
 
       // Build the user message with context if enabled
       const userMessage = this.buildUserMessage(originalText, context);
@@ -173,7 +177,6 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       const executionTime = Date.now() - startTime;
       this.logger?.debug(`OpenRouterMiddleware ${this.name} completed in ${executionTime}ms`);
       
-      context.data[`${this.name}_original_text`] = originalText;
       context.data[`${this.name}_ai_response`] = aiResponse;
       context.data[`${this.name}_processed`] = true;
       context.data[`${this.name}_execution_time`] = executionTime;
@@ -357,12 +360,21 @@ export class OpenRouterMiddleware implements MessageMiddleware {
         return; // Don't call next()
       
       case 'continue':
+        // Restore original message text since AI processing failed
+        const originalText = context.data[`${this.name}_original_text`] as string;
+        if (originalText) {
+          context.message.text = originalText;
+        }
         this.logger?.info(`OpenRouterMiddleware ${this.name} continuing with original message due to error`);
         await next();
         return;
       
       case 'use_original':
-        // Message remains unchanged, continue processing
+        // Restore original message text since AI processing failed
+        const originalTextForUseOriginal = context.data[`${this.name}_original_text`] as string;
+        if (originalTextForUseOriginal) {
+          context.message.text = originalTextForUseOriginal;
+        }
         this.logger?.info(`OpenRouterMiddleware ${this.name} using original message due to error`);
         await next();
         return;
