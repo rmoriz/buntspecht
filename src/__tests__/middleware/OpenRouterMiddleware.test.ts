@@ -96,7 +96,30 @@ describe('OpenRouterMiddleware', () => {
           prompt: '',
           mode: 'replace'
         });
-      }).toThrow('OpenRouter prompt is required');
+      }).toThrow('OpenRouter prompt or systemPrompt is required');
+    });
+
+    it('should accept systemPrompt instead of prompt', () => {
+      expect(() => {
+        new OpenRouterMiddleware('test', {
+          apiKey: 'test-key',
+          model: 'anthropic/claude-3-sonnet',
+          systemPrompt: 'You are a helpful assistant',
+          mode: 'replace'
+        });
+      }).not.toThrow();
+    });
+
+    it('should accept both systemPrompt and userPrompt', () => {
+      expect(() => {
+        new OpenRouterMiddleware('test', {
+          apiKey: 'test-key',
+          model: 'anthropic/claude-3-sonnet',
+          systemPrompt: 'You are a helpful assistant',
+          userPrompt: 'Process this: {{message}}',
+          mode: 'replace'
+        });
+      }).not.toThrow();
     });
 
     it('should set default values for optional config', async () => {
