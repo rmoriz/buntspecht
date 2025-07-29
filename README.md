@@ -385,16 +385,34 @@ accounts = ["mastodon-main", "bluesky-main"]
 feedUrl = "https://feeds.feedburner.com/TechCrunch"
 template = "📰 {{title}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n#news"  # Optional template
 timeout = 30000      # Request timeout (default: 30000ms)
-maxItems = 10        # Max items per fetch (default: 10)
+maxItems = 10        # Max items per fetch (default: unlimited)
 retries = 3          # Retry attempts (default: 3)
 userAgent = "Buntspecht RSS Reader/1.0"  # Custom user agent
 
 # Cache configuration (optional)
 [bot.providers.config.cache]
 enabled = true       # Enable deduplication (default: true)
-ttl = 7200          # Cache TTL in seconds (default: 3600)
-filePath = "./cache/tech-news-rss.json"
+autoWarm = true      # Auto-warm cache on first run (default: true)
+ttl = 1209600000     # Cache TTL in milliseconds (default: 14 days)
+filePath = "./cache/tech-news.json"  # Custom cache file path
 ```
+
+#### Auto-Warming Feature
+
+When adding a new RSS feed, you typically don't want to post all existing items. The RSS provider automatically "warms" the cache on first run, marking all current items as processed so only new items will be posted going forward.
+
+**How it works:**
+- ✅ **First run**: No cache file exists → All current feed items are marked as processed (no posts)
+- ✅ **Subsequent runs**: Only new items since the last run are posted
+- ✅ **Configurable**: Can be disabled with `cache.autoWarm = false`
+
+**Example logs on first run:**
+```
+[INFO] No cache file found for RSS provider 'tech-news', auto-warming cache to prevent posting old items...
+[INFO] Auto-warm completed for RSS provider 'tech-news'. Future runs will only process new items.
+```
+
+This eliminates the need for manual cache warming when adding new RSS feeds to existing bot configurations.
 
 **Key Features:**
 - ✅ **RSS 2.0 and Atom support** - Works with both feed formats
