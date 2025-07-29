@@ -1,0 +1,106 @@
+# Schachkicker.de RSS Feed Provider Configuration
+# This configuration demonstrates how to set up RSS feed monitoring for schachkicker.de
+# A German chess news website providing updates on chess tournaments, player news, and chess culture
+
+# Basic RSS feed configuration for Schachkicker
+[[providers]]
+name = "schachkicker-news"
+type = "rssfeed"
+feedUrl = "https://schachkicker.de/feed/"
+schedule = "0 */2 * * *"  # Check every 2 hours for new chess news
+timeout = 15000          # 15 second timeout
+maxItems = 5             # Process max 5 latest items per check
+retries = 2              # Retry twice on failure
+userAgent = "Buntspecht/1.0 RSS Reader"
+
+# RSS feed with German chess-themed template
+[[providers]]
+name = "schachkicker-formatted"
+type = "rssfeed"
+feedUrl = "https://schachkicker.de/feed/"
+schedule = "0 8,14,20 * * *"  # Check 3 times daily (morning, afternoon, evening)
+template = "♟️ **{{title}}**\n\n📝 {{content|trim:300}}...\n\n🔗 Mehr lesen: {{link}}\n\n#Schach #Chess #Schachkicker"
+
+# RSS feed with caching for better performance
+[[providers]]
+name = "schachkicker-cached"
+type = "rssfeed"
+feedUrl = "https://schachkicker.de/feed/"
+schedule = "0 */1 * * *"  # Check hourly
+timeout = 20000
+maxItems = 10
+
+[providers.cache]
+enabled = true
+ttl = 7200               # Cache for 2 hours
+maxSize = 500            # Max 500 cache entries
+filePath = "./cache/schachkicker-rss.json"
+
+# RSS feed with content filtering for specific topics
+[[providers]]
+name = "schachkicker-tournaments"
+type = "rssfeed"
+feedUrl = "https://schachkicker.de/feed/"
+schedule = "0 */3 * * *"  # Every 3 hours
+template = "🏆 **Turnier-News:** {{title}}\n\n{{content|trim:250}}...\n\n📖 {{link}}\n\n#Schachturnier #Tournament"
+
+# Example middleware configuration for content filtering
+[[providers.middleware]]
+type = "filter"
+condition = "title|lower contains 'turnier' or title|lower contains 'tournament' or title|lower contains 'wm' or title|lower contains 'em'"
+
+# RSS feed for weekend chess digest
+[[providers]]
+name = "schachkicker-weekend"
+type = "rssfeed"
+feedUrl = "https://schachkicker.de/feed/"
+schedule = "0 9 * * 6"    # Saturday at 9 AM
+template = "📅 **Schach-Wochenrückblick**\n\n♟️ {{title}}\n\n{{content|trim:400}}\n\n🔗 {{link}}\n\n#SchachWochenende #ChessWeekend"
+maxItems = 15            # Get more items for weekend digest
+
+# Example social media accounts for chess content
+[[accounts]]
+name = "mastodon-chess"
+type = "mastodon"
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "bluesky-chess"
+type = "bluesky"
+handle = "your-chess-handle.bsky.social"
+password = "${BLUESKY_APP_PASSWORD}"
+
+# Provider-to-account mappings
+[[schedules]]
+provider = "schachkicker-news"
+accounts = ["mastodon-chess", "bluesky-chess"]
+
+[[schedules]]
+provider = "schachkicker-formatted"
+accounts = ["mastodon-chess"]
+
+[[schedules]]
+provider = "schachkicker-tournaments"
+accounts = ["bluesky-chess"]
+
+[[schedules]]
+provider = "schachkicker-weekend"
+accounts = ["mastodon-chess", "bluesky-chess"]
+
+# Optional: Webhook configuration for real-time updates
+[webhook]
+enabled = false
+port = 3000
+path = "/webhook/schachkicker"
+
+# Optional: Telemetry for monitoring chess news delivery
+[telemetry]
+enabled = false
+endpoint = "http://localhost:4317"
+serviceName = "buntspecht-schachkicker"
+
+# Logging configuration
+[logging]
+level = "info"
+format = "json"
