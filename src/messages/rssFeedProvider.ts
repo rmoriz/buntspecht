@@ -13,6 +13,7 @@ export interface RSSFeedProviderConfig extends MessageProviderConfig {
     ttl?: number;
     maxSize?: number;
     filePath?: string;
+    autoWarm?: boolean; // Auto-warm cache on first run to prevent posting old items (default: true)
   };
   timeout?: number; // Request timeout in milliseconds
   userAgent?: string; // Custom user agent
@@ -64,6 +65,12 @@ export class RSSFeedProvider implements MessageProvider {
     
     const cacheDir = this.config.cache?.filePath ? require('path').dirname(this.config.cache.filePath) : './cache';
     this.deduplicator = new MessageDeduplicator(cacheDir, logger);
+    
+    // Auto-warm cache if no cache file exists and caching is enabled
+    if (this.config.cache?.enabled !== false && this.config.cache?.autoWarm !== false) {
+      await this.autoWarmCacheIfNeeded();
+    }
+    
     this.logger.info(`Initialized RSSFeedProvider for ${this.config.feedUrl} (provider: ${this.providerName})`);
   }
 
@@ -274,6 +281,32 @@ export class RSSFeedProvider implements MessageProvider {
     const cleanContent = content.replace(/<[^>]*>/g, '').trim();
     
     return `${title}\n${link}\n${cleanContent}`;
+  }
+
+  /**
+   * Check if cache file exists and auto-warm if needed
+   */
+  private async autoWarmCacheIfNeeded(): Promise<void> {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Determine cache file path
+      const cacheDir = this.config.cache?.filePath ? path.dirname(this.config.cache.filePath) : './cache';
+      const cacheFile = path.join(cacheDir, `${this.providerName}_processed.json`);
+      
+      // Check if cache file exists
+      if (!fs.existsSync(cacheFile)) {
+        this.logger?.info(`No cache file found for RSS provider '${this.providerName}', auto-warming cache to prevent posting old items...`);
+        await this.warmCache();
+        this.logger?.info(`Auto-warm completed for RSS provider '${this.providerName}'. Future runs will only process new items.`);
+      } else {
+        this.logger?.debug(`Cache file exists for RSS provider '${this.providerName}', skipping auto-warm`);
+      }
+    } catch (error) {
+      this.logger?.warn(`Failed to check/create cache for RSS provider '${this.providerName}':`, error);
+      // Don't throw - this is not critical, just continue without auto-warming
+    }
   }
 
   public async warmCache(): Promise<void> {

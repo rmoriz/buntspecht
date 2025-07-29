@@ -196,6 +196,119 @@ describe('RSSFeedProvider', () => {
         expect.stringContaining('(provider: rssfeed)')
       );
     });
+
+    it('auto-warms cache on first initialization when no cache file exists', async () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const testCacheDir = './tmp_test_cache_autowarm_' + Date.now();
+      const cacheFile = path.join(testCacheDir, 'test-auto-warm_processed.json');
+      
+      // Ensure cache file doesn't exist
+      if (fs.existsSync(cacheFile)) {
+        fs.unlinkSync(cacheFile);
+      }
+      
+      const autoWarmProvider = new RSSFeedProvider({
+        feedUrl: 'https://test.com/feed',
+        cache: { 
+          enabled: true, 
+          filePath: path.join(testCacheDir, 'cache.json'),
+          autoWarm: true 
+        }
+      });
+      
+      // Mock the feed data
+      mockParser.parseURL.mockResolvedValue(sampleFeed);
+      
+      await autoWarmProvider.initialize(logger, undefined, 'test-auto-warm');
+      
+      // Verify auto-warm logs
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining("No cache file found for RSS provider 'test-auto-warm', auto-warming cache")
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining("Auto-warm completed for RSS provider 'test-auto-warm'")
+      );
+      
+      // Verify cache file was created
+      expect(fs.existsSync(cacheFile)).toBe(true);
+      
+      // Clean up
+      if (fs.existsSync(testCacheDir)) {
+        fs.rmSync(testCacheDir, { recursive: true, force: true });
+      }
+    });
+
+    it('skips auto-warming when cache file already exists', async () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const testCacheDir = './tmp_test_cache_skip_autowarm_' + Date.now();
+      const cacheFile = path.join(testCacheDir, 'test-skip-autowarm_processed.json');
+      
+      // Create cache directory and file
+      fs.mkdirSync(testCacheDir, { recursive: true });
+      fs.writeFileSync(cacheFile, '["existing-item"]');
+      
+      const skipAutoWarmProvider = new RSSFeedProvider({
+        feedUrl: 'https://test.com/feed',
+        cache: { 
+          enabled: true, 
+          filePath: path.join(testCacheDir, 'cache.json'),
+          autoWarm: true 
+        }
+      });
+      
+      await skipAutoWarmProvider.initialize(logger, undefined, 'test-skip-autowarm');
+      
+      // Verify no auto-warm logs (should be debug level)
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.stringContaining("auto-warming cache")
+      );
+      
+      // Clean up
+      if (fs.existsSync(testCacheDir)) {
+        fs.rmSync(testCacheDir, { recursive: true, force: true });
+      }
+    });
+
+    it('respects autoWarm disabled setting', async () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const testCacheDir = './tmp_test_cache_disabled_autowarm_' + Date.now();
+      const cacheFile = path.join(testCacheDir, 'test-disabled-autowarm_processed.json');
+      
+      // Ensure cache file doesn't exist
+      if (fs.existsSync(cacheFile)) {
+        fs.unlinkSync(cacheFile);
+      }
+      
+      const disabledAutoWarmProvider = new RSSFeedProvider({
+        feedUrl: 'https://test.com/feed',
+        cache: { 
+          enabled: true, 
+          filePath: path.join(testCacheDir, 'cache.json'),
+          autoWarm: false  // Explicitly disabled
+        }
+      });
+      
+      await disabledAutoWarmProvider.initialize(logger, undefined, 'test-disabled-autowarm');
+      
+      // Verify no auto-warm logs
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.stringContaining("auto-warming cache")
+      );
+      
+      // Verify cache file was NOT created
+      expect(fs.existsSync(cacheFile)).toBe(false);
+      
+      // Clean up
+      if (fs.existsSync(testCacheDir)) {
+        fs.rmSync(testCacheDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('Chronological processing', () => {
