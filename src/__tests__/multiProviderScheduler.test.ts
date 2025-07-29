@@ -167,7 +167,7 @@ describe('MultiProviderScheduler', () => {
       ];
       config.bot.providers = providers;
 
-      await expect(scheduler.initialize()).rejects.toThrow('Invalid cron schedule for provider "invalid-cron"');
+      await expect(scheduler.initialize()).rejects.toThrow('No providers could be initialized successfully. Failed providers: invalid-cron');
     });
   });
 
@@ -329,12 +329,20 @@ describe('MultiProviderScheduler', () => {
 
       const info = scheduler.getProviderInfo();
 
-      expect(info).toHaveLength(1); // Only enabled provider
+      expect(info).toHaveLength(2); // Both providers (enabled and disabled)
       expect(info[0]).toEqual({
         name: 'ping-provider',
         type: 'ping',
         schedule: '0 * * * *',
-        enabled: true
+        enabled: true,
+        status: 'running'
+      });
+      expect(info[1]).toEqual({
+        name: 'command-provider',
+        type: 'command',
+        schedule: '*/30 * * * *',
+        enabled: false,
+        status: 'disabled'
       });
     });
 

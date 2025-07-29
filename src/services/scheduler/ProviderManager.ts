@@ -52,6 +52,9 @@ export class ProviderManager {
 
     this.logger.info(`Initializing ${providers.length} provider(s)...`);
 
+    const failedProviders: string[] = [];
+    let successfulProviders = 0;
+
     for (const providerConfig of providers) {
       if (providerConfig.enabled === false) {
         this.logger.info(`Skipping disabled provider: ${providerConfig.name}`);
@@ -60,13 +63,26 @@ export class ProviderManager {
 
       try {
         await this.initializeProvider(providerConfig);
+        successfulProviders++;
       } catch (error) {
-        this.logger.error(`Failed to initialize provider "${providerConfig.name}":`, error);
-        throw error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to initialize provider "${providerConfig.name}": ${errorMessage}`);
+        this.logger.warn(`Provider "${providerConfig.name}" will be skipped due to initialization failure`);
+        failedProviders.push(providerConfig.name);
+        // Continue with other providers instead of throwing
       }
     }
 
-    this.logger.info(`Successfully initialized ${this.scheduledProviders.length} provider(s)`);
+    // Report results
+    if (failedProviders.length > 0) {
+      this.logger.warn(`${failedProviders.length} provider(s) failed to initialize: ${failedProviders.join(', ')}`);
+    }
+
+    if (successfulProviders === 0) {
+      throw new Error(`No providers could be initialized successfully. Failed providers: ${failedProviders.join(', ')}`);
+    }
+
+    this.logger.info(`Successfully initialized ${successfulProviders} provider(s)${failedProviders.length > 0 ? ` (${failedProviders.length} failed)` : ''}`);
   }
 
   /**
@@ -215,15 +231,44 @@ export class ProviderManager {
   }
 
   /**
-   * Returns information about all configured providers
+   * Returns information about all configured providers (including failed ones)
    */
-  public getProviderInfo(): Array<{name: string, type: string, schedule: string, enabled: boolean}> {
-    return this.scheduledProviders.map(sp => ({
-      name: sp.name,
-      type: sp.provider.getProviderName(),
-      schedule: sp.config.cronSchedule || 'push (external trigger)',
-      enabled: sp.config.enabled !== false
-    }));
+  public getProviderInfo(): Array<{name: string, type: string, schedule: string, enabled: boolean, status: 'running' | 'failed' | 'disabled'}> {
+    const allProviders = this.getProviderConfigs();
+    const successfulProviderNames = new Set(this.scheduledProviders.map(sp => sp.name));
+    
+    return allProviders.map(config => {
+      const scheduledProvider = this.scheduledProviders.find(sp => sp.name === config.name);
+      
+      if (config.enabled === false) {
+        return {
+          name: config.name,
+          type: config.type,
+          schedule: config.cronSchedule || 'push (external trigger)',
+          enabled: false,
+          status: 'disabled' as const
+        };
+      }
+      
+      if (scheduledProvider) {
+        return {
+          name: scheduledProvider.name,
+          type: scheduledProvider.provider.getProviderName(),
+          schedule: scheduledProvider.config.cronSchedule || 'push (external trigger)',
+          enabled: scheduledProvider.config.enabled !== false,
+          status: 'running' as const
+        };
+      }
+      
+      // Provider was enabled but not in scheduledProviders = failed to initialize
+      return {
+        name: config.name,
+        type: config.type,
+        schedule: config.cronSchedule || 'push (external trigger)',
+        enabled: config.enabled ?? true,
+        status: 'failed' as const
+      };
+    });
   }
 
   /**
