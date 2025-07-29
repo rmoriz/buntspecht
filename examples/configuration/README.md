@@ -145,6 +145,24 @@ Real-world example: Munich bike report monitoring.
 - Attachment handling
 - Real data source integration
 
+### `config.rssfeed.example.toml`
+RSS feed provider configuration examples.
+
+**Features:**
+- RSS/Atom feed processing
+- Custom templates
+- Cache configuration
+
+### `config.schachkicker.example.toml`
+Real-world RSS feed example for German chess news website.
+
+**Features:**
+- German chess news monitoring
+- Chess-themed templates and emojis
+- Content filtering for tournaments
+- Weekend digest scheduling
+- Multilingual content handling
+
 ## Usage Instructions
 
 1. **Choose a template**: Select the configuration that matches your use case
