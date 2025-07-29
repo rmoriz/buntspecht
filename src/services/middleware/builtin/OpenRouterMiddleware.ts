@@ -287,7 +287,19 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       stream: false
     };
 
-    this.logger?.debug(`OpenRouterMiddleware ${this.name}: Calling OpenRouter API with model ${this.config.model}`);
+    // Debug: Log the request details
+    this.logger?.debug(`OpenRouterMiddleware ${this.name} - API Request:`, {
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      model: requestBody.model,
+      maxTokens: requestBody.max_tokens,
+      temperature: requestBody.temperature,
+      systemPromptLength: systemPrompt.length,
+      userMessageLength: userMessage.length,
+      systemPrompt: systemPrompt.substring(0, 200) + (systemPrompt.length > 200 ? '...' : ''),
+      userMessage: userMessage.substring(0, 500) + (userMessage.length > 500 ? '...' : ''),
+      hasApiKey: !!this.config.apiKey,
+      apiKeyPrefix: this.config.apiKey ? this.config.apiKey.substring(0, 10) + '...' : 'MISSING'
+    });
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -301,12 +313,35 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       signal: AbortSignal.timeout(this.config.timeout!)
     });
 
+    // Debug: Log the response status
+    this.logger?.debug(`OpenRouterMiddleware ${this.name} - API Response Status:`, {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
       const errorText = await response.text();
+      this.logger?.error(`OpenRouterMiddleware ${this.name} - API Error Response:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
       throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json() as OpenRouterResponse;
+    
+    // Debug: Log the successful response
+    this.logger?.debug(`OpenRouterMiddleware ${this.name} - API Success Response:`, {
+      model: data.model,
+      usage: data.usage,
+      choicesCount: data.choices?.length || 0,
+      responseLength: data.choices?.[0]?.message?.content?.length || 0,
+      response: data.choices?.[0]?.message?.content?.substring(0, 500) + (data.choices?.[0]?.message?.content?.length > 500 ? '...' : ''),
+      finishReason: data.choices?.[0]?.finish_reason
+    });
     
     if (!data.choices || data.choices.length === 0) {
       throw new Error('No response choices returned from OpenRouter API');
