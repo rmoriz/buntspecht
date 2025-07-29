@@ -318,7 +318,9 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
+      headers: response.headers && typeof response.headers.entries === 'function' 
+        ? Object.fromEntries(response.headers.entries()) 
+        : 'Headers not available in test environment'
     });
 
     if (!response.ok) {
