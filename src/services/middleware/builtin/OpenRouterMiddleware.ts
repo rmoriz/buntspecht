@@ -8,10 +8,14 @@ export interface OpenRouterConfig {
   apiKey: string;
   /** AI model to use (e.g., "anthropic/claude-3-sonnet", "openai/gpt-4") */
   model: string;
+  /** System prompt that defines the AI's role and behavior (legacy field) */
+  prompt?: string;
   /** System prompt that defines the AI's role and behavior */
-  prompt: string;
+  systemPrompt?: string;
+  /** User prompt template with {{message}} placeholder for the content */
+  userPrompt?: string;
   /** How to use the AI response: 'replace', 'prepend', 'append', 'enhance' */
-  mode: 'replace' | 'prepend' | 'append' | 'enhance';
+  mode?: 'replace' | 'prepend' | 'append' | 'enhance';
   /** Maximum tokens for the response */
   maxTokens?: number;
   /** Temperature for response creativity (0.0 - 1.0) */
@@ -92,6 +96,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       fallbackOnError: 'continue',
       enableCaching: true,
       cacheDuration: 3600000, // 1 hour
+      mode: 'replace',
       ...config
     };
 
@@ -102,8 +107,13 @@ export class OpenRouterMiddleware implements MessageMiddleware {
     if (!this.config.model) {
       throw new Error('OpenRouter model is required');
     }
-    if (!this.config.prompt) {
-      throw new Error('OpenRouter prompt is required');
+    
+    // Support both legacy 'prompt' and new 'systemPrompt' fields
+    const hasLegacyPrompt = this.config.prompt;
+    const hasSystemPrompt = this.config.systemPrompt;
+    
+    if (!hasLegacyPrompt && !hasSystemPrompt) {
+      throw new Error('OpenRouter prompt or systemPrompt is required');
     }
   }
 
@@ -188,6 +198,34 @@ export class OpenRouterMiddleware implements MessageMiddleware {
   }
 
   private buildUserMessage(originalText: string, context: MessageMiddlewareContext): string {
+    // If userPrompt is provided, use it as a template
+    if (this.config.userPrompt) {
+      let userMessage = this.config.userPrompt;
+      
+      // Replace {{message}} placeholder with the original text
+      userMessage = userMessage.replace(/\{\{message\}\}/g, originalText);
+      
+      // If context is enabled, also replace context variables
+      if (this.config.includeContext) {
+        const contextData = {
+          providerName: context.providerName,
+          accountNames: context.accountNames.join(', '),
+          visibility: context.visibility,
+          timestamp: new Date().toISOString(),
+          messageLength: originalText.length
+        };
+
+        for (const [key, value] of Object.entries(contextData)) {
+          const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedValue = String(value).replace(/\$/g, '$$$$');
+          userMessage = userMessage.replace(new RegExp(`{{${escapedKey}}}`, 'g'), escapedValue);
+        }
+      }
+      
+      return userMessage;
+    }
+
+    // Legacy behavior: build user message with context
     let userMessage = originalText;
 
     if (this.config.includeContext) {
@@ -226,12 +264,15 @@ export class OpenRouterMiddleware implements MessageMiddleware {
   }
 
   private async callOpenRouter(userMessage: string): Promise<string> {
+    // Use systemPrompt if available, otherwise fall back to legacy prompt
+    const systemPrompt = this.config.systemPrompt || this.config.prompt!;
+    
     const requestBody: OpenRouterRequest = {
       model: this.config.model,
       messages: [
         {
           role: 'system',
-          content: this.config.prompt
+          content: systemPrompt
         },
         {
           role: 'user',
@@ -333,7 +374,8 @@ export class OpenRouterMiddleware implements MessageMiddleware {
 
   private getCacheKey(userMessage: string): string {
     // Create a hash of the user message and config for caching
-    const content = `${this.config.model}:${this.config.prompt}:${userMessage}:${this.config.temperature}:${this.config.maxTokens}`;
+    const systemPrompt = this.config.systemPrompt || this.config.prompt!;
+    const content = `${this.config.model}:${systemPrompt}:${this.config.userPrompt || ''}:${userMessage}:${this.config.temperature}:${this.config.maxTokens}`;
     return createHash('sha256').update(content).digest('hex');
   }
 
