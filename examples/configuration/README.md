@@ -163,6 +163,17 @@ Real-world RSS feed example for German chess news website.
 - Weekend digest scheduling
 - Multilingual content handling
 
+### `config.schachkicker-ai-middleware.example.toml`
+AI-enhanced chess news with OpenRouter middleware for maximum engagement.
+
+**Features:**
+- OpenRouter AI integration with Claude 3.5 Sonnet
+- Chess-specific AI prompts for engaging content
+- Tournament-focused content filtering
+- Weekend digest with AI summarization
+- German language optimization
+- Rate limiting and quality control
+
 ## Usage Instructions
 
 1. **Choose a template**: Select the configuration that matches your use case

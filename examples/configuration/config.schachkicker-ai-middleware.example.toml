@@ -1,0 +1,196 @@
+# Schachkicker.de RSS Feed with AI-Enhanced Engagement Middleware
+# This configuration demonstrates how to use OpenRouter AI middleware to optimize
+# chess news content for better social media engagement
+
+# Social Media Accounts
+[[accounts]]
+name = "chess-mastodon"
+type = "mastodon"
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "chess-bluesky"
+type = "bluesky"
+handle = "your-chess-handle.bsky.social"
+password = "${BLUESKY_APP_PASSWORD}"
+
+# Schachkicker RSS Provider with AI Enhancement
+[[providers]]
+name = "schachkicker-ai-enhanced"
+type = "rssfeed"
+schedule = "0 */2 * * *"  # Every 2 hours
+enabled = true
+accounts = ["chess-mastodon", "chess-bluesky"]  # Direct account mapping
+
+[providers.config]
+feedUrl = "https://schachkicker.de/feed/"
+timeout = 15000
+maxItems = 3
+retries = 2
+userAgent = "Buntspecht/1.0 Chess News Bot"
+template = "{{title}}\n\n{{content|trim:200}}\n\n{{link}}"
+
+# AI Enhancement Middleware Chain
+[[providers.middleware]]
+name = "chess-engagement-optimizer"
+type = "openrouter"
+enabled = true
+
+[providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3.5-sonnet"
+systemPrompt = """You are a chess social media expert. Transform the given German chess news into an engaging social media post that:
+
+1. Makes chess accessible and exciting for both beginners and experts
+2. Uses appropriate chess emojis (♟️, ♛, ♜, ♝, ♞, ♚, 🏆, ⚡, 🎯)
+3. Keeps the German language but makes it more conversational and engaging
+4. Highlights the most interesting aspects (tournaments, player achievements, surprising moves)
+5. Adds relevant hashtags in German (#Schach #Chess #Turnier #Schachmeister)
+6. Stays under 400 characters for optimal social media engagement
+7. Creates curiosity and encourages clicks to read more
+
+Transform the content while preserving factual accuracy. Make it sound exciting and accessible."""
+
+userPrompt = "Transform this German chess news into an engaging social media post:\n\n{{message}}"
+maxTokens = 300
+temperature = 0.7
+
+# Content Quality Filter
+[[providers.middleware]]
+name = "quality-filter"
+type = "filter"
+enabled = true
+
+[providers.middleware.config]
+type = "contains"
+text = "error"
+action = "skip"
+skipReason = "AI enhancement failed"
+
+# Length Validation
+[[providers.middleware]]
+name = "length-validator"
+type = "filter"
+enabled = true
+
+[providers.middleware.config]
+type = "length"
+maxLength = 450
+action = "skip"
+skipReason = "Post too long after AI enhancement"
+
+# Tournament News Variant with Specialized AI
+[[providers]]
+name = "schachkicker-tournaments-ai"
+type = "rssfeed"
+schedule = "0 */4 * * *"  # Every 4 hours
+enabled = true
+accounts = ["chess-mastodon"]  # Only post tournaments to Mastodon
+
+[providers.config]
+feedUrl = "https://schachkicker.de/feed/"
+timeout = 15000
+maxItems = 2
+template = "{{title}}\n\n{{content|trim:150}}\n\n{{link}}"
+
+# Pre-filter for tournament content
+[[providers.middleware]]
+name = "tournament-filter"
+type = "filter"
+enabled = true
+
+[providers.middleware.config]
+type = "contains_any"
+texts = ["turnier", "tournament", "meisterschaft", "championship", "wm", "em", "bundesliga"]
+action = "continue"
+skipReason = "Not tournament-related content"
+
+# Specialized AI for tournament news
+[[providers.middleware]]
+name = "tournament-ai-enhancer"
+type = "openrouter"
+enabled = true
+
+[providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3.5-sonnet"
+systemPrompt = """You are a chess tournament expert and social media specialist. Transform German chess tournament news into exciting social media posts that:
+
+1. Emphasize the competitive drama and stakes
+2. Highlight star players and their achievements
+3. Use tournament-specific emojis (🏆, 🥇, 🥈, 🥉, ⚔️, 🔥, ⚡)
+4. Create anticipation for upcoming rounds or celebrate victories
+5. Include relevant tournament hashtags (#Schachturnier #Tournament #Bundesliga #WM #EM)
+6. Make non-chess players curious about the excitement
+7. Stay under 380 characters
+
+Focus on the human drama, surprising results, and competitive excitement."""
+
+userPrompt = "Transform this German chess tournament news into an exciting social media post:\n\n{{message}}"
+maxTokens = 250
+temperature = 0.8
+
+# Weekend Chess Digest with AI Summary
+[[providers]]
+name = "schachkicker-weekend-digest"
+type = "rssfeed"
+schedule = "0 10 * * 6"  # Saturday at 10 AM
+enabled = true
+accounts = ["chess-mastodon", "chess-bluesky"]  # Post digest to both platforms
+
+[providers.config]
+feedUrl = "https://schachkicker.de/feed/"
+timeout = 20000
+maxItems = 8
+template = "Schach-Wochenrückblick:\n\n{{title}}\n{{content|trim:100}}\n{{link}}\n\n---\n"
+
+# AI-powered weekly summary
+[[providers.middleware]]
+name = "weekly-digest-ai"
+type = "openrouter"
+enabled = true
+
+[providers.middleware.config]
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3.5-sonnet"
+systemPrompt = """You are a chess journalist creating a weekly digest. Transform multiple German chess news items into a cohesive, engaging weekly summary that:
+
+1. Groups related stories together
+2. Highlights the week's most important developments
+3. Uses a friendly, conversational German tone
+4. Includes a mix of emojis (📅, ♟️, 🏆, ⭐, 🎯)
+5. Creates a narrative flow between different news items
+6. Ends with anticipation for the coming week
+7. Stays under 500 characters total
+8. Uses hashtags: #SchachWoche #ChessWeek #Wochenrückblick
+
+Make it feel like a friendly chess club newsletter."""
+
+userPrompt = "Create a weekly chess digest from these German news items:\n\n{{message}}"
+maxTokens = 400
+temperature = 0.6
+
+# Rate Limiting for AI API calls
+[[providers.middleware]]
+name = "ai-rate-limiter"
+type = "rate_limit"
+enabled = true
+
+[providers.middleware.config]
+maxRequests = 50
+windowMs = 3600000  # 1 hour
+skipOnLimit = true
+skipReason = "AI API rate limit reached"
+
+# OpenRouter configuration
+[openrouter]
+apiKey = "${OPENROUTER_API_KEY}"
+baseUrl = "https://openrouter.ai/api/v1"
+defaultModel = "anthropic/claude-3.5-sonnet"
+timeout = 30000
+
+# Logging to monitor AI enhancements
+[logging]
+level = "info"
+format = "json"
