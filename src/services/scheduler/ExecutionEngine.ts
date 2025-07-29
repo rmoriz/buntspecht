@@ -78,8 +78,10 @@ export class ExecutionEngine {
               createdMiddlewares.set(middlewareKey, middleware);
               this.logger.debug(`Created middleware: ${middleware.name} (${middlewareConfig.type})`);
             } catch (error) {
-              this.logger.error(`Failed to create middleware ${middlewareConfig.name} for provider ${providerConfig.name}:`, error);
-              throw error;
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              this.logger.error(`Failed to create middleware ${middlewareConfig.name} for provider ${providerConfig.name}: ${errorMessage}`);
+              this.logger.warn(`Middleware "${middlewareConfig.name}" will be skipped for provider "${providerConfig.name}" due to creation failure`);
+              continue; // Skip this middleware and continue with the next one
             }
           }
           

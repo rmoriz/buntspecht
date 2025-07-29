@@ -114,33 +114,83 @@ export class MessageMiddlewareManager {
    * Initializes all registered middlewares (global and provider-specific)
    */
   public async initialize(): Promise<void> {
+    const failedMiddlewares: string[] = [];
+    let successfulMiddlewares = 0;
+
     // Initialize global middlewares
-    for (const middleware of this.globalMiddlewares) {
+    const globalMiddlewaresToRemove: number[] = [];
+    for (let i = 0; i < this.globalMiddlewares.length; i++) {
+      const middleware = this.globalMiddlewares[i];
       if (middleware.initialize) {
         try {
           await middleware.initialize(this.logger, this.telemetry);
           this.logger.debug(`Initialized global message middleware: ${middleware.name}`);
+          successfulMiddlewares++;
         } catch (error) {
-          this.logger.error(`Failed to initialize global message middleware ${middleware.name}:`, error);
-          throw error;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Failed to initialize global message middleware ${middleware.name}: ${errorMessage}`);
+          this.logger.warn(`Global middleware "${middleware.name}" will be removed due to initialization failure`);
+          failedMiddlewares.push(`global:${middleware.name}`);
+          globalMiddlewaresToRemove.push(i);
         }
+      } else {
+        successfulMiddlewares++;
       }
     }
 
+    // Remove failed global middlewares (in reverse order to maintain indices)
+    for (let i = globalMiddlewaresToRemove.length - 1; i >= 0; i--) {
+      this.globalMiddlewares.splice(globalMiddlewaresToRemove[i], 1);
+    }
+
     // Initialize provider-specific middlewares
+    const providerMiddlewaresToRemove: Map<string, number[]> = new Map();
     for (const [providerName, middlewares] of this.providerMiddlewares.entries()) {
-      for (const middleware of middlewares) {
+      const indicesToRemove: number[] = [];
+      
+      for (let i = 0; i < middlewares.length; i++) {
+        const middleware = middlewares[i];
         if (middleware.initialize) {
           try {
             await middleware.initialize(this.logger, this.telemetry);
             this.logger.debug(`Initialized provider-specific message middleware: ${middleware.name} for provider: ${providerName}`);
+            successfulMiddlewares++;
           } catch (error) {
-            this.logger.error(`Failed to initialize provider-specific message middleware ${middleware.name} for provider ${providerName}:`, error);
-            throw error;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to initialize provider-specific message middleware ${middleware.name} for provider ${providerName}: ${errorMessage}`);
+            this.logger.warn(`Provider middleware "${middleware.name}" will be removed from provider "${providerName}" due to initialization failure`);
+            failedMiddlewares.push(`${providerName}:${middleware.name}`);
+            indicesToRemove.push(i);
           }
+        } else {
+          successfulMiddlewares++;
         }
       }
+      
+      if (indicesToRemove.length > 0) {
+        providerMiddlewaresToRemove.set(providerName, indicesToRemove);
+      }
     }
+
+    // Remove failed provider-specific middlewares (in reverse order to maintain indices)
+    for (const [providerName, indicesToRemove] of providerMiddlewaresToRemove.entries()) {
+      const middlewares = this.providerMiddlewares.get(providerName)!;
+      for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+        middlewares.splice(indicesToRemove[i], 1);
+      }
+      
+      // Clean up empty provider middleware arrays
+      if (middlewares.length === 0) {
+        this.providerMiddlewares.delete(providerName);
+      }
+    }
+
+    // Report results
+    if (failedMiddlewares.length > 0) {
+      this.logger.warn(`${failedMiddlewares.length} middleware(s) failed to initialize: ${failedMiddlewares.join(', ')}`);
+    }
+
+    this.logger.info(`Successfully initialized ${successfulMiddlewares} middleware instance(s)${failedMiddlewares.length > 0 ? ` (${failedMiddlewares.length} failed)` : ''}`);
   }
 
   /**
