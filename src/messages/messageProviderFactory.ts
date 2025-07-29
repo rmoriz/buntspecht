@@ -64,8 +64,8 @@ export class MessageProviderFactory {
 
     // Initialize the provider if it has an initialize method
     if (provider.initialize) {
-      // Check if provider supports provider name parameter (MultiJsonCommandProvider)
-      if (provider.getProviderName() === 'multijsoncommand') {
+      // Check if provider supports provider name parameter (MultiJsonCommandProvider and RSSFeedProvider)
+      if (provider.getProviderName() === 'multijsoncommand' || provider.getProviderName() === 'rssfeed') {
         await (provider as unknown as { initialize: (logger: Logger, telemetry?: TelemetryService, providerName?: string) => Promise<void> }).initialize(logger, telemetry, providerName);
       } else {
         await provider.initialize(logger, telemetry);

@@ -53,12 +53,18 @@ export class RSSFeedProvider implements MessageProvider {
     }
   }
 
-  public async initialize(logger: Logger, telemetry?: TelemetryService): Promise<void> {
+  public async initialize(logger: Logger, telemetry?: TelemetryService, providerName?: string): Promise<void> {
     this.logger = logger;
     this.telemetry = telemetry;
+    
+    // Set provider name if provided, otherwise keep default
+    if (providerName) {
+      this.providerName = providerName;
+    }
+    
     const cacheDir = this.config.cache?.filePath ? require('path').dirname(this.config.cache.filePath) : './cache';
     this.deduplicator = new MessageDeduplicator(cacheDir, logger);
-    this.logger.info(`Initialized RSSFeedProvider for ${this.config.feedUrl}`);
+    this.logger.info(`Initialized RSSFeedProvider for ${this.config.feedUrl} (provider: ${this.providerName})`);
   }
 
   public getProviderName(): string {

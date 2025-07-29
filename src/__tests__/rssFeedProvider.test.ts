@@ -159,6 +159,43 @@ describe('RSSFeedProvider', () => {
       const items = await providerNoCache['fetchFeedItems']();
       expect(items.length).toBe(sampleFeed.items.length);
     });
+
+    it('uses provider name in cache operations', async () => {
+      const customProviderName = 'my-custom-rss-feed';
+      const providerWithCustomName = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: true } 
+      });
+      
+      // Initialize with custom provider name
+      await providerWithCustomName.initialize(logger, undefined, customProviderName);
+      
+      // Verify the provider name was set correctly
+      expect(providerWithCustomName.getProviderName()).toBe(customProviderName);
+      
+      // Verify the initialization log includes the custom provider name
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining(`(provider: ${customProviderName})`)
+      );
+    });
+
+    it('uses default provider name when none provided', async () => {
+      const providerWithDefaultName = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: true } 
+      });
+      
+      // Initialize without custom provider name
+      await providerWithDefaultName.initialize(logger);
+      
+      // Verify the default provider name is used
+      expect(providerWithDefaultName.getProviderName()).toBe('rssfeed');
+      
+      // Verify the initialization log includes the default provider name
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('(provider: rssfeed)')
+      );
+    });
   });
 
   describe('Chronological processing', () => {
