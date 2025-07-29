@@ -521,6 +521,115 @@ describe('MultiJsonCommandProvider', () => {
     });
   });
 
+  describe('processing order', () => {
+    it('should process items top-bottom by default', async () => {
+      const provider = new MultiJsonCommandProvider({
+        command: 'echo \'[{"id": "first", "message": "First item"}, {"id": "second", "message": "Second item"}, {"id": "third", "message": "Third item"}]\'',
+        template: 'Message: {{message}}',
+        cache: { enabled: false }
+      });
+
+      await provider.initialize(logger);
+
+      // First call should process the first item (top-bottom)
+      const message1 = await provider.generateMessage();
+      expect(message1).toBe('Message: First item');
+    });
+
+    it('should process items bottom-top when configured', async () => {
+      const provider = new MultiJsonCommandProvider({
+        command: 'echo \'[{"id": "first", "message": "First item"}, {"id": "second", "message": "Second item"}, {"id": "third", "message": "Third item"}]\'',
+        template: 'Message: {{message}}',
+        processingOrder: 'bottom-top',
+        cache: { enabled: false }
+      });
+
+      await provider.initialize(logger);
+
+      // First call should process the last item (bottom-top)
+      const message1 = await provider.generateMessage();
+      expect(message1).toBe('Message: Third item');
+    });
+
+    it('should process items in correct order with caching enabled', async () => {
+      // Use a unique cache directory to avoid interference from other tests
+      const testCacheDir = './tmp_test_cache_order_' + Date.now();
+      
+      const provider = new MultiJsonCommandProvider({
+        command: 'echo \'[{"id": "first", "message": "First item"}, {"id": "second", "message": "Second item"}, {"id": "third", "message": "Third item"}]\'',
+        template: 'Message: {{message}}',
+        processingOrder: 'bottom-top',
+        cache: { enabled: true, filePath: `${testCacheDir}/cache.json` }
+      });
+
+      await provider.initialize(logger, undefined, 'test-provider-order');
+
+      // First call should process the last item (bottom-top)
+      const message1 = await provider.generateMessage();
+      expect(message1).toBe('Message: Third item');
+
+      // Second call should process the second-to-last item
+      const message2 = await provider.generateMessage();
+      expect(message2).toBe('Message: Second item');
+
+      // Third call should process the first item
+      const message3 = await provider.generateMessage();
+      expect(message3).toBe('Message: First item');
+
+      // Fourth call should return empty (all processed)
+      const message4 = await provider.generateMessage();
+      expect(message4).toBe('');
+      
+      // Clean up test cache directory
+      if (require('fs').existsSync(testCacheDir)) {
+        require('fs').rmSync(testCacheDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should work with generateMessageWithAttachments and processing order', async () => {
+      const provider = new MultiJsonCommandProvider({
+        command: 'echo \'[{"id": "first", "message": "First item"}, {"id": "second", "message": "Second item"}]\'',
+        template: 'Message: {{message}}',
+        processingOrder: 'bottom-top',
+        cache: { enabled: false }
+      });
+
+      await provider.initialize(logger);
+
+      // Should process the last item first
+      const result = await provider.generateMessageWithAttachments();
+      expect(result.text).toBe('Message: Second item');
+    });
+
+    it('should process file-based data with bottom-top order', async () => {
+      const testData = [
+        { id: 'first', message: 'First item' },
+        { id: 'second', message: 'Second item' },
+        { id: 'third', message: 'Third item' }
+      ];
+      const testFilePath = './tmp_rovodev_test_data_order.json';
+      fs.writeFileSync(testFilePath, JSON.stringify(testData));
+
+      const provider = new MultiJsonCommandProvider({
+        file: testFilePath,
+        template: 'Message: {{message}}',
+        processingOrder: 'bottom-top',
+        cache: { enabled: false }
+      });
+
+      await provider.initialize(logger);
+
+      // Should process the last item first
+      const message1 = await provider.generateMessage();
+      expect(message1).toBe('Message: Third item');
+
+      // Clean up
+      if (fs.existsSync(testFilePath)) {
+        fs.unlinkSync(testFilePath);
+      }
+    });
+  });
+
   describe('file mode', () => {
     beforeEach(() => {
       // Clean up any existing test files

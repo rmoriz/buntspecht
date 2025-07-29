@@ -30,6 +30,7 @@ export interface MultiJsonCommandProviderConfig extends MessageProviderConfig {
   attachmentMimeTypeKey?: string; // JSON key for MIME type within each attachment (default: "mimeType", fallback: "type")
   attachmentFilenameKey?: string; // JSON key for filename within each attachment (default: "filename", fallback: "name")
   attachmentDescriptionKey?: string; // JSON key for description within each attachment (default: "description", fallback: "alt")
+  processingOrder?: 'top-bottom' | 'bottom-top'; // Order to process items (default: 'top-bottom')
   cache?: {
     enabled?: boolean; // Enable caching (default: true)
     ttl?: number; // Time to live in milliseconds (default: 1209600000 = 14 days)
@@ -173,6 +174,7 @@ export class MultiJsonCommandProvider implements MessageProvider {
       attachmentMimeTypeKey: this.config.attachmentMimeTypeKey!,
       attachmentFilenameKey: this.config.attachmentFilenameKey!,
       attachmentDescriptionKey: this.config.attachmentDescriptionKey!,
+      processingOrder: this.config.processingOrder || 'top-bottom',
       cache: this.config.cache
     };
   }

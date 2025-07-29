@@ -25,6 +25,7 @@ export interface MessageGenerationConfig {
   attachmentMimeTypeKey: string;
   attachmentFilenameKey: string;
   attachmentDescriptionKey: string;
+  processingOrder?: 'top-bottom' | 'bottom-top';
   cache?: {
     enabled?: boolean;
     ttl?: number;
@@ -134,10 +135,12 @@ export class MessageGenerator {
           return null;
         }
 
-        // Process the first unprocessed item
-        const item = unprocessed[0];
-        this.logger.debug(`Processing item at index 0 of ${unprocessed.length} unprocessed items for account: ${accountName || 'default'}`);
-        const uniqueId = this.jsonProcessor.getUniqueId(item, config.uniqueKey, 0);
+        // Process item based on processing order
+        const processingOrder = config.processingOrder || 'top-bottom';
+        const itemIndex = processingOrder === 'bottom-top' ? unprocessed.length - 1 : 0;
+        const item = unprocessed[itemIndex];
+        this.logger.debug(`Processing item at index ${itemIndex} of ${unprocessed.length} unprocessed items (${processingOrder}) for account: ${accountName || 'default'}`);
+        const uniqueId = this.jsonProcessor.getUniqueId(item, config.uniqueKey, itemIndex);
 
         // Create attachment configuration
         const attachmentConfig = this.templateProcessor.createAttachmentConfig({
