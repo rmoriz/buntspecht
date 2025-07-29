@@ -16,7 +16,7 @@ export interface RSSFeedProviderConfig extends MessageProviderConfig {
   };
   timeout?: number; // Request timeout in milliseconds
   userAgent?: string; // Custom user agent
-  maxItems?: number; // Maximum number of items to process (default: 10)
+  maxItems?: number; // Maximum number of items to process (default: unlimited)
   retries?: number; // Number of retry attempts on failure (default: 3)
 }
 
@@ -34,7 +34,7 @@ export class RSSFeedProvider implements MessageProvider {
     // Set defaults
     this.config = {
       timeout: 30000, // 30 seconds
-      maxItems: 10,
+      maxItems: undefined, // Process all available items by default
       retries: 3,
       userAgent: 'Buntspecht RSS Reader/1.0',
       ...config
@@ -135,9 +135,10 @@ export class RSSFeedProvider implements MessageProvider {
           items = [];
         }
 
-        // Limit items
-        const maxItems = this.config.maxItems || 10;
-        items = items.slice(0, maxItems);
+        // Limit items if maxItems is specified
+        if (this.config.maxItems && this.config.maxItems > 0) {
+          items = items.slice(0, this.config.maxItems);
+        }
 
         // Filter processed items if caching is enabled
         const processed = this.config.cache?.enabled !== false 
@@ -292,8 +293,12 @@ export class RSSFeedProvider implements MessageProvider {
         : new Set<string>();
       
       let added = 0;
-      const maxItems = this.config.maxItems || 10;
-      const items = (feed?.items || []).slice(0, maxItems);
+      let items = feed?.items || [];
+      
+      // Limit items if maxItems is specified
+      if (this.config.maxItems && this.config.maxItems > 0) {
+        items = items.slice(0, this.config.maxItems);
+      }
       
       for (const item of items) {
         if (!item) continue;

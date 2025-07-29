@@ -62,7 +62,7 @@ describe('RSSFeedProvider', () => {
       expect(items.some(i => i.title === 'A')).toBe(true);
     });
 
-    it('limits items to 10', async () => {
+    it('processes all items by default (no limit)', async () => {
       const largeFeed = {
         items: Array.from({ length: 15 }, (_, i) => ({
           title: `Item ${i}`,
@@ -73,7 +73,7 @@ describe('RSSFeedProvider', () => {
       };
       mockParser.parseURL.mockResolvedValue(largeFeed);
       const items = await provider['fetchFeedItems']();
-      expect(items.length).toBe(10);
+      expect(items.length).toBe(15); // Should process all items by default
     });
   });
 
@@ -269,6 +269,53 @@ describe('RSSFeedProvider', () => {
       expect(items[2].title).toBe('No Date 2');
     });
 
+    it('processes all items by default (no maxItems limit)', async () => {
+      const largeFeed = {
+        items: Array.from({ length: 25 }, (_, i) => ({
+          title: `Item ${i + 1}`,
+          link: `https://test.com/item${i + 1}`,
+          pubDate: new Date(2021, 0, i + 1).toISOString(),
+          description: `Description ${i + 1}`
+        }))
+      };
+      
+      mockParser.parseURL.mockResolvedValue(largeFeed);
+      const unlimitedProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        cache: { enabled: false } 
+      });
+      await unlimitedProvider.initialize(logger);
+
+      const items = await unlimitedProvider['fetchFeedItems']();
+      
+      // Should process all 25 items by default
+      expect(items.length).toBe(25);
+    });
+
+    it('respects maxItems when explicitly set', async () => {
+      const largeFeed = {
+        items: Array.from({ length: 25 }, (_, i) => ({
+          title: `Item ${i + 1}`,
+          link: `https://test.com/item${i + 1}`,
+          pubDate: new Date(2021, 0, i + 1).toISOString(),
+          description: `Description ${i + 1}`
+        }))
+      };
+      
+      mockParser.parseURL.mockResolvedValue(largeFeed);
+      const limitedProvider = new RSSFeedProvider({ 
+        feedUrl: 'https://test.com/feed', 
+        maxItems: 5,
+        cache: { enabled: false } 
+      });
+      await limitedProvider.initialize(logger);
+
+      const items = await limitedProvider['fetchFeedItems']();
+      
+      // Should only process 5 items when maxItems is set
+      expect(items.length).toBe(5);
+    });
+
     it('handles invalid dates gracefully', async () => {
       const invalidDateFeed = {
         items: [
@@ -334,7 +381,7 @@ describe('RSSFeedProvider', () => {
     it('applies default configuration values', () => {
       const provider = new RSSFeedProvider({ feedUrl: 'https://example.com/feed.xml' });
       expect(provider['config'].timeout).toBe(30000);
-      expect(provider['config'].maxItems).toBe(10);
+      expect(provider['config'].maxItems).toBeUndefined(); // Default is now unlimited
       expect(provider['config'].retries).toBe(3);
       expect(provider['config'].userAgent).toBe('Buntspecht RSS Reader/1.0');
     });
