@@ -69,11 +69,38 @@ export class RSSFeedProvider implements MessageProvider {
     const items = await this.fetchFeedItems();
     if (!items.length) return '';
     const latest = items[0];
+    
+    // Mark the item as processed and save cache
+    if (this.config.cache?.enabled !== false) {
+      const processed = this.deduplicator.loadProcessedItems(this.providerName);
+      const key = this.getItemKey(latest);
+      if (key) {
+        this.deduplicator.markItemAsProcessed(processed, key);
+        this.deduplicator.saveProcessedItems(this.providerName, processed);
+        this.logger?.debug(`Marked RSS item as processed: ${key}`);
+      }
+    }
+    
     return this.formatItem(latest);
   }
 
   public async generateMessageWithAttachments(): Promise<MessageWithAttachments> {
-    return { text: await this.generateMessage() };
+    const items = await this.fetchFeedItems();
+    if (!items.length) return { text: '' };
+    const latest = items[0];
+    
+    // Mark the item as processed and save cache
+    if (this.config.cache?.enabled !== false) {
+      const processed = this.deduplicator.loadProcessedItems(this.providerName);
+      const key = this.getItemKey(latest);
+      if (key) {
+        this.deduplicator.markItemAsProcessed(processed, key);
+        this.deduplicator.saveProcessedItems(this.providerName, processed);
+        this.logger?.debug(`Marked RSS item as processed: ${key}`);
+      }
+    }
+    
+    return { text: this.formatItem(latest) };
   }
 
   private async fetchFeedItems(): Promise<any[]> {
