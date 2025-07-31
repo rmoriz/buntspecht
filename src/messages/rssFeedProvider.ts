@@ -525,7 +525,7 @@ export class RSSFeedProvider implements MessageProvider {
             if (regex.test(text)) {
               return false;
             }
-          } catch (error) {
+          } catch {
             this.logger?.warn(`Invalid regex pattern in exclude filter: ${pattern}`);
             // Fallback to string contains
             if (processedText.includes(processedPattern)) {
@@ -551,7 +551,7 @@ export class RSSFeedProvider implements MessageProvider {
             if (regex.test(text)) {
               return true;
             }
-          } catch (error) {
+          } catch {
             this.logger?.warn(`Invalid regex pattern in include filter: ${pattern}`);
             // Fallback to string contains
             if (processedText.includes(processedPattern)) {
