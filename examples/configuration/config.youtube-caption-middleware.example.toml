@@ -1,0 +1,126 @@
+# YouTube Caption Middleware Example Configuration
+# This example shows how to configure the YouTube Caption Middleware
+# to extract captions from YouTube videos in RSS feeds
+
+[logging]
+level = "info"
+
+# RSS Feed Provider for YouTube Channel
+[[providers]]
+name = "youtube-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/5 * * * *"  # Check every 5 minutes
+
+[providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+template = "🎥 Neues Video: {{title}}\n{{link}}"
+
+# YouTube Caption Middleware Configuration
+[[providers.middleware]]
+name = "youtube-captions"
+type = "youtube_caption"
+enabled = true
+
+[providers.middleware.config]
+# Mode: How to handle the captions
+# - "append": Add captions after the original message (default)
+# - "prepend": Add captions before the original message  
+# - "replace": Replace the entire message with captions
+mode = "append"
+
+# Separator between original message and captions (for append/prepend modes)
+separator = "\n\n📝 Untertitel:\n"
+
+# Language code for captions (optional, defaults to auto-detect)
+# Use ISO 639-1 codes: "en", "de", "fr", "es", etc.
+language = "de"
+
+# Maximum length of captions (optional, unlimited by default)
+maxLength = 2000
+
+# Whether to skip the message if no captions are found
+skipOnNoCaptions = false
+
+# Custom skip reason when no captions are found (only used if skipOnNoCaptions = true)
+skipReason = "Video hat keine verfügbaren Untertitel"
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-main"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+# Provider-Account Mapping
+[[postings]]
+provider = "youtube-channel"
+accounts = ["mastodon-main"]
+visibility = "public"
+
+# Alternative Configuration Examples:
+
+# Example 1: Replace entire message with captions only
+# [[providers.middleware]]
+# name = "captions-only"
+# type = "youtube_caption"
+# enabled = true
+# [providers.middleware.config]
+# mode = "replace"
+# language = "en"
+# maxLength = 500
+
+# Example 2: Prepend captions with custom separator
+# [[providers.middleware]]
+# name = "captions-first"
+# type = "youtube_caption"
+# enabled = true
+# [providers.middleware.config]
+# mode = "prepend"
+# separator = "📝 Transcript:\n\n"
+# skipOnNoCaptions = true
+# skipReason = "No captions available for this video"
+
+# Example 3: Multiple YouTube channels with different caption handling
+# [[providers]]
+# name = "tech-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/10 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TECH_CHANNEL_ID"
+# template = "🔧 Tech Video: {{title}}\n{{link}}"
+# 
+# [[providers.middleware]]
+# name = "tech-captions"
+# type = "youtube_caption"
+# enabled = true
+# [providers.middleware.config]
+# mode = "append"
+# separator = "\n\n🤖 Auto-generated transcript:\n"
+# language = "en"
+# maxLength = 1500
+
+# Example 4: Educational content with German captions
+# [[providers]]
+# name = "education-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "0 */2 * * *"  # Every 2 hours
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=EDU_CHANNEL_ID"
+# template = "📚 Bildungsinhalt: {{title}}\n{{link}}\n\n{{description}}"
+# 
+# [[providers.middleware]]
+# name = "edu-captions"
+# type = "youtube_caption"
+# enabled = true
+# [providers.middleware.config]
+# mode = "append"
+# separator = "\n\n📖 Transkript:\n"
+# language = "de"
+# skipOnNoCaptions = true
+# skipReason = "Kein Transkript verfügbar"

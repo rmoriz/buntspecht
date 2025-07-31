@@ -58,7 +58,8 @@
     "node-cron": "^4.2.0",
     "node-vault": "^0.10.5",
     "rss-parser": "^3.13.0",
-    "toml": "^3.0.0"
+    "toml": "^3.0.0",
+    "youtube-caption-extractor": "^1.8.2"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

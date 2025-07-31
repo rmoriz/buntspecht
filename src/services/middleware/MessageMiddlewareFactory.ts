@@ -8,6 +8,7 @@ import { ScheduleMiddleware, ScheduleConfig } from './builtin/ScheduleMiddleware
 import { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalMiddleware';
 import { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
 import { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMiddleware';
+import { YouTubeCaptionMiddleware, YouTubeCaptionConfig } from './builtin/YouTubeCaptionMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -22,7 +23,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'schedule',
     'conditional',
     'attachment',
-    'openrouter'
+    'openrouter',
+    'youtube_caption'
   ];
 
   /**
@@ -92,6 +94,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new OpenRouterMiddleware(
           config.name,
           config.config as unknown as OpenRouterConfig,
+          enabled
+        );
+
+      case 'youtube_caption':
+        return new YouTubeCaptionMiddleware(
+          config.name,
+          config.config as unknown as YouTubeCaptionConfig,
           enabled
         );
 
