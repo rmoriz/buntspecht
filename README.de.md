@@ -36,6 +36,8 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - 🔧 **Message-Middleware-System**: Nachrichten mit mächtiger Middleware transformieren, filtern und verbessern
 - 📎 **Attachment-Management**: Dateianhänge hinzufügen, entfernen, validieren und modifizieren
 - 🤖 **KI-Nachrichten-Verbesserung**: Integration mit OpenRouter für KI-gestützte Nachrichtenverarbeitung
+- 🎯 **Erweiterte RSS-Filterung**: Eingebaute YouTube Shorts-Filterung, Regex-Patterns, inhaltsbasierte Filterung
+- 📺 **YouTube-Integration**: Automatische Untertitel-Extraktion und Shorts-Filterung Middleware
 
 ## Installation
 

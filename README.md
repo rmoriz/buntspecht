@@ -38,6 +38,8 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 🔧 **Message Middleware System**: Transform, filter, and enhance messages with powerful middleware
 - 📎 **Attachment Management**: Add, remove, validate, and modify file attachments
 - 🤖 **AI Message Enhancement**: Integrate with OpenRouter for AI-powered message processing
+- 🎯 **Advanced RSS Filtering**: Built-in YouTube Shorts filtering, regex patterns, content-based filtering
+- 📺 **YouTube Integration**: Automatic caption extraction and Shorts filtering middleware
 
 ## Installation
 
