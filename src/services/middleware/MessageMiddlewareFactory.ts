@@ -9,6 +9,7 @@ import { ConditionalMiddleware, ConditionalConfig } from './builtin/ConditionalM
 import { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMiddleware';
 import { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMiddleware';
 import { YouTubeCaptionMiddleware, YouTubeCaptionConfig } from './builtin/YouTubeCaptionMiddleware';
+import { YouTubeShortsFilterMiddleware, YouTubeShortsFilterConfig } from './builtin/YouTubeShortsFilterMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -24,7 +25,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'conditional',
     'attachment',
     'openrouter',
-    'youtube_caption'
+    'youtube_caption',
+    'youtube_shorts_filter'
   ];
 
   /**
@@ -101,6 +103,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new YouTubeCaptionMiddleware(
           config.name,
           config.config as unknown as YouTubeCaptionConfig,
+          enabled
+        );
+
+      case 'youtube_shorts_filter':
+        return new YouTubeShortsFilterMiddleware(
+          config.name,
+          config.config as unknown as YouTubeShortsFilterConfig,
           enabled
         );
 

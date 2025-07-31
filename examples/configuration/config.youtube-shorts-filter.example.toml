@@ -1,0 +1,168 @@
+# YouTube Shorts Filter Middleware Example Configuration
+# This example shows how to configure the YouTube Shorts Filter Middleware
+# to automatically skip YouTube Shorts in RSS feeds
+
+[logging]
+level = "info"
+
+# RSS Feed Provider for YouTube Channel
+[[providers]]
+name = "youtube-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/5 * * * *"  # Check every 5 minutes
+
+[providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+template = "🎥 Neues Video: {{title}}\n{{link}}"
+
+# YouTube Shorts Filter Middleware Configuration
+[[providers.middleware]]
+name = "shorts-filter"
+type = "youtube_shorts_filter"
+enabled = true
+
+[providers.middleware.config]
+# Whether to skip YouTube Shorts (default: true)
+skipShorts = true
+
+# Custom skip reason when shorts are found (optional)
+skipReason = "YouTube Shorts werden automatisch übersprungen"
+
+# Whether to log when shorts are skipped (default: true)
+logSkipped = true
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-main"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+# Provider-Account Mapping
+[[postings]]
+provider = "youtube-channel"
+accounts = ["mastodon-main"]
+visibility = "public"
+
+# Alternative Configuration Examples:
+
+# Example 1: Allow shorts but track them
+# [[providers.middleware]]
+# name = "shorts-tracker"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = false
+# logSkipped = true
+
+# Example 2: Silent shorts filtering (no logging)
+# [[providers.middleware]]
+# name = "silent-shorts-filter"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = true
+# logSkipped = false
+# skipReason = "Shorts content filtered"
+
+# Example 3: Multiple providers with different shorts handling
+# [[providers]]
+# name = "main-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/10 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=MAIN_CHANNEL_ID"
+# 
+# [[providers.middleware]]
+# name = "main-shorts-filter"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = true
+# skipReason = "Hauptkanal: Nur reguläre Videos"
+# 
+# [[providers]]
+# name = "shorts-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/15 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=SHORTS_CHANNEL_ID"
+# 
+# [[providers.middleware]]
+# name = "shorts-tracker"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = false  # Allow shorts from this channel
+# logSkipped = false
+
+# Example 4: Combined with other middleware
+# [[providers]]
+# name = "tech-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/5 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TECH_CHANNEL_ID"
+# template = "🔧 {{title}}\n{{link}}"
+# 
+# # First filter out shorts
+# [[providers.middleware]]
+# name = "no-shorts"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = true
+# skipReason = "Tech-Kanal: Keine Shorts"
+# 
+# # Then add captions to remaining videos
+# [[providers.middleware]]
+# name = "add-captions"
+# type = "youtube_caption"
+# enabled = true
+# [providers.middleware.config]
+# mode = "append"
+# separator = "\n\n📝 Transkript:\n"
+# language = "de"
+
+# Example 5: Content-based filtering with custom logic
+# [[providers]]
+# name = "educational-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "0 */2 * * *"  # Every 2 hours
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=EDU_CHANNEL_ID"
+# template = "📚 Bildungsinhalt: {{title}}\n{{link}}\n\n{{description}}"
+# 
+# [[providers.middleware]]
+# name = "edu-shorts-filter"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = true
+# skipReason = "Bildungskanal: Fokus auf ausführliche Inhalte"
+# logSkipped = true
+
+# Example 6: Development/Testing configuration
+# [[providers]]
+# name = "test-channel"
+# type = "rssfeed"
+# enabled = false  # Disabled for production
+# schedule = "*/1 * * * *"  # Every minute for testing
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TEST_CHANNEL_ID"
+# 
+# [[providers.middleware]]
+# name = "test-shorts-filter"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = false  # Allow all content for testing
+# logSkipped = true   # Log everything for debugging
