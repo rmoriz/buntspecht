@@ -2419,6 +2419,13 @@ See [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for detailed release documenta
 
 ## 📚 Additional Documentation
 
+### New Features ✨
+- [RSS Feed Filtering](docs/RSS_FEED_FILTERING.md) - Advanced filtering for RSS feeds with YouTube Shorts filtering, regex patterns, and content-based filtering
+- [YouTube Caption Middleware](docs/YOUTUBE_CAPTION_MIDDLEWARE.md) - Extract and add YouTube video captions automatically
+- [YouTube Shorts Filter Middleware](docs/YOUTUBE_SHORTS_FILTER_MIDDLEWARE.md) - Filter out YouTube Shorts content
+
+### Core Documentation
+
 - [Cache Migration System](docs/CACHE_MIGRATION_SYSTEM.md) - Preventing duplicate messages during upgrades
 - [Automatic Secret Rotation](docs/AUTOMATIC_SECRET_ROTATION.md) - Automatic credential updates
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Technical implementation details

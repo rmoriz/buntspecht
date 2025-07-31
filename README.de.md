@@ -412,6 +412,13 @@ Jeder Provider hat seine eigene unabhängige Middleware-Kette:
 
 Für vollständige Middleware-Dokumentation siehe [docs/MESSAGE_MIDDLEWARE.md](docs/MESSAGE_MIDDLEWARE.md).
 
+### Neue Features ✨
+- [RSS Feed Filterung](docs/RSS_FEED_FILTERING.md) - Erweiterte Filterung für RSS-Feeds mit YouTube Shorts-Filterung, Regex-Patterns und inhaltsbasierter Filterung
+- [YouTube Caption Middleware](docs/YOUTUBE_CAPTION_MIDDLEWARE.md) - YouTube-Video-Untertitel automatisch extrahieren und hinzufügen
+- [YouTube Shorts Filter Middleware](docs/YOUTUBE_SHORTS_FILTER_MIDDLEWARE.md) - YouTube Shorts-Inhalte herausfiltern
+
+Siehe auch die [Konfigurationsbeispiele](examples/configuration/) für praktische Anwendungen aller Features.
+
 ## Konfiguration
 
 Der Bot sucht nach Konfigurationsdateien in folgender Prioritätsreihenfolge:
