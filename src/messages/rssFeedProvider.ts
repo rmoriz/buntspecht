@@ -19,6 +19,27 @@ export interface RSSFeedProviderConfig extends MessageProviderConfig {
   userAgent?: string; // Custom user agent
   maxItems?: number; // Maximum number of items to process (default: unlimited)
   retries?: number; // Number of retry attempts on failure (default: 3)
+  filters?: {
+    // Title-based filtering
+    titleInclude?: string[]; // Only include items with titles matching these patterns (regex supported)
+    titleExclude?: string[]; // Exclude items with titles matching these patterns (regex supported)
+    // Link-based filtering
+    linkInclude?: string[]; // Only include items with links matching these patterns (regex supported)
+    linkExclude?: string[]; // Exclude items with links matching these patterns (regex supported)
+    // Content-based filtering
+    contentInclude?: string[]; // Only include items with content matching these patterns (regex supported)
+    contentExclude?: string[]; // Exclude items with content matching these patterns (regex supported)
+    // Case sensitivity for pattern matching (default: false)
+    caseSensitive?: boolean;
+    // Whether to use regex patterns (default: false, uses simple string contains)
+    useRegex?: boolean;
+    // Predefined filter presets
+    presets?: {
+      excludeYouTubeShorts?: boolean; // Exclude YouTube Shorts URLs
+      excludeYouTubeLive?: boolean; // Exclude YouTube Live streams
+      includeOnlyYouTubeVideos?: boolean; // Only include regular YouTube videos
+    };
+  };
 }
 
 export class RSSFeedProvider implements MessageProvider {
@@ -157,6 +178,11 @@ export class RSSFeedProvider implements MessageProvider {
           const key = this.getItemKey(item);
           return key && !processed.has(key);
         });
+
+        // Apply content filters if configured
+        if (this.config.filters) {
+          items = this.applyFilters(items);
+        }
 
         // Sort items by date (oldest first) for chronological processing
         items = this.sortItemsByDate(items);
@@ -351,5 +377,198 @@ export class RSSFeedProvider implements MessageProvider {
       this.logger?.error(`Failed to warm RSS cache: ${(error as Error).message}`);
       throw error;
     }
+  }
+
+  /**
+   * Apply content filters to RSS items
+   */
+  private applyFilters(items: any[]): any[] {
+    if (!this.config.filters) {
+      return items;
+    }
+
+    const filters = this.config.filters;
+    let filteredItems = items;
+
+    this.logger?.debug(`Applying filters to ${items.length} RSS items`);
+
+    // Apply predefined presets first
+    if (filters.presets) {
+      filteredItems = this.applyPresetFilters(filteredItems, filters.presets);
+    }
+
+    // Apply custom filters
+    filteredItems = filteredItems.filter(item => {
+      if (!item) return false;
+
+      const title = item.title || '';
+      const link = item.link || '';
+      const content = item.contentSnippet || item.content || item.description || '';
+
+      // Title filters
+      if (!this.passesFilter(title, filters.titleInclude, filters.titleExclude, filters.caseSensitive, filters.useRegex)) {
+        this.logger?.debug(`Item filtered out by title filter: "${title}"`);
+        return false;
+      }
+
+      // Link filters
+      if (!this.passesFilter(link, filters.linkInclude, filters.linkExclude, filters.caseSensitive, filters.useRegex)) {
+        this.logger?.debug(`Item filtered out by link filter: "${link}"`);
+        return false;
+      }
+
+      // Content filters
+      if (!this.passesFilter(content, filters.contentInclude, filters.contentExclude, filters.caseSensitive, filters.useRegex)) {
+        this.logger?.debug(`Item filtered out by content filter`);
+        return false;
+      }
+
+      return true;
+    });
+
+    const filteredCount = items.length - filteredItems.length;
+    if (filteredCount > 0) {
+      this.logger?.info(`RSS filters removed ${filteredCount} items, ${filteredItems.length} items remaining`);
+    }
+
+    return filteredItems;
+  }
+
+  /**
+   * Apply predefined filter presets
+   */
+  private applyPresetFilters(items: any[], presets: NonNullable<RSSFeedProviderConfig['filters']>['presets']): any[] {
+    if (!presets) return items;
+
+    let filteredItems = items;
+
+    if (presets.excludeYouTubeShorts) {
+      filteredItems = filteredItems.filter(item => {
+        const link = item.link || '';
+        const title = item.title || '';
+        
+        // Check for YouTube Shorts URLs
+        const shortsPatterns = [
+          /youtube\.com\/shorts\/[a-zA-Z0-9_-]{11}/i,
+          /m\.youtube\.com\/shorts\/[a-zA-Z0-9_-]{11}/i,
+          /youtu\.be\/[a-zA-Z0-9_-]{11}.*shorts/i
+        ];
+
+        const isShorts = shortsPatterns.some(pattern => pattern.test(link)) ||
+                        /\bshorts?\b/i.test(title);
+
+        if (isShorts) {
+          this.logger?.debug(`Excluded YouTube Shorts: "${title}" - ${link}`);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (presets.excludeYouTubeLive) {
+      filteredItems = filteredItems.filter(item => {
+        const link = item.link || '';
+        const title = item.title || '';
+        
+        const isLive = /\blive\b/i.test(title) || 
+                      /live_stream/i.test(link) ||
+                      /livestream/i.test(title);
+
+        if (isLive) {
+          this.logger?.debug(`Excluded YouTube Live: "${title}" - ${link}`);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (presets.includeOnlyYouTubeVideos) {
+      filteredItems = filteredItems.filter(item => {
+        const link = item.link || '';
+        
+        const isYouTubeVideo = /youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}/i.test(link) ||
+                              /youtu\.be\/[a-zA-Z0-9_-]{11}$/i.test(link);
+
+        if (!isYouTubeVideo) {
+          this.logger?.debug(`Excluded non-YouTube video: "${item.title}" - ${link}`);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    return filteredItems;
+  }
+
+  /**
+   * Check if a text passes include/exclude filters
+   */
+  private passesFilter(
+    text: string, 
+    includePatterns?: string[], 
+    excludePatterns?: string[], 
+    caseSensitive: boolean = false,
+    useRegex: boolean = false
+  ): boolean {
+    if (!text) return !includePatterns || includePatterns.length === 0;
+
+    const processedText = caseSensitive ? text : text.toLowerCase();
+
+    // Check exclude patterns first (if any match, item is excluded)
+    if (excludePatterns && excludePatterns.length > 0) {
+      for (const pattern of excludePatterns) {
+        const processedPattern = caseSensitive ? pattern : pattern.toLowerCase();
+        
+        if (useRegex) {
+          try {
+            const regex = new RegExp(processedPattern, caseSensitive ? '' : 'i');
+            if (regex.test(text)) {
+              return false;
+            }
+          } catch (error) {
+            this.logger?.warn(`Invalid regex pattern in exclude filter: ${pattern}`);
+            // Fallback to string contains
+            if (processedText.includes(processedPattern)) {
+              return false;
+            }
+          }
+        } else {
+          if (processedText.includes(processedPattern)) {
+            return false;
+          }
+        }
+      }
+    }
+
+    // Check include patterns (if specified, at least one must match)
+    if (includePatterns && includePatterns.length > 0) {
+      for (const pattern of includePatterns) {
+        const processedPattern = caseSensitive ? pattern : pattern.toLowerCase();
+        
+        if (useRegex) {
+          try {
+            const regex = new RegExp(processedPattern, caseSensitive ? '' : 'i');
+            if (regex.test(text)) {
+              return true;
+            }
+          } catch (error) {
+            this.logger?.warn(`Invalid regex pattern in include filter: ${pattern}`);
+            // Fallback to string contains
+            if (processedText.includes(processedPattern)) {
+              return true;
+            }
+          }
+        } else {
+          if (processedText.includes(processedPattern)) {
+            return true;
+          }
+        }
+      }
+      // If include patterns are specified but none matched, exclude the item
+      return false;
+    }
+
+    // No include patterns specified, item passes
+    return true;
   }
 }

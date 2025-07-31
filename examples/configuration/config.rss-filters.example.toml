@@ -1,0 +1,313 @@
+# RSS Feed Provider with Advanced Filtering Examples
+# This configuration shows various filtering options for RSS feeds
+
+[logging]
+level = "info"
+
+# Example 1: YouTube Channel with Shorts Filtering
+[[providers]]
+name = "youtube-tech-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/10 * * * *"  # Check every 10 minutes
+
+[providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+template = "🎥 {{title}}\n{{link}}"
+
+# Filter configuration
+[providers.config.filters]
+# Predefined presets for common filtering scenarios
+[providers.config.filters.presets]
+excludeYouTubeShorts = true      # Remove YouTube Shorts
+excludeYouTubeLive = false       # Allow live streams
+includeOnlyYouTubeVideos = false # Allow all content types
+
+# Custom title-based filtering
+titleExclude = [
+  "LIVE:",           # Exclude live streams by title
+  "🔴",             # Exclude live indicator emoji
+  "Shorts"          # Additional shorts filtering
+]
+
+# Custom link-based filtering
+linkExclude = [
+  "/shorts/",        # Exclude shorts URLs
+  "live_stream"      # Exclude live stream URLs
+]
+
+# Example 2: Tech Blog with Keyword Filtering
+[[providers]]
+name = "tech-blog"
+type = "rssfeed"
+enabled = true
+schedule = "0 */2 * * *"  # Every 2 hours
+
+[providers.config]
+feedUrl = "https://techblog.example.com/feed.xml"
+template = "📰 {{title}}\n{{link}}\n\n{{content}}"
+
+[providers.config.filters]
+# Only include posts about specific technologies
+titleInclude = [
+  "JavaScript",
+  "TypeScript", 
+  "Node.js",
+  "React",
+  "Vue"
+]
+
+# Exclude certain types of content
+contentExclude = [
+  "sponsored",
+  "advertisement",
+  "affiliate"
+]
+
+# Case-insensitive matching
+caseSensitive = false
+
+# Example 3: News Feed with Regex Filtering
+[[providers]]
+name = "tech-news"
+type = "rssfeed"
+enabled = true
+schedule = "*/15 * * * *"  # Every 15 minutes
+
+[providers.config]
+feedUrl = "https://technews.example.com/rss"
+template = "📈 {{title}}\n{{link}}"
+
+[providers.config.filters]
+# Use regex patterns for advanced filtering
+useRegex = true
+
+# Include only articles about specific topics (regex patterns)
+titleInclude = [
+  "\\b(AI|Machine Learning|Artificial Intelligence)\\b",
+  "\\b(Blockchain|Cryptocurrency|Bitcoin)\\b",
+  "\\b(Cloud|AWS|Azure|GCP)\\b"
+]
+
+# Exclude opinion pieces and editorials
+titleExclude = [
+  "^Opinion:",
+  "^Editorial:",
+  "\\[Opinion\\]"
+]
+
+# Example 4: Multi-Channel YouTube Setup
+[[providers]]
+name = "youtube-main-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/5 * * * *"
+
+[providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=MAIN_CHANNEL_ID"
+template = "🎬 Hauptkanal: {{title}}\n{{link}}"
+
+[providers.config.filters]
+[providers.config.filters.presets]
+excludeYouTubeShorts = true
+excludeYouTubeLive = true
+
+# Only include tutorials and reviews
+titleInclude = ["Tutorial", "Review", "How to", "Guide"]
+
+[[providers]]
+name = "youtube-shorts-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/15 * * * *"
+
+[providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=SHORTS_CHANNEL_ID"
+template = "⚡ Shorts: {{title}}\n{{link}}"
+
+[providers.config.filters]
+[providers.config.filters.presets]
+excludeYouTubeShorts = false  # Allow shorts from this channel
+includeOnlyYouTubeVideos = true
+
+# Only include actual shorts content
+linkInclude = ["/shorts/"]
+
+# Example 5: Podcast Feed Filtering
+[[providers]]
+name = "tech-podcasts"
+type = "rssfeed"
+enabled = true
+schedule = "0 8,20 * * *"  # 8 AM and 8 PM daily
+
+[providers.config]
+feedUrl = "https://techpodcast.example.com/feed.xml"
+template = "🎧 {{title}}\n{{link}}\n\n{{description}}"
+
+[providers.config.filters]
+# Include only full episodes, exclude trailers and bonus content
+titleExclude = [
+  "Trailer",
+  "Bonus",
+  "Preview",
+  "Teaser"
+]
+
+# Include only episodes about specific topics
+contentInclude = [
+  "programming",
+  "software development",
+  "technology trends",
+  "developer tools"
+]
+
+# Example 6: GitHub Releases Feed
+[[providers]]
+name = "github-releases"
+type = "rssfeed"
+enabled = true
+schedule = "0 */6 * * *"  # Every 6 hours
+
+[providers.config]
+feedUrl = "https://github.com/your-org/your-repo/releases.atom"
+template = "🚀 Release: {{title}}\n{{link}}"
+
+[providers.config.filters]
+# Only include stable releases, exclude pre-releases
+titleExclude = [
+  "alpha",
+  "beta", 
+  "rc",
+  "pre-release"
+]
+
+# Use regex to match semantic versioning
+useRegex = true
+titleInclude = ["v\\d+\\.\\d+\\.\\d+$"]  # Match v1.2.3 format
+
+# Example 7: Content Quality Filtering
+[[providers]]
+name = "quality-content"
+type = "rssfeed"
+enabled = true
+schedule = "0 */4 * * *"  # Every 4 hours
+
+[providers.config]
+feedUrl = "https://contentsite.example.com/feed.xml"
+template = "✨ {{title}}\n{{link}}"
+
+[providers.config.filters]
+# Exclude low-quality content indicators
+titleExclude = [
+  "CLICKBAIT",
+  "You Won't Believe",
+  "SHOCKING",
+  "URGENT"
+]
+
+contentExclude = [
+  "click here",
+  "limited time",
+  "act now",
+  "don't miss out"
+]
+
+# Include only substantial content
+contentInclude = [
+  "tutorial",
+  "guide",
+  "analysis",
+  "deep dive",
+  "comprehensive"
+]
+
+# Example 8: Language-Specific Filtering
+[[providers]]
+name = "german-tech-news"
+type = "rssfeed"
+enabled = true
+schedule = "0 9,15,21 * * *"  # 9 AM, 3 PM, 9 PM
+
+[providers.config]
+feedUrl = "https://german-tech.example.com/feed.xml"
+template = "🇩🇪 {{title}}\n{{link}}"
+
+[providers.config.filters]
+# Include only German content
+titleInclude = [
+  "Technologie",
+  "Software",
+  "Entwicklung",
+  "Innovation"
+]
+
+# Exclude English content
+titleExclude = [
+  "Technology",
+  "Software Development",
+  "Innovation"
+]
+
+# Case-sensitive to distinguish between languages
+caseSensitive = true
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-main"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "bluesky-main"
+platform = "bluesky"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://bsky.social"
+identifier = "${BLUESKY_IDENTIFIER}"
+password = "${BLUESKY_APP_PASSWORD}"
+
+# Provider-Account Mappings
+[[postings]]
+provider = "youtube-tech-channel"
+accounts = ["mastodon-main", "bluesky-main"]
+visibility = "public"
+
+[[postings]]
+provider = "tech-blog"
+accounts = ["mastodon-main"]
+visibility = "unlisted"
+
+[[postings]]
+provider = "tech-news"
+accounts = ["bluesky-main"]
+visibility = "public"
+
+[[postings]]
+provider = "github-releases"
+accounts = ["mastodon-main"]
+visibility = "public"
+
+# Advanced Configuration Tips:
+
+# 1. Filter Order: Presets are applied first, then custom filters
+# 2. Include vs Exclude: Exclude filters are checked first, then include filters
+# 3. Regex Performance: Use simple string matching when possible for better performance
+# 4. Case Sensitivity: Default is case-insensitive for broader matching
+# 5. Empty Arrays: Empty filter arrays are ignored (no filtering applied)
+
+# Performance Considerations:
+# - Filtering happens before caching, so filtered items won't be cached
+# - Regex patterns are more CPU-intensive than simple string matching
+# - Consider using presets for common scenarios (YouTube filtering)
+# - Monitor logs to ensure filters are working as expected
+
+# Debugging Tips:
+# - Set logging level to "debug" to see detailed filter information
+# - Use logSkipped = true in middleware for additional filtering logs
+# - Test filters with small feeds first
+# - Validate regex patterns before deployment
