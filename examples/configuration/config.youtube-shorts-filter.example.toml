@@ -6,23 +6,23 @@
 level = "info"
 
 # RSS Feed Provider for YouTube Channel
-[[providers]]
+[[bot.providers]]
 name = "youtube-channel"
 type = "rssfeed"
 enabled = true
 schedule = "*/5 * * * *"  # Check every 5 minutes
 
-[providers.config]
+[bot.providers.config]
 feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
 template = "🎥 Neues Video: {{title}}\n{{link}}"
 
 # YouTube Shorts Filter Middleware Configuration
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "shorts-filter"
 type = "youtube_shorts_filter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 # Whether to skip YouTube Shorts (default: true)
 skipShorts = true
 

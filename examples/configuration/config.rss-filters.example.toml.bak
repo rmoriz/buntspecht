@@ -37,7 +37,7 @@ linkExclude = [
 ]
 
 # Example 2: Tech Blog with Keyword Filtering
-[[bot.providers]]
+[[providers]]
 name = "tech-blog"
 type = "rssfeed"
 enabled = true
@@ -68,7 +68,7 @@ contentExclude = [
 caseSensitive = false
 
 # Example 3: News Feed with Regex Filtering
-[[bot.providers]]
+[[providers]]
 name = "tech-news"
 type = "rssfeed"
 enabled = true
@@ -97,7 +97,7 @@ titleExclude = [
 ]
 
 # Example 4: Multi-Channel YouTube Setup
-[[bot.providers]]
+[[providers]]
 name = "youtube-main-channel"
 type = "rssfeed"
 enabled = true
@@ -115,7 +115,7 @@ excludeYouTubeLive = true
 # Only include tutorials and reviews
 titleInclude = ["Tutorial", "Review", "How to", "Guide"]
 
-[[bot.providers]]
+[[providers]]
 name = "youtube-shorts-channel"
 type = "rssfeed"
 enabled = true
@@ -134,7 +134,7 @@ includeOnlyYouTubeVideos = true
 linkInclude = ["/shorts/"]
 
 # Example 5: Podcast Feed Filtering
-[[bot.providers]]
+[[providers]]
 name = "tech-podcasts"
 type = "rssfeed"
 enabled = true
@@ -162,7 +162,7 @@ contentInclude = [
 ]
 
 # Example 6: GitHub Releases Feed
-[[bot.providers]]
+[[providers]]
 name = "github-releases"
 type = "rssfeed"
 enabled = true
@@ -186,7 +186,7 @@ useRegex = true
 titleInclude = ["v\\d+\\.\\d+\\.\\d+$"]  # Match v1.2.3 format
 
 # Example 7: Content Quality Filtering
-[[bot.providers]]
+[[providers]]
 name = "quality-content"
 type = "rssfeed"
 enabled = true
@@ -222,7 +222,7 @@ contentInclude = [
 ]
 
 # Example 8: Language-Specific Filtering
-[[bot.providers]]
+[[providers]]
 name = "german-tech-news"
 type = "rssfeed"
 enabled = true

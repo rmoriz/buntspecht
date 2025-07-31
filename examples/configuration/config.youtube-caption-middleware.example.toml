@@ -6,23 +6,23 @@
 level = "info"
 
 # RSS Feed Provider for YouTube Channel
-[[providers]]
+[[bot.providers]]
 name = "youtube-channel"
 type = "rssfeed"
 enabled = true
 schedule = "*/5 * * * *"  # Check every 5 minutes
 
-[providers.config]
+[bot.providers.config]
 feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
 template = "🎥 Neues Video: {{title}}\n{{link}}"
 
 # YouTube Caption Middleware Configuration
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "youtube-captions"
 type = "youtube_caption"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 # Mode: How to handle the captions
 # - "append": Add captions after the original message (default)
 # - "prepend": Add captions before the original message  
