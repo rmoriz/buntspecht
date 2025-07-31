@@ -3,7 +3,7 @@
 # A German chess news website providing updates on chess tournaments, player news, and chess culture
 
 # Basic RSS feed configuration for Schachkicker
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-news"
 type = "rssfeed"
 feedUrl = "https://schachkicker.de/feed/"
@@ -14,7 +14,7 @@ retries = 2              # Retry twice on failure
 userAgent = "Buntspecht/1.0 RSS Reader"
 
 # RSS feed with German chess-themed template
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-formatted"
 type = "rssfeed"
 feedUrl = "https://schachkicker.de/feed/"
@@ -22,7 +22,7 @@ schedule = "0 8,14,20 * * *"  # Check 3 times daily (morning, afternoon, evening
 template = "♟️ **{{title}}**\n\n📝 {{content|trim:300}}...\n\n🔗 Mehr lesen: {{link}}\n\n#Schach #Chess #Schachkicker"
 
 # RSS feed with caching for better performance
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-cached"
 type = "rssfeed"
 feedUrl = "https://schachkicker.de/feed/"
@@ -30,14 +30,14 @@ schedule = "0 */1 * * *"  # Check hourly
 timeout = 20000
 maxItems = 10
 
-[providers.cache]
+[bot.providers.cache]
 enabled = true
 ttl = 7200               # Cache for 2 hours
 maxSize = 500            # Max 500 cache entries
 filePath = "./cache/schachkicker-rss.json"
 
 # RSS feed with content filtering for specific topics
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-tournaments"
 type = "rssfeed"
 feedUrl = "https://schachkicker.de/feed/"
@@ -45,12 +45,12 @@ schedule = "0 */3 * * *"  # Every 3 hours
 template = "🏆 **Turnier-News:** {{title}}\n\n{{content|trim:250}}...\n\n📖 {{link}}\n\n#Schachturnier #Tournament"
 
 # Example middleware configuration for content filtering
-[[providers.middleware]]
+[[bot.providers.middleware]]
 type = "filter"
 condition = "title|lower contains 'turnier' or title|lower contains 'tournament' or title|lower contains 'wm' or title|lower contains 'em'"
 
 # RSS feed for weekend chess digest
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-weekend"
 type = "rssfeed"
 feedUrl = "https://schachkicker.de/feed/"

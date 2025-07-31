@@ -2,14 +2,14 @@
 # This file demonstrates various RSS feed provider configurations
 
 # Basic RSS feed configuration
-[[bot.providers]]
+[[providers]]
 name = "tech-news"
 type = "rssfeed"
 feedUrl = "https://feeds.feedburner.com/TechCrunch"
 schedule = "0 */2 * * *"  # Every 2 hours
 
 # RSS feed with custom template
-[[bot.providers]]
+[[providers]]
 name = "news-with-template"
 type = "rssfeed"
 feedUrl = "https://feeds.bbci.co.uk/news/rss.xml"
@@ -17,7 +17,7 @@ schedule = "0 */1 * * *"  # Every hour
 template = "📰 {{title}}\n🔗 {{link}}\n📝 {{content|trim:200}}\n#news"
 
 # RSS feed with custom settings
-[[bot.providers]]
+[[providers]]
 name = "bbc-news"
 type = "rss"  # Alternative alias
 feedUrl = "https://feeds.bbci.co.uk/news/rss.xml"
@@ -28,36 +28,36 @@ retries = 2              # Retry twice on failure
 userAgent = "MyBot/1.0"  # Custom user agent
 
 # RSS feed with caching configuration
-[[bot.providers]]
+[[providers]]
 name = "hacker-news"
 type = "rssfeed"
 feedUrl = "https://hnrss.org/frontpage"
 schedule = "0 */30 * * *"  # Every 30 minutes
 
-[bot.providers.cache]
+[providers.cache]
 enabled = true
 ttl = 3600               # Cache TTL in seconds
 maxSize = 1000           # Max cache entries
 filePath = "./cache/hackernews-rss.json"
 
 # RSS feed with disabled caching
-[[bot.providers]]
+[[providers]]
 name = "reddit-programming"
 type = "rssfeed"
 feedUrl = "https://www.reddit.com/r/programming/.rss"
 schedule = "0 */15 * * *"  # Every 15 minutes
 
-[bot.providers.cache]
+[providers.cache]
 enabled = false
 
 # Multiple RSS feeds for different topics
-[[bot.providers]]
+[[providers]]
 name = "dev-blogs"
 type = "rssfeed"
 feedUrl = "https://dev.to/feed"
 schedule = "0 8,12,18 * * *"  # 3 times a day
 
-[[bot.providers]]
+[[providers]]
 name = "github-releases"
 type = "rssfeed"
 feedUrl = "https://github.com/microsoft/vscode/releases.atom"

@@ -16,14 +16,14 @@ handle = "your-chess-handle.bsky.social"
 password = "${BLUESKY_APP_PASSWORD}"
 
 # Schachkicker RSS Provider with AI Enhancement
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-ai-enhanced"
 type = "rssfeed"
 schedule = "0 */2 * * *"  # Every 2 hours
 enabled = true
 accounts = ["chess-mastodon", "chess-bluesky"]  # Direct account mapping
 
-[providers.config]
+[bot.providers.config]
 feedUrl = "https://schachkicker.de/feed/"
 timeout = 15000
 maxItems = 3
@@ -32,12 +32,12 @@ userAgent = "Buntspecht/1.0 Chess News Bot"
 template = "{{title}}\n\n{{content|trim:200}}\n\n{{link}}"
 
 # AI Enhancement Middleware Chain
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "chess-engagement-optimizer"
 type = "openrouter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3.5-sonnet"
 systemPrompt = """You are a chess social media expert. Transform the given German chess news into an engaging social media post that:
@@ -57,62 +57,62 @@ maxTokens = 300
 temperature = 0.7
 
 # Content Quality Filter
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "quality-filter"
 type = "filter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 type = "contains"
 text = "error"
 action = "skip"
 skipReason = "AI enhancement failed"
 
 # Length Validation
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "length-validator"
 type = "filter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 type = "length"
 maxLength = 450
 action = "skip"
 skipReason = "Post too long after AI enhancement"
 
 # Tournament News Variant with Specialized AI
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-tournaments-ai"
 type = "rssfeed"
 schedule = "0 */4 * * *"  # Every 4 hours
 enabled = true
 accounts = ["chess-mastodon"]  # Only post tournaments to Mastodon
 
-[providers.config]
+[bot.providers.config]
 feedUrl = "https://schachkicker.de/feed/"
 timeout = 15000
 maxItems = 2
 template = "{{title}}\n\n{{content|trim:150}}\n\n{{link}}"
 
 # Pre-filter for tournament content
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "tournament-filter"
 type = "filter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 type = "contains_any"
 texts = ["turnier", "tournament", "meisterschaft", "championship", "wm", "em", "bundesliga"]
 action = "continue"
 skipReason = "Not tournament-related content"
 
 # Specialized AI for tournament news
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "tournament-ai-enhancer"
 type = "openrouter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3.5-sonnet"
 systemPrompt = """You are a chess tournament expert and social media specialist. Transform German chess tournament news into exciting social media posts that:
@@ -132,26 +132,26 @@ maxTokens = 250
 temperature = 0.8
 
 # Weekend Chess Digest with AI Summary
-[[providers]]
+[[bot.providers]]
 name = "schachkicker-weekend-digest"
 type = "rssfeed"
 schedule = "0 10 * * 6"  # Saturday at 10 AM
 enabled = true
 accounts = ["chess-mastodon", "chess-bluesky"]  # Post digest to both platforms
 
-[providers.config]
+[bot.providers.config]
 feedUrl = "https://schachkicker.de/feed/"
 timeout = 20000
 maxItems = 8
 template = "Schach-Wochenrückblick:\n\n{{title}}\n{{content|trim:100}}\n{{link}}\n\n---\n"
 
 # AI-powered weekly summary
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "weekly-digest-ai"
 type = "openrouter"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3.5-sonnet"
 systemPrompt = """You are a chess journalist creating a weekly digest. Transform multiple German chess news items into a cohesive, engaging weekly summary that:
@@ -172,12 +172,12 @@ maxTokens = 400
 temperature = 0.6
 
 # Rate Limiting for AI API calls
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "ai-rate-limiter"
 type = "rate_limit"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 maxMessages = 50
 windowMs = 3600000  # 1 hour
 scope = "global"
