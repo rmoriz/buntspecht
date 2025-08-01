@@ -127,12 +127,12 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
             }
           }
           
-          const status = await accountClient.client.v1.statuses.create({
-            status: messageData.text,
-            visibility: finalVisibility,
-            mediaIds: mediaIds.length > 0 ? mediaIds : undefined,
-          });
-
+            const status = await accountClient.client.v1.statuses.create({
+              status: messageData.text,
+              visibility: finalVisibility,
+              mediaIds: mediaIds.length > 0 ? mediaIds : undefined,
+              language: accountClient.config.language,
+            });
           this.logger.info(`Status posted successfully to ${accountName}. ID: ${status.id}${mediaIds.length > 0 ? ` with ${mediaIds.length} attachments` : ''}`);
           this.telemetry.recordPost(accountName, provider || 'unknown');
           results.push({ account: accountName, success: true });

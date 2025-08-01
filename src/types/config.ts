@@ -4,6 +4,7 @@ export interface AccountConfig {
   instance?: string; // Optional - defaults to appropriate service (https://bsky.social for Bluesky)
   accessToken?: string; // Optional for Bluesky (uses identifier+password instead)
   defaultVisibility?: 'public' | 'unlisted' | 'private' | 'direct';
+  language?: string; // Optional: BCP 47 language tag (e.g. "en", "de", "fr", "zh-CN")
   // Bluesky-specific fields
   identifier?: string; // Bluesky handle or DID
   password?: string; // Bluesky app password

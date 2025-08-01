@@ -10,6 +10,7 @@ type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-main-account-token-here"
 # defaultVisibility = "unlisted"  # Optional: public, unlisted, private, direct (default: unlisted)
+# language = "de"  # Optional: BCP 47 language tag (e.g. "en", "de", "fr", "zh-CN")
 
 [[accounts]]
 name = "backup-account"
@@ -17,6 +18,7 @@ type = "mastodon"  # Optional: account type (default: mastodon)
 instance = "https://fosstodon.org"
 accessToken = "your-backup-account-token-here"
 # defaultVisibility = "public"  # Optional: public, unlisted, private, direct (default: unlisted)
+# language = "en"  # Optional: BCP 47 language tag (e.g. "en", "de", "fr", "zh-CN")
 
 # Bluesky Account Example
 [[accounts]]

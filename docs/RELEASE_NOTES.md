@@ -29,6 +29,16 @@ July 19, 2025
 - Updated CORS headers to allow GET method for health checks
 - Enhanced error messages for configuration conflicts
 
+### Mastodon Language Support
+- Mastodon posts now support configurable language via account config (`language` field, BCP 47 tag)
+- Example: `[accounts.mastodon.myaccount]
+language = "de"`
+- Language is sent to Mastodon API for each post
+
+### ESLint Config Fixes
+- Added missing web API globals (`AbortController`, `TextDecoder`, `Headers`) for Bun/TypeScript compatibility
+- `npm run lint:fix` now works without blocking errors
+
 ### Build & Release
 - Updated version to 0.12.0 across all files
 - All tests passing (348 tests)

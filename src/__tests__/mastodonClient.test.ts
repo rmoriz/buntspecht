@@ -44,11 +44,11 @@ describe('MastodonClient', () => {
     config = {
       accounts: [
         {
-          name: 'test-account',
-          instance: 'https://test.mastodon',
-          accessToken: 'test-token',
-        }
-      ],
+           name: 'test-account',
+           instance: 'https://test.mastodon',
+           accessToken: 'test-token',
+           language: 'de',
+         }      ],
       bot: {
         providers: [
           {
@@ -142,11 +142,11 @@ describe('MastodonClient', () => {
 
       await client.postStatus('Test message', ['test-account']);
 
-      expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledWith({
-        status: 'Test message',
-        visibility: 'unlisted',
-      });
-      expect(logger.info).toHaveBeenCalledWith('Posting status to test-account (https://test.mastodon) with visibility \'unlisted\' (12 chars): "Test message"');
+       expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledWith({
+         status: 'Test message',
+         visibility: 'unlisted',
+         language: 'de',
+       });      expect(logger.info).toHaveBeenCalledWith('Posting status to test-account (https://test.mastodon) with visibility \'unlisted\' (12 chars): "Test message"');
       expect(logger.info).toHaveBeenCalledWith('Status posted successfully to test-account. ID: 12345');
     });
 
