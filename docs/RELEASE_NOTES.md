@@ -31,8 +31,15 @@ July 19, 2025
 
 ### Mastodon Language Support
 - Mastodon posts now support configurable language via account config (`language` field, BCP 47 tag)
-- Example: `[accounts.mastodon.myaccount]
-language = "de"`
+- Example:
+  ```toml
+  [[accounts]]
+  name = "mastodon-account"
+  type = "mastodon"
+  instance = "https://mastodon.social"
+  accessToken = "your-mastodon-access-token"
+  language = "de"  # Optional: BCP 47 language tag
+  ```
 - Language is sent to Mastodon API for each post
 
 ### ESLint Config Fixes
