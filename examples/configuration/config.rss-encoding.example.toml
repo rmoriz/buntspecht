@@ -1,0 +1,231 @@
+# RSS Feed Encoding Support Example Configuration
+# This example demonstrates RSS feeds with various character encodings
+
+[logging]
+level = "debug"  # Enable to see encoding detection logs
+
+# German news feed (typically ISO-8859-1 or UTF-8)
+[[bot.providers]]
+name = "german-news"
+type = "rssfeed"
+enabled = true
+schedule = "0 */2 * * *"  # Every 2 hours
+
+[bot.providers.config]
+feedUrl = "https://www.tagesschau.de/xml/rss2/"
+template = "📰 {{title}}\n{{link}}\n\n{{description}}"
+timeout = 30000
+retries = 3
+
+# French news feed (may use Windows-1252 or UTF-8)
+[[bot.providers]]
+name = "french-news"
+type = "rssfeed"
+enabled = true
+schedule = "0 */3 * * *"  # Every 3 hours
+
+[bot.providers.config]
+feedUrl = "https://www.lemonde.fr/rss/une.xml"
+template = "🇫🇷 {{title}}\n{{link}}"
+
+# Russian news feed (often Windows-1251 or UTF-8)
+[[bot.providers]]
+name = "russian-news"
+type = "rssfeed"
+enabled = false  # Disabled by default
+schedule = "0 */4 * * *"  # Every 4 hours
+
+[bot.providers.config]
+feedUrl = "https://lenta.ru/rss"
+template = "🇷🇺 {{title}}\n{{link}}"
+
+# Chinese news feed (typically UTF-8)
+[[bot.providers]]
+name = "chinese-news"
+type = "rssfeed"
+enabled = false  # Disabled by default
+schedule = "0 */6 * * *"  # Every 6 hours
+
+[bot.providers.config]
+feedUrl = "http://feeds.feedburner.com/xinhuanet"
+template = "🇨🇳 {{title}}\n{{link}}"
+
+# Legacy blog feed (might use ISO-8859-1)
+[[bot.providers]]
+name = "legacy-blog"
+type = "rssfeed"
+enabled = false  # Example only
+schedule = "0 */12 * * *"  # Twice daily
+
+[bot.providers.config]
+feedUrl = "https://example.com/legacy-blog/feed.xml"
+template = "📝 Blog: {{title}}\n{{link}}\n\n{{content|trim:200}}"
+
+# Social media accounts
+[[accounts]]
+name = "mastodon-international"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "bluesky-news"
+platform = "bluesky"
+enabled = true
+
+[accounts.config]
+handle = "${BLUESKY_HANDLE}"
+password = "${BLUESKY_APP_PASSWORD}"
+
+# Provider-Account Mappings
+[[postings]]
+provider = "german-news"
+accounts = ["mastodon-international"]
+visibility = "public"
+
+[[postings]]
+provider = "french-news"
+accounts = ["mastodon-international", "bluesky-news"]
+visibility = "public"
+
+# Example with middleware for international content
+[[bot.providers]]
+name = "tech-news-international"
+type = "rssfeed"
+enabled = false  # Example only
+schedule = "*/30 * * * *"
+
+[bot.providers.config]
+feedUrl = "https://example.com/tech-feed.xml"
+template = "🔧 {{title}}\n{{link}}"
+
+# Filter middleware to handle international content
+[[bot.providers.middleware]]
+name = "international-filter"
+type = "filter"
+enabled = true
+
+[bot.providers.middleware.config]
+# Include posts with international characters
+includePatterns = [".*"]
+# Exclude certain patterns if needed
+excludePatterns = ["test", "debug"]
+caseSensitive = false
+
+# Text transform middleware for international content
+[[bot.providers.middleware]]
+name = "international-transform"
+type = "text_transform"
+enabled = true
+
+[bot.providers.middleware.config]
+# Normalize quotes and dashes that might come from different encodings
+replacements = [
+    { pattern = """, replacement = "\"" },  # Smart quotes
+    { pattern = """, replacement = "\"" },
+    { pattern = "'", replacement = "'" },
+    { pattern = "'", replacement = "'" },
+    { pattern = "—", replacement = "-" },   # Em dash
+    { pattern = "–", replacement = "-" },   # En dash
+    { pattern = "…", replacement = "..." }  # Ellipsis
+]
+
+# ============================================================================
+# ENCODING TROUBLESHOOTING EXAMPLES
+# ============================================================================
+
+# Example for debugging encoding issues
+[[bot.providers]]
+name = "encoding-debug"
+type = "rssfeed"
+enabled = false  # Only enable for debugging
+schedule = "*/5 * * * *"  # Frequent for testing
+
+[bot.providers.config]
+feedUrl = "https://problematic-feed.example.com/feed.xml"
+template = "🔍 Debug: {{title}}\n{{link}}\n\nContent: {{content}}"
+timeout = 15000
+retries = 1
+
+# ============================================================================
+# COMMON ENCODING SCENARIOS
+# ============================================================================
+
+# Scenario 1: WordPress blog (often UTF-8)
+[[bot.providers]]
+name = "wordpress-blog"
+type = "rssfeed"
+enabled = false
+schedule = "0 */8 * * *"
+
+[bot.providers.config]
+feedUrl = "https://blog.example.com/feed/"
+template = "📖 {{title}}\n{{link}}"
+
+# Scenario 2: Old CMS system (might use ISO-8859-1)
+[[bot.providers]]
+name = "legacy-cms"
+type = "rssfeed"
+enabled = false
+schedule = "0 */12 * * *"
+
+[bot.providers.config]
+feedUrl = "https://legacy.example.com/rss.xml"
+template = "📰 Legacy: {{title}}\n{{link}}"
+
+# Scenario 3: Government feed (encoding varies by country)
+[[bot.providers]]
+name = "government-feed"
+type = "rssfeed"
+enabled = false
+schedule = "0 */6 * * *"
+
+[bot.providers.config]
+feedUrl = "https://government.example.com/news.xml"
+template = "🏛️ {{title}}\n{{link}}"
+
+# ============================================================================
+# MONITORING AND ALERTS
+# ============================================================================
+
+# Monitor encoding issues with webhook
+[[bot.providers]]
+name = "encoding-monitor"
+type = "push"
+enabled = false  # Example only
+
+[bot.providers.config]
+webhookPath = "/encoding-alert"
+template = "⚠️ Encoding issue detected:\n{{message}}\n\nFeed: {{feed_url}}\nDetected: {{detected_encoding}}\nExpected: {{expected_encoding}}"
+
+# ============================================================================
+# NOTES AND BEST PRACTICES
+# ============================================================================
+
+# Encoding Detection Priority:
+# 1. HTTP Content-Type header charset
+# 2. XML declaration encoding attribute
+# 3. Byte Order Mark (BOM)
+# 4. Automatic detection (jschardet)
+# 5. UTF-8 fallback
+
+# Common Encodings by Region:
+# - Western Europe: UTF-8, ISO-8859-1, Windows-1252
+# - Eastern Europe: UTF-8, ISO-8859-2, Windows-1250
+# - Cyrillic: UTF-8, Windows-1251, ISO-8859-5
+# - Asian languages: UTF-8 (almost exclusively)
+
+# Troubleshooting Tips:
+# 1. Enable debug logging to see encoding detection
+# 2. Check feed source with curl -I for HTTP headers
+# 3. Look at raw XML for encoding declaration
+# 4. Test with different user agents if needed
+
+# Performance Notes:
+# - Encoding detection adds minimal overhead
+# - Content is cached after conversion
+# - No additional network requests required
+# - Memory usage is similar to standard RSS processing

@@ -4,6 +4,8 @@ import { TelemetryService } from '../services/telemetryInterface';
 import { MessageDeduplicator } from './multiJson/MessageDeduplicator';
 import { JsonTemplateProcessor } from '../utils/jsonTemplateProcessor';
 import Parser from 'rss-parser';
+import * as iconv from 'iconv-lite';
+import * as jschardet from 'jschardet';
 
 export interface RSSFeedProviderConfig extends MessageProviderConfig {
   feedUrl: string;
@@ -143,6 +145,11 @@ export class RSSFeedProvider implements MessageProvider {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        this.logger?.debug(`Fetching RSS feed from ${this.config.feedUrl} (attempt ${attempt}/${maxRetries})`);
+        
+        // Fetch the RSS content with proper encoding handling
+        const feedContent = await this.fetchFeedWithEncoding(this.config.feedUrl);
+        
         const parser = new Parser({
           timeout: this.config.timeout || 30000,
           headers: {
@@ -150,8 +157,8 @@ export class RSSFeedProvider implements MessageProvider {
           }
         });
 
-        this.logger?.debug(`Fetching RSS feed from ${this.config.feedUrl} (attempt ${attempt}/${maxRetries})`);
-        const feed = await parser.parseURL(this.config.feedUrl);
+        // Parse the properly encoded content
+        const feed = await parser.parseString(feedContent);
         
         if (!feed) {
           throw new Error('Feed parsing returned null or undefined');
@@ -206,6 +213,135 @@ export class RSSFeedProvider implements MessageProvider {
     // All retries failed
     this.logger?.error(`Failed to fetch RSS feed after ${maxRetries} attempts: ${lastError?.message}`);
     throw lastError || new Error('RSS feed fetch failed');
+  }
+
+  /**
+   * Fetch RSS feed content with proper encoding detection and conversion
+   */
+  private async fetchFeedWithEncoding(url: string): Promise<string> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout || 30000);
+    
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': this.config.userAgent || 'Buntspecht RSS Reader/1.0',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      // Get the raw buffer
+      const buffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(buffer);
+      
+      // Detect encoding from multiple sources
+      const detectedEncoding = this.detectEncoding(uint8Array, response.headers);
+      
+      this.logger?.debug(`RSS feed encoding detected: ${detectedEncoding} for ${url}`);
+      
+      // Convert to UTF-8 if needed
+      if (detectedEncoding.toLowerCase() === 'utf-8' || detectedEncoding.toLowerCase() === 'utf8') {
+        // Already UTF-8, just convert buffer to string
+        return new TextDecoder('utf-8').decode(uint8Array);
+      } else {
+        // Convert from detected encoding to UTF-8
+        if (iconv.encodingExists(detectedEncoding)) {
+          const converted = iconv.decode(Buffer.from(uint8Array), detectedEncoding);
+          this.logger?.debug(`Converted RSS feed from ${detectedEncoding} to UTF-8`);
+          return converted;
+        } else {
+          this.logger?.warn(`Unknown encoding ${detectedEncoding}, falling back to UTF-8 decode`);
+          return new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
+        }
+      }
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  /**
+   * Detect encoding from HTTP headers, XML declaration, and content analysis
+   */
+  private detectEncoding(buffer: Uint8Array, headers: Headers): string {
+    // 1. Check HTTP Content-Type header
+    const contentType = headers.get('content-type');
+    if (contentType) {
+      const charsetMatch = contentType.match(/charset=([^;,\s]+)/i);
+      if (charsetMatch) {
+        const charset = charsetMatch[1].trim().replace(/['"]/g, '');
+        this.logger?.debug(`Encoding from HTTP header: ${charset}`);
+        return charset;
+      }
+    }
+    
+    // 2. Check XML declaration in the first 1024 bytes
+    const firstChunk = buffer.slice(0, Math.min(1024, buffer.length));
+    const firstChunkStr = new TextDecoder('ascii', { fatal: false }).decode(firstChunk);
+    
+    // Look for XML declaration: <?xml version="1.0" encoding="..."?>
+    const xmlDeclMatch = firstChunkStr.match(/<\?xml[^>]*encoding\s*=\s*["']([^"']+)["'][^>]*\?>/i);
+    if (xmlDeclMatch) {
+      const encoding = xmlDeclMatch[1].trim();
+      this.logger?.debug(`Encoding from XML declaration: ${encoding}`);
+      return encoding;
+    }
+    
+    // 3. Check for BOM (Byte Order Mark)
+    if (buffer.length >= 3) {
+      // UTF-8 BOM: EF BB BF
+      if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+        this.logger?.debug('UTF-8 BOM detected');
+        return 'utf-8';
+      }
+      
+      // UTF-16 BE BOM: FE FF
+      if (buffer[0] === 0xFE && buffer[1] === 0xFF) {
+        this.logger?.debug('UTF-16 BE BOM detected');
+        return 'utf-16be';
+      }
+      
+      // UTF-16 LE BOM: FF FE
+      if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
+        this.logger?.debug('UTF-16 LE BOM detected');
+        return 'utf-16le';
+      }
+    }
+    
+    // 4. Use charset detection library
+    const detected = jschardet.detect(Buffer.from(buffer));
+    if (detected && detected.encoding && detected.confidence > 0.7) {
+      this.logger?.debug(`Encoding detected by jschardet: ${detected.encoding} (confidence: ${detected.confidence})`);
+      
+      // Map some common encoding names
+      const encodingMap: Record<string, string> = {
+        'ascii': 'ascii',
+        'utf-8': 'utf-8',
+        'utf8': 'utf-8',
+        'iso-8859-1': 'iso-8859-1',
+        'iso-8859-2': 'iso-8859-2',
+        'iso-8859-15': 'iso-8859-15',
+        'windows-1252': 'windows-1252',
+        'windows-1251': 'windows-1251',
+        'cp1252': 'windows-1252',
+        'cp1251': 'windows-1251'
+      };
+      
+      const normalizedEncoding = detected.encoding.toLowerCase();
+      return encodingMap[normalizedEncoding] || detected.encoding;
+    }
+    
+    // 5. Default fallback
+    this.logger?.debug('No encoding detected, defaulting to UTF-8');
+    return 'utf-8';
   }
 
   private getItemKey(item: any): string | null {
@@ -339,6 +475,9 @@ export class RSSFeedProvider implements MessageProvider {
     this.logger?.info(`Warming RSS cache for provider: ${this.providerName}`);
     
     try {
+      // Fetch the RSS content with proper encoding handling
+      const feedContent = await this.fetchFeedWithEncoding(this.config.feedUrl);
+      
       const parser = new Parser({
         timeout: this.config.timeout || 30000,
         headers: {
@@ -346,7 +485,8 @@ export class RSSFeedProvider implements MessageProvider {
         }
       });
       
-      const feed = await parser.parseURL(this.config.feedUrl);
+      // Parse the properly encoded content
+      const feed = await parser.parseString(feedContent);
       const processed = this.config.cache?.enabled !== false 
         ? this.deduplicator.loadProcessedItems(this.providerName) 
         : new Set<string>();

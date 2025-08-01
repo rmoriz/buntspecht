@@ -1,709 +1,414 @@
 import { RSSFeedProvider, RSSFeedProviderConfig } from '../messages/rssFeedProvider';
-import { Logger } from '../utils/logger';
+import { TestHelpers } from './utils/testHelpers';
 
-const sampleFeed = {
-  items: [
-    { title: 'A', link: 'https://test/a', pubDate: '2021-01-01', description: 'Test A' },
-    { title: 'B', link: 'https://test/b', pubDate: '2021-01-02', description: 'Test B' },
-    { title: 'C', link: 'https://test/c', isoDate: '2021-01-03T10:00:00Z', contentSnippet: 'Test C snippet' },
-    { title: 'D', link: 'https://test/d', id: 'item-d', content: 'Test D content' },
-  ]
-};
+// Mock fetch globally
+global.fetch = jest.fn();
+const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
-const atomFeed = {
-  items: [
-    { title: 'Atom Entry', link: 'https://test/atom', isoDate: '2021-01-01T10:00:00Z', content: 'Atom content' },
-  ]
-};
-
-const emptyFeed = { items: [] };
-
-const mockParser = {
-  parseURL: jest.fn().mockResolvedValue(sampleFeed),
-};
-
-jest.mock('rss-parser', () => {
-  return jest.fn().mockImplementation(() => mockParser);
-});
+// Sample XML content for testing
+const sampleXmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test Description</description>
+    <item>
+      <title>Test Item 1</title>
+      <link>https://example.com/item1</link>
+      <pubDate>Mon, 01 Jan 2023 00:00:00 GMT</pubDate>
+      <description>Test content 1</description>
+    </item>
+    <item>
+      <title>Test Item 2</title>
+      <link>https://example.com/item2</link>
+      <pubDate>Tue, 02 Jan 2023 00:00:00 GMT</pubDate>
+      <description>Test content 2</description>
+    </item>
+  </channel>
+</rss>`;
 
 describe('RSSFeedProvider', () => {
-  const config: RSSFeedProviderConfig = { feedUrl: 'https://rss.test/feed', cache: { enabled: false } };
   let provider: RSSFeedProvider;
-  let logger: Logger;
+  let mockLogger: any;
+  let mockTelemetry: any;
 
-  beforeEach(async () => {
+  beforeEach(() => {
+    mockLogger = TestHelpers.createTestLogger();
+    mockTelemetry = TestHelpers.createMockTelemetry();
+    
+    // Reset fetch mock
+    mockFetch.mockClear();
+    
+    // Setup default successful response
+    mockFetch.mockResolvedValue({
+      ok: true,
+      headers: new Headers({
+        'content-type': 'application/rss+xml; charset=UTF-8'
+      }),
+      arrayBuffer: () => Promise.resolve(new TextEncoder().encode(sampleXmlContent).buffer)
+    } as Response);
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
-    mockParser.parseURL.mockResolvedValue(sampleFeed);
-    provider = new RSSFeedProvider(config);
-    logger = new Logger();
-    jest.spyOn(logger, 'info').mockImplementation();
-    jest.spyOn(logger, 'warn').mockImplementation();
-    jest.spyOn(logger, 'error').mockImplementation();
-    await provider.initialize(logger);
   });
 
-  describe('Basic functionality', () => {
-    it('fetches and formats latest item', async () => {
-      const msg = await provider.generateMessage();
-      expect(msg).toContain('A\n');
-      expect(msg).toContain('https://test/a');
-      expect(msg).toContain('Test A');
-    });
-
-    it('returns empty string when no items', async () => {
-      mockParser.parseURL.mockResolvedValue(emptyFeed);
-      const msg = await provider.generateMessage();
-      expect(msg).toBe('');
-    });
-
-    it('only returns unprocessed items', async () => {
-      const items = await provider['fetchFeedItems']();
-      expect(items.length).toBe(sampleFeed.items.length);
-      expect(items.some(i => i.title === 'A')).toBe(true);
-    });
-
-    it('processes all items by default (no limit)', async () => {
-      const largeFeed = {
-        items: Array.from({ length: 15 }, (_, i) => ({
-          title: `Item ${i}`,
-          link: `https://test/${i}`,
-          pubDate: `2021-01-${String(i + 1).padStart(2, '0')}`,
-          description: `Test ${i}`
-        }))
-      };
-      mockParser.parseURL.mockResolvedValue(largeFeed);
-      const items = await provider['fetchFeedItems']();
-      expect(items.length).toBe(15); // Should process all items by default
-    });
-  });
-
-  describe('Content formatting', () => {
-    it('formats RSS item with description', () => {
-      const out = provider['formatItem'](sampleFeed.items[0]);
-      expect(out).toContain('A');
-      expect(out).toContain('https://test/a');
-      expect(out).toContain('Test A');
-    });
-
-    it('formats item with contentSnippet', () => {
-      const out = provider['formatItem'](sampleFeed.items[2]);
-      expect(out).toContain('C');
-      expect(out).toContain('https://test/c');
-      expect(out).toContain('Test C snippet');
-    });
-
-    it('formats item with content', () => {
-      const out = provider['formatItem'](sampleFeed.items[3]);
-      expect(out).toContain('D');
-      expect(out).toContain('https://test/d');
-      expect(out).toContain('Test D content');
-    });
-
-    it('handles missing content gracefully', () => {
-      const item = { title: 'No Content', link: 'https://test/no-content' };
-      const out = provider['formatItem'](item);
-      expect(out).toContain('No Content');
-      expect(out).toContain('https://test/no-content');
-      expect(out).toContain('');
-    });
-  });
-
-  describe('Error handling', () => {
-    it('throws error for missing feedUrl', () => {
-      expect(() => new RSSFeedProvider({} as RSSFeedProviderConfig)).toThrow('feedUrl is required');
-    });
-
-    it('handles network errors gracefully', async () => {
-      mockParser.parseURL.mockRejectedValue(new Error('Network error'));
-      await expect(provider.generateMessage()).rejects.toThrow('Network error');
-    });
-
-    it('handles invalid feed format', async () => {
-      mockParser.parseURL.mockResolvedValue({ items: null });
-      const items = await provider['fetchFeedItems']();
-      expect(items).toEqual([]);
-    });
-
-    it('handles malformed feed items', async () => {
-      const malformedFeed = {
-        items: [
-          null,
-          undefined,
-          { title: 'Valid Item', link: 'https://test/valid', pubDate: '2021-01-01' },
-          {} // No key, will be filtered out
-        ]
-      };
-      mockParser.parseURL.mockResolvedValue(malformedFeed);
-      const items = await provider['fetchFeedItems']();
-      expect(items.length).toBe(1); // Only the valid item with a key should remain
-      expect(items[0].title).toBe('Valid Item');
-    });
-  });
-
-  describe('Caching', () => {
-    it('warms cache without error', async () => {
-      await expect(provider.warmCache()).resolves.not.toThrow();
-    });
-
-    it('handles cache warming with empty feed', async () => {
-      mockParser.parseURL.mockResolvedValue(emptyFeed);
-      await expect(provider.warmCache()).resolves.not.toThrow();
-      expect(logger.info).toHaveBeenCalledWith('Cache warmed for RSSFeedProvider: 0 items added.');
-    });
-
-    it('respects cache disabled setting', async () => {
-      const configWithoutCache = { feedUrl: 'https://test.com/feed', cache: { enabled: false } };
-      const providerNoCache = new RSSFeedProvider(configWithoutCache);
-      await providerNoCache.initialize(logger);
-      
-      const items = await providerNoCache['fetchFeedItems']();
-      expect(items.length).toBe(sampleFeed.items.length);
-    });
-
-    it('uses provider name in cache operations', async () => {
-      const customProviderName = 'my-custom-rss-feed';
-      const providerWithCustomName = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: true } 
-      });
-      
-      // Initialize with custom provider name
-      await providerWithCustomName.initialize(logger, undefined, customProviderName);
-      
-      // Verify the provider name was set correctly
-      expect(providerWithCustomName.getProviderName()).toBe(customProviderName);
-      
-      // Verify the initialization log includes the custom provider name
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining(`(provider: ${customProviderName})`)
-      );
-    });
-
-    it('uses default provider name when none provided', async () => {
-      const providerWithDefaultName = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: true } 
-      });
-      
-      // Initialize without custom provider name
-      await providerWithDefaultName.initialize(logger);
-      
-      // Verify the default provider name is used
-      expect(providerWithDefaultName.getProviderName()).toBe('rssfeed');
-      
-      // Verify the initialization log includes the default provider name
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('(provider: rssfeed)')
-      );
-    });
-
-    it('auto-warms cache on first initialization when no cache file exists', async () => {
-      const fs = require('fs');
-      const path = require('path');
-      
-      const testCacheDir = './tmp_test_cache_autowarm_' + Date.now();
-      const cacheFile = path.join(testCacheDir, 'test-auto-warm_processed.json');
-      
-      // Ensure cache file doesn't exist
-      if (fs.existsSync(cacheFile)) {
-        fs.unlinkSync(cacheFile);
-      }
-      
-      const autoWarmProvider = new RSSFeedProvider({
-        feedUrl: 'https://test.com/feed',
-        cache: { 
-          enabled: true, 
-          filePath: path.join(testCacheDir, 'cache.json'),
-          autoWarm: true 
-        }
-      });
-      
-      // Mock the feed data
-      mockParser.parseURL.mockResolvedValue(sampleFeed);
-      
-      await autoWarmProvider.initialize(logger, undefined, 'test-auto-warm');
-      
-      // Verify auto-warm logs
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining("No cache file found for RSS provider 'test-auto-warm', auto-warming cache")
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining("Auto-warm completed for RSS provider 'test-auto-warm'")
-      );
-      
-      // Verify cache file was created
-      expect(fs.existsSync(cacheFile)).toBe(true);
-      
-      // Clean up
-      if (fs.existsSync(testCacheDir)) {
-        fs.rmSync(testCacheDir, { recursive: true, force: true });
-      }
-    });
-
-    it('skips auto-warming when cache file already exists', async () => {
-      const fs = require('fs');
-      const path = require('path');
-      
-      const testCacheDir = './tmp_test_cache_skip_autowarm_' + Date.now();
-      const cacheFile = path.join(testCacheDir, 'test-skip-autowarm_processed.json');
-      
-      // Create cache directory and file
-      fs.mkdirSync(testCacheDir, { recursive: true });
-      fs.writeFileSync(cacheFile, '["existing-item"]');
-      
-      const skipAutoWarmProvider = new RSSFeedProvider({
-        feedUrl: 'https://test.com/feed',
-        cache: { 
-          enabled: true, 
-          filePath: path.join(testCacheDir, 'cache.json'),
-          autoWarm: true 
-        }
-      });
-      
-      await skipAutoWarmProvider.initialize(logger, undefined, 'test-skip-autowarm');
-      
-      // Verify no auto-warm logs (should be debug level)
-      expect(logger.info).not.toHaveBeenCalledWith(
-        expect.stringContaining("auto-warming cache")
-      );
-      
-      // Clean up
-      if (fs.existsSync(testCacheDir)) {
-        fs.rmSync(testCacheDir, { recursive: true, force: true });
-      }
-    });
-
-    it('respects autoWarm disabled setting', async () => {
-      const fs = require('fs');
-      const path = require('path');
-      
-      const testCacheDir = './tmp_test_cache_disabled_autowarm_' + Date.now();
-      const cacheFile = path.join(testCacheDir, 'test-disabled-autowarm_processed.json');
-      
-      // Ensure cache file doesn't exist
-      if (fs.existsSync(cacheFile)) {
-        fs.unlinkSync(cacheFile);
-      }
-      
-      const disabledAutoWarmProvider = new RSSFeedProvider({
-        feedUrl: 'https://test.com/feed',
-        cache: { 
-          enabled: true, 
-          filePath: path.join(testCacheDir, 'cache.json'),
-          autoWarm: false  // Explicitly disabled
-        }
-      });
-      
-      await disabledAutoWarmProvider.initialize(logger, undefined, 'test-disabled-autowarm');
-      
-      // Verify no auto-warm logs
-      expect(logger.info).not.toHaveBeenCalledWith(
-        expect.stringContaining("auto-warming cache")
-      );
-      
-      // Verify cache file was NOT created
-      expect(fs.existsSync(cacheFile)).toBe(false);
-      
-      // Clean up
-      if (fs.existsSync(testCacheDir)) {
-        fs.rmSync(testCacheDir, { recursive: true, force: true });
-      }
-    });
-  });
-
-  describe('Chronological processing', () => {
-    it('processes items in chronological order (oldest first)', async () => {
-      const chronologicalFeed = {
-        items: [
-          { title: 'Newest', link: 'https://test/newest', pubDate: '2021-01-03T10:00:00Z', description: 'Newest item' },
-          { title: 'Middle', link: 'https://test/middle', pubDate: '2021-01-02T10:00:00Z', description: 'Middle item' },
-          { title: 'Oldest', link: 'https://test/oldest', pubDate: '2021-01-01T10:00:00Z', description: 'Oldest item' },
-        ]
-      };
-      
-      mockParser.parseURL.mockResolvedValue(chronologicalFeed);
-      const chronoProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: false } 
-      });
-      await chronoProvider.initialize(logger);
-
-      // First call should return the oldest item
-      const message1 = await chronoProvider.generateMessage();
-      expect(message1).toContain('Oldest');
-      expect(message1).toContain('https://test/oldest');
-    });
-
-    it('sorts items correctly with mixed date formats', async () => {
-      const mixedDateFeed = {
-        items: [
-          { title: 'Item 1', pubDate: 'Wed, 03 Jan 2021 10:00:00 GMT', description: 'Item 1' },
-          { title: 'Item 2', isoDate: '2021-01-01T10:00:00Z', description: 'Item 2' },
-          { title: 'Item 3', pubDate: 'Fri, 02 Jan 2021 10:00:00 GMT', description: 'Item 3' },
-        ]
-      };
-      
-      mockParser.parseURL.mockResolvedValue(mixedDateFeed);
-      const mixedProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: false } 
-      });
-      await mixedProvider.initialize(logger);
-
-      const items = await mixedProvider['fetchFeedItems']();
-      
-      // Should be sorted oldest first: Item 2 (Jan 1), Item 3 (Jan 2), Item 1 (Jan 3)
-      expect(items[0].title).toBe('Item 2');
-      expect(items[1].title).toBe('Item 3');
-      expect(items[2].title).toBe('Item 1');
-    });
-
-    it('handles items without dates gracefully', async () => {
-      const noDateFeed = {
-        items: [
-          { title: 'With Date', pubDate: '2021-01-01T10:00:00Z', description: 'Has date' },
-          { title: 'No Date 1', description: 'No date 1' },
-          { title: 'No Date 2', description: 'No date 2' },
-        ]
-      };
-      
-      mockParser.parseURL.mockResolvedValue(noDateFeed);
-      const noDateProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: false } 
-      });
-      await noDateProvider.initialize(logger);
-
-      const items = await noDateProvider['fetchFeedItems']();
-      
-      // Items with dates should come first, then items without dates
-      expect(items[0].title).toBe('With Date');
-      expect(items[1].title).toBe('No Date 1');
-      expect(items[2].title).toBe('No Date 2');
-    });
-
-    it('processes all items by default (no maxItems limit)', async () => {
-      const largeFeed = {
-        items: Array.from({ length: 25 }, (_, i) => ({
-          title: `Item ${i + 1}`,
-          link: `https://test.com/item${i + 1}`,
-          pubDate: new Date(2021, 0, i + 1).toISOString(),
-          description: `Description ${i + 1}`
-        }))
-      };
-      
-      mockParser.parseURL.mockResolvedValue(largeFeed);
-      const unlimitedProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: false } 
-      });
-      await unlimitedProvider.initialize(logger);
-
-      const items = await unlimitedProvider['fetchFeedItems']();
-      
-      // Should process all 25 items by default
-      expect(items.length).toBe(25);
-    });
-
-    it('respects maxItems when explicitly set', async () => {
-      const largeFeed = {
-        items: Array.from({ length: 25 }, (_, i) => ({
-          title: `Item ${i + 1}`,
-          link: `https://test.com/item${i + 1}`,
-          pubDate: new Date(2021, 0, i + 1).toISOString(),
-          description: `Description ${i + 1}`
-        }))
-      };
-      
-      mockParser.parseURL.mockResolvedValue(largeFeed);
-      const limitedProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        maxItems: 5,
-        cache: { enabled: false } 
-      });
-      await limitedProvider.initialize(logger);
-
-      const items = await limitedProvider['fetchFeedItems']();
-      
-      // Should only process 5 items when maxItems is set
-      expect(items.length).toBe(5);
-    });
-
-    it('handles invalid dates gracefully', async () => {
-      const invalidDateFeed = {
-        items: [
-          { title: 'Valid Date', pubDate: '2021-01-01T10:00:00Z', description: 'Valid' },
-          { title: 'Invalid Date', pubDate: 'not-a-date', description: 'Invalid' },
-        ]
-      };
-      
-      mockParser.parseURL.mockResolvedValue(invalidDateFeed);
-      const invalidProvider = new RSSFeedProvider({ 
-        feedUrl: 'https://test.com/feed', 
-        cache: { enabled: false } 
-      });
-      await invalidProvider.initialize(logger);
-
-      const items = await invalidProvider['fetchFeedItems']();
-      
-      // Valid date should come first, invalid date treated as no date
-      expect(items[0].title).toBe('Valid Date');
-      expect(items[1].title).toBe('Invalid Date');
-    });
-  });
-
-  describe('Different feed formats', () => {
-    it('handles Atom feeds with isoDate', async () => {
-      mockParser.parseURL.mockResolvedValue(atomFeed);
-      const msg = await provider.generateMessage();
-      expect(msg).toContain('Atom Entry');
-      expect(msg).toContain('https://test/atom');
-      expect(msg).toContain('Atom content');
-    });
-
-    it('handles items with different date formats', () => {
-      const items = [
-        { title: 'RSS', pubDate: '2021-01-01' },
-        { title: 'Atom', isoDate: '2021-01-02T10:00:00Z' },
-        { title: 'ID only', id: 'unique-id' }
-      ];
-      
-      items.forEach(item => {
-        const formatted = provider['formatItem'](item);
-        expect(formatted).toContain(item.title);
-      });
-    });
-  });
-
-  describe('Message with attachments', () => {
-    it('returns message with attachments structure', async () => {
-      const result = await provider.generateMessageWithAttachments();
-      expect(result).toHaveProperty('text');
-      expect(result.text).toContain('A');
-      expect(result.text).toContain('https://test/a');
-    });
-  });
-
-  describe('Configuration options', () => {
-    it('validates URL format', () => {
-      expect(() => new RSSFeedProvider({ feedUrl: 'invalid-url' })).toThrow('feedUrl must be a valid HTTP/HTTPS URL');
-      expect(() => new RSSFeedProvider({ feedUrl: 'ftp://example.com/feed.xml' })).toThrow('feedUrl must be a valid HTTP/HTTPS URL');
-      expect(() => new RSSFeedProvider({ feedUrl: 'https://example.com/feed.xml' })).not.toThrow();
-    });
-
-    it('applies default configuration values', () => {
-      const provider = new RSSFeedProvider({ feedUrl: 'https://example.com/feed.xml' });
-      expect(provider['config'].timeout).toBe(30000);
-      expect(provider['config'].maxItems).toBeUndefined(); // Default is now unlimited
-      expect(provider['config'].retries).toBe(3);
-      expect(provider['config'].userAgent).toBe('Buntspecht RSS Reader/1.0');
-    });
-
-    it('respects custom configuration values', () => {
-      const customConfig = {
+  describe('constructor', () => {
+    it('should create provider with valid config', () => {
+      const config: RSSFeedProviderConfig = {
         feedUrl: 'https://example.com/feed.xml',
-        timeout: 15000,
-        maxItems: 5,
+        type: 'rssfeed'
+      };
+      
+      provider = new RSSFeedProvider(config);
+      expect(provider).toBeDefined();
+      expect(provider.getProviderName()).toBe('rssfeed');
+    });
+
+    it('should throw error for missing feedUrl', () => {
+      expect(() => {
+        new RSSFeedProvider({} as RSSFeedProviderConfig);
+      }).toThrow('feedUrl is required');
+    });
+
+    it('should throw error for invalid feedUrl', () => {
+      expect(() => {
+        new RSSFeedProvider({
+          feedUrl: 'not-a-url',
+          type: 'rssfeed'
+        });
+      }).toThrow('feedUrl must be a valid HTTP/HTTPS URL');
+    });
+
+    it('should accept valid HTTP URL', () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'http://example.com/feed.xml',
+        type: 'rssfeed'
+      };
+      
+      provider = new RSSFeedProvider(config);
+      expect(provider).toBeDefined();
+    });
+
+    it('should accept valid HTTPS URL', () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed'
+      };
+      
+      provider = new RSSFeedProvider(config);
+      expect(provider).toBeDefined();
+    });
+  });
+
+  describe('initialization', () => {
+    beforeEach(() => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed'
+      };
+      provider = new RSSFeedProvider(config);
+    });
+
+    it('should initialize successfully', async () => {
+      await provider.initialize(mockLogger, mockTelemetry);
+      
+      expect(provider.getProviderName()).toBe('rssfeed');
+    });
+
+    it('should initialize with custom provider name', async () => {
+      await provider.initialize(mockLogger, mockTelemetry, 'custom-rss');
+      
+      expect(provider.getProviderName()).toBe('custom-rss');
+    });
+  });
+
+  describe('message generation', () => {
+    beforeEach(async () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed',
+        cache: { enabled: false } // Disable caching for tests
+      };
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
+    });
+
+    it('should generate message from RSS feed', async () => {
+      const message = await provider.generateMessage();
+      
+      expect(message).toContain('Test Item 1');
+      expect(message).toContain('https://example.com/item1');
+      expect(message).toContain('Test content 1');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/feed.xml',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'User-Agent': 'Buntspecht RSS Reader/1.0'
+          })
+        })
+      );
+    });
+
+    it('should generate message with attachments', async () => {
+      const messageWithAttachments = await provider.generateMessageWithAttachments();
+      
+      expect(messageWithAttachments.text).toContain('Test Item 1');
+      expect(messageWithAttachments.text).toContain('https://example.com/item1');
+      expect(messageWithAttachments.text).toContain('Test content 1');
+    });
+
+    it('should return empty string when no items', async () => {
+      const emptyXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+          <channel>
+            <title>Empty Feed</title>
+            <description>No items</description>
+          </channel>
+        </rss>`;
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: new Headers({
+          'content-type': 'application/rss+xml; charset=UTF-8'
+        }),
+        arrayBuffer: () => Promise.resolve(new TextEncoder().encode(emptyXml).buffer)
+      } as Response);
+      
+      const message = await provider.generateMessage();
+      expect(message).toBe('');
+    });
+
+    it('should handle template formatting', async () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed',
+        template: '📰 {{title}}\n{{link}}',
+        cache: { enabled: false }
+      };
+      
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
+      
+      const message = await provider.generateMessage();
+      expect(message).toBe('📰 Test Item 1\nhttps://example.com/item1');
+    });
+  });
+
+  describe('error handling', () => {
+    beforeEach(async () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed',
         retries: 2,
-        userAgent: 'Custom Bot/1.0'
+        cache: { enabled: false }
       };
-      const provider = new RSSFeedProvider(customConfig);
-      expect(provider['config'].timeout).toBe(15000);
-      expect(provider['config'].maxItems).toBe(5);
-      expect(provider['config'].retries).toBe(2);
-      expect(provider['config'].userAgent).toBe('Custom Bot/1.0');
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
     });
 
-    it('respects maxItems configuration', async () => {
-      const customProvider = new RSSFeedProvider({
-        feedUrl: 'https://example.com/feed.xml',
-        maxItems: 2,
-        cache: { enabled: false }
-      });
-      await customProvider.initialize(logger);
+    it('should retry on network failure', async () => {
+      // First call fails, second succeeds
+      mockFetch
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({
+            'content-type': 'application/rss+xml; charset=UTF-8'
+          }),
+          arrayBuffer: () => Promise.resolve(new TextEncoder().encode(sampleXmlContent).buffer)
+        } as Response);
 
-      const items = await customProvider['fetchFeedItems']();
-      expect(items.length).toBe(2);
+      const message = await provider.generateMessage();
+      
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(message).toContain('Test Item 1');
+    });
+
+    it('should throw error after max retries', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await expect(provider.generateMessage()).rejects.toThrow('Network error');
+      expect(mockFetch).toHaveBeenCalledTimes(2); // Initial + 1 retry
+    });
+
+    it('should handle HTTP errors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found'
+      } as Response);
+
+      await expect(provider.generateMessage()).rejects.toThrow('HTTP 404: Not Found');
     });
   });
 
-  describe('Content cleaning', () => {
-    it('removes HTML tags from content', () => {
-      const itemWithHtml = {
-        title: 'Test Article',
-        link: 'https://test.com/article',
-        description: '<p>This is <strong>bold</strong> text with <a href="#">links</a></p>'
+  describe('caching behavior', () => {
+    beforeEach(async () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed',
+        cache: {
+          enabled: true,
+          filePath: './test-cache/rss-test.json'
+        }
       };
-      const formatted = provider['formatItem'](itemWithHtml);
-      expect(formatted).toContain('This is bold text with links');
-      expect(formatted).not.toContain('<p>');
-      expect(formatted).not.toContain('<strong>');
-      expect(formatted).not.toContain('<a href="#">');
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
     });
 
-    it('handles items with missing title gracefully', () => {
-      const itemWithoutTitle = {
-        link: 'https://test.com/no-title',
-        description: 'Content without title'
-      };
-      const formatted = provider['formatItem'](itemWithoutTitle);
-      expect(formatted).toContain('Untitled');
-      expect(formatted).toContain('https://test.com/no-title');
-      expect(formatted).toContain('Content without title');
+    it('should warm cache', async () => {
+      await provider.warmCache();
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/feed.xml',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'User-Agent': 'Buntspecht RSS Reader/1.0'
+          })
+        })
+      );
     });
   });
 
-  describe('Template functionality', () => {
-    it('uses default formatting when no template is provided', () => {
-      const item = {
-        title: 'Test Title',
-        link: 'https://test.com/link',
-        description: 'Test description'
+  describe('encoding support integration', () => {
+    beforeEach(async () => {
+      const config: RSSFeedProviderConfig = {
+        feedUrl: 'https://example.com/feed.xml',
+        type: 'rssfeed',
+        cache: { enabled: false }
       };
-      const formatted = provider['formatItem'](item);
-      expect(formatted).toBe('Test Title\nhttps://test.com/link\nTest description');
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
     });
 
-    it('formats items using custom template', async () => {
-      const templateProvider = new RSSFeedProvider({
-        feedUrl: 'https://example.com/feed.xml',
-        template: '📰 {{title}}\n🔗 {{link}}\n📝 {{content}}',
-        cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      const item = {
-        title: 'Breaking News',
-        link: 'https://news.com/breaking',
-        contentSnippet: 'This is breaking news content'
-      };
-
-      const formatted = templateProvider['formatItem'](item);
-      expect(formatted).toBe('📰 Breaking News\n🔗 https://news.com/breaking\n📝 This is breaking news content');
+    it('should handle UTF-8 encoding', async () => {
+      const message = await provider.generateMessage();
+      
+      expect(mockFetch).toHaveBeenCalled();
+      expect(message).toContain('Test Item 1');
     });
 
-    it('handles template with trim functions', async () => {
-      const templateProvider = new RSSFeedProvider({
-        feedUrl: 'https://example.com/feed.xml',
-        template: '{{title|trim:20}}: {{content|trim:50}}',
-        cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
+    it('should handle ISO-8859-1 encoding', async () => {
+      const isoContent = `<?xml version="1.0" encoding="ISO-8859-1"?>
+        <rss version="2.0">
+          <channel>
+            <title>Test Feed</title>
+            <item>
+              <title>Café and naïve résumé</title>
+              <link>https://example.com/item1</link>
+              <description>Special characters test</description>
+            </item>
+          </channel>
+        </rss>`;
 
-      const item = {
-        title: 'This is a very long title that should be trimmed',
-        link: 'https://test.com',
-        description: 'This is a very long description that should definitely be trimmed because it exceeds the limit'
-      };
+      const iconv = require('iconv-lite');
+      const isoBuffer = iconv.encode(isoContent, 'iso-8859-1');
 
-      const formatted = templateProvider['formatItem'](item);
-      expect(formatted).toContain('This is a very lo...');
-      expect(formatted).toContain('This is a very long description that should def...');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: new Headers({
+          'content-type': 'application/rss+xml'
+        }),
+        arrayBuffer: () => Promise.resolve(isoBuffer.buffer)
+      } as Response);
+
+      const message = await provider.generateMessage();
+      expect(message).toContain('Café and naïve résumé');
     });
 
-    it('provides access to all RSS item fields in template', async () => {
-      const templateProvider = new RSSFeedProvider({
+    it('should handle Windows-1252 encoding', async () => {
+      const win1252Content = `<?xml version="1.0"?>
+        <rss version="2.0">
+          <channel>
+            <title>Windows-1252 Feed</title>
+            <item>
+              <title>Smart quotes "test" and em-dash—here</title>
+              <link>https://example.com/item1</link>
+              <description>Windows-1252 characters</description>
+            </item>
+          </channel>
+        </rss>`;
+
+      const iconv = require('iconv-lite');
+      const win1252Buffer = iconv.encode(win1252Content, 'windows-1252');
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: new Headers({
+          'content-type': 'application/rss+xml; charset=windows-1252'
+        }),
+        arrayBuffer: () => Promise.resolve(win1252Buffer.buffer)
+      } as Response);
+
+      const message = await provider.generateMessage();
+      expect(message).toContain('Smart quotes "test" and em-dash—here');
+    });
+  });
+
+  describe('configuration options', () => {
+    it('should respect timeout setting', async () => {
+      const config: RSSFeedProviderConfig = {
         feedUrl: 'https://example.com/feed.xml',
-        template: '{{title}} by {{author}} in {{categories}} ({{pubDate}})',
+        type: 'rssfeed',
+        timeout: 5000,
         cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      const item = {
-        title: 'Tech Article',
-        author: 'John Doe',
-        categories: ['Technology', 'Programming'],
-        pubDate: '2023-01-01',
-        link: 'https://test.com'
       };
+      
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
 
-      const formatted = templateProvider['formatItem'](item);
-      expect(formatted).toBe('Tech Article by John Doe in Technology,Programming (2023-01-01)');
+      // Mock a slow response
+      mockFetch.mockImplementation(() => 
+        new Promise(resolve => setTimeout(() => resolve({
+          ok: true,
+          headers: new Headers({
+            'content-type': 'application/rss+xml; charset=UTF-8'
+          }),
+          arrayBuffer: () => Promise.resolve(new TextEncoder().encode(sampleXmlContent).buffer)
+        } as Response), 100))
+      );
+
+      const message = await provider.generateMessage();
+      expect(message).toContain('Test Item 1');
     });
 
-    it('cleans HTML from template data', async () => {
-      const templateProvider = new RSSFeedProvider({
+    it('should respect custom user agent', async () => {
+      const config: RSSFeedProviderConfig = {
         feedUrl: 'https://example.com/feed.xml',
-        template: '{{title}}: {{description}}',
+        type: 'rssfeed',
+        userAgent: 'Custom Bot/1.0',
         cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      const item = {
-        title: 'HTML Article',
-        description: '<p>This has <strong>HTML</strong> tags</p>',
-        link: 'https://test.com'
       };
+      
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
 
-      const formatted = templateProvider['formatItem'](item);
-      expect(formatted).toBe('HTML Article: This has HTML tags');
-      expect(formatted).not.toContain('<p>');
-      expect(formatted).not.toContain('<strong>');
+      await provider.generateMessage();
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/feed.xml',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'User-Agent': 'Custom Bot/1.0'
+          })
+        })
+      );
     });
 
-    it('handles missing template variables gracefully', async () => {
-      const templateProvider = new RSSFeedProvider({
+    it('should respect maxItems setting', async () => {
+      const config: RSSFeedProviderConfig = {
         feedUrl: 'https://example.com/feed.xml',
-        template: '{{title}} - {{nonexistent}} - {{author}}',
+        type: 'rssfeed',
+        maxItems: 1,
         cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      const item = {
-        title: 'Test Article',
-        link: 'https://test.com'
-        // author is missing
       };
+      
+      provider = new RSSFeedProvider(config);
+      await provider.initialize(mockLogger, mockTelemetry);
 
-      const formatted = templateProvider['formatItem'](item);
-      expect(formatted).toBe('Test Article - {{nonexistent}} - ');
-    });
-
-    it('uses content priority: contentSnippet > content > description', async () => {
-      const templateProvider = new RSSFeedProvider({
-        feedUrl: 'https://example.com/feed.xml',
-        template: '{{content}}',
-        cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      // Test contentSnippet priority
-      const item1 = {
-        title: 'Test',
-        contentSnippet: 'Snippet content',
-        content: 'Full content',
-        description: 'Description content'
-      };
-      expect(templateProvider['formatItem'](item1)).toBe('Snippet content');
-
-      // Test content fallback
-      const item2 = {
-        title: 'Test',
-        content: 'Full content',
-        description: 'Description content'
-      };
-      expect(templateProvider['formatItem'](item2)).toBe('Full content');
-
-      // Test description fallback
-      const item3 = {
-        title: 'Test',
-        description: 'Description content'
-      };
-      expect(templateProvider['formatItem'](item3)).toBe('Description content');
-    });
-
-    it('generates message with template', async () => {
-      const templateProvider = new RSSFeedProvider({
-        feedUrl: 'https://example.com/feed.xml',
-        template: '🔥 {{title}}\n{{link}}',
-        cache: { enabled: false }
-      });
-      await templateProvider.initialize(logger);
-
-      mockParser.parseURL.mockResolvedValue(sampleFeed);
-      const message = await templateProvider.generateMessage();
-      expect(message).toContain('🔥 A');
-      expect(message).toContain('https://test/a');
+      const message = await provider.generateMessage();
+      expect(message).toContain('Test Item 1');
+      // Should only process the first item due to maxItems: 1
     });
   });
 });

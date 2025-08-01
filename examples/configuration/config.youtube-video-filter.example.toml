@@ -1,0 +1,366 @@
+# YouTube Video Filter Middleware Example Configuration
+# This example shows how to configure the YouTube Video Filter Middleware
+# to filter YouTube videos by length and title patterns in RSS feeds
+
+[logging]
+level = "info"
+
+# RSS Feed Provider for YouTube Channel
+[[bot.providers]]
+name = "tech-youtube-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/10 * * * *"  # Check every 10 minutes
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+template = "🎥 {{title}}\n{{link}}\n\n📝 {{description}}"
+
+# YouTube Video Filter Middleware Configuration
+[[bot.providers.middleware]]
+name = "video-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+# Enable video length filtering
+enableLengthFilter = true
+
+# Minimum video length (60 seconds = 1 minute)
+# Videos shorter than this will be skipped
+minLengthSeconds = 60
+
+# Maximum video length (1800 seconds = 30 minutes)
+# Videos longer than this will be skipped
+maxLengthSeconds = 1800
+
+# Title patterns to include (positive filter)
+# Only videos with titles containing these patterns will be included
+titleInclude = [
+    "tutorial",
+    "guide",
+    "how to",
+    "explained",
+    "review"
+]
+
+# Title patterns to exclude (negative filter)
+# Videos with titles containing these patterns will be skipped
+titleExclude = [
+    "shorts",
+    "live",
+    "stream",
+    "unboxing",
+    "reaction"
+]
+
+# Pattern matching options
+caseSensitive = false  # Case-insensitive matching
+useRegex = false       # Use simple string contains (not regex)
+
+# Logging options
+logSkipped = true      # Log when videos are skipped
+logDetails = false     # Log detailed filter information (for debugging)
+
+# Custom skip reason
+skipReason = "Video filtered by length or title criteria"
+
+# Performance options
+timeout = 10000        # API request timeout in milliseconds (10 seconds)
+retries = 2            # Number of retry attempts for API calls
+cacheDuration = 3600000 # Cache duration in milliseconds (1 hour)
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-tech"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "bluesky-tech"
+platform = "bluesky"
+enabled = true
+
+[accounts.config]
+handle = "${BLUESKY_HANDLE}"
+password = "${BLUESKY_APP_PASSWORD}"
+
+# Provider-Account Mapping
+[[postings]]
+provider = "tech-youtube-channel"
+accounts = ["mastodon-tech", "bluesky-tech"]
+visibility = "public"
+
+# ============================================================================
+# ALTERNATIVE CONFIGURATION EXAMPLES
+# ============================================================================
+
+# Example 1: Educational Channel - Only Long-Form Content
+[[bot.providers]]
+name = "educational-channel"
+type = "rssfeed"
+enabled = false  # Disabled for this example
+schedule = "0 */2 * * *"  # Every 2 hours
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=EDUCATION_CHANNEL_ID"
+template = "📚 Educational Content: {{title}}\n{{link}}"
+
+[[bot.providers.middleware]]
+name = "edu-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+enableLengthFilter = true
+minLengthSeconds = 600    # 10 minutes minimum
+maxLengthSeconds = 7200   # 2 hours maximum
+titleInclude = ["lecture", "course", "lesson", "tutorial", "explained"]
+titleExclude = ["shorts", "quick", "summary"]
+skipReason = "Educational content: Only long-form videos allowed"
+
+# Example 2: Tech News Channel - Regex Patterns
+[[bot.providers]]
+name = "tech-news-channel"
+type = "rssfeed"
+enabled = false  # Disabled for this example
+schedule = "*/15 * * * *"  # Every 15 minutes
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TECH_NEWS_CHANNEL_ID"
+template = "🔧 Tech News: {{title}}\n{{link}}"
+
+[[bot.providers.middleware]]
+name = "tech-news-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+enableLengthFilter = true
+minLengthSeconds = 120    # 2 minutes minimum
+maxLengthSeconds = 900    # 15 minutes maximum
+
+# Use regex patterns for more precise matching
+useRegex = true
+titleInclude = [
+    "^Tech News:",           # Must start with "Tech News:"
+    "\\d{4} Review",         # Year followed by "Review" (e.g., "2024 Review")
+    "\\b(iPhone|Android|Windows)\\b"  # Specific tech keywords
+]
+titleExclude = [
+    "\\[LIVE\\]",           # Exclude live streams
+    "shorts?",              # Exclude shorts (with optional 's')
+    "\\bunboxing\\b"        # Exclude unboxing videos
+]
+
+caseSensitive = false
+logSkipped = true
+logDetails = true  # Enable detailed logging for debugging regex
+
+# Example 3: Gaming Channel - Title-Only Filtering
+[[bot.providers]]
+name = "gaming-channel"
+type = "rssfeed"
+enabled = false  # Disabled for this example
+schedule = "0 */4 * * *"  # Every 4 hours
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=GAMING_CHANNEL_ID"
+template = "🎮 Gaming: {{title}}\n{{link}}"
+
+[[bot.providers.middleware]]
+name = "gaming-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+# No length filtering, only title filtering
+enableLengthFilter = false
+
+titleInclude = [
+    "gameplay",
+    "walkthrough",
+    "review",
+    "guide",
+    "tips"
+]
+titleExclude = [
+    "shorts",
+    "stream",
+    "live",
+    "rage",
+    "fail"
+]
+
+skipReason = "Gaming content: Only specific video types allowed"
+
+# Example 4: Multiple Filters Chain
+[[bot.providers]]
+name = "multi-filter-channel"
+type = "rssfeed"
+enabled = false  # Disabled for this example
+schedule = "*/20 * * * *"  # Every 20 minutes
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=MULTI_FILTER_CHANNEL_ID"
+template = "📺 {{title}}\n{{link}}"
+
+# First: Filter out YouTube Shorts
+[[bot.providers.middleware]]
+name = "no-shorts"
+type = "youtube_shorts_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+skipShorts = true
+skipReason = "YouTube Shorts not allowed"
+
+# Second: Filter by video length and title
+[[bot.providers.middleware]]
+name = "content-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+enableLengthFilter = true
+minLengthSeconds = 300    # 5 minutes
+maxLengthSeconds = 3600   # 1 hour
+titleInclude = ["tutorial", "review", "analysis"]
+titleExclude = ["reaction", "compilation"]
+skipReason = "Content quality filter"
+
+# Third: Add captions to remaining videos
+[[bot.providers.middleware]]
+name = "add-captions"
+type = "youtube_caption"
+enabled = true
+
+[bot.providers.middleware.config]
+mode = "append"
+separator = "\n\n📝 Auto-generated summary:\n"
+language = "en"
+
+# Example 5: Development/Testing Configuration
+[[bot.providers]]
+name = "test-filter-channel"
+type = "rssfeed"
+enabled = false  # Disabled for production
+schedule = "*/1 * * * *"  # Every minute for testing
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TEST_CHANNEL_ID"
+
+[[bot.providers.middleware]]
+name = "test-video-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+# Very permissive settings for testing
+enableLengthFilter = true
+minLengthSeconds = 1      # 1 second minimum
+maxLengthSeconds = 86400  # 24 hours maximum
+
+# No title filtering for testing
+titleInclude = []
+titleExclude = []
+
+# Enable detailed logging for debugging
+logSkipped = true
+logDetails = true
+
+# Shorter cache for testing
+cacheDuration = 60000  # 1 minute
+
+# Example 6: Performance-Optimized Configuration
+[[bot.providers]]
+name = "high-volume-channel"
+type = "rssfeed"
+enabled = false  # Disabled for this example
+schedule = "*/5 * * * *"  # Every 5 minutes
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=HIGH_VOLUME_CHANNEL_ID"
+maxItems = 5  # Limit RSS items to process
+
+[[bot.providers.middleware]]
+name = "performance-filter"
+type = "youtube_video_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+enableLengthFilter = true
+minLengthSeconds = 180
+maxLengthSeconds = 1200
+
+# Simple string matching (faster than regex)
+useRegex = false
+titleInclude = ["news", "update", "announcement"]
+titleExclude = ["shorts", "live"]
+
+# Optimized performance settings
+timeout = 5000         # Shorter timeout
+retries = 1            # Fewer retries
+cacheDuration = 7200000 # Longer cache (2 hours)
+logSkipped = false     # Disable logging for performance
+logDetails = false
+
+# ============================================================================
+# REGEX PATTERN EXAMPLES
+# ============================================================================
+
+# Common regex patterns for title filtering:
+#
+# Time-based patterns:
+# - "\\d{4}"                    # Year (e.g., 2024)
+# - "\\b(January|February|...)\\b" # Month names
+# - "\\d{1,2}:\\d{2}"          # Time format (e.g., 12:34)
+#
+# Content type patterns:
+# - "^Tutorial:"               # Must start with "Tutorial:"
+# - "\\[.*\\]"                 # Text in square brackets
+# - "\\b(Part|Episode)\\s+\\d+" # Part/Episode numbers
+#
+# Quality indicators:
+# - "\\b(HD|4K|1080p)\\b"      # Video quality
+# - "\\b(Official|Trailer)\\b" # Official content
+#
+# Exclusion patterns:
+# - "\\b(shorts?|live)\\b"     # Shorts or live content
+# - "\\[LIVE\\]"               # Live stream indicator
+# - "\\breaction\\b"           # Reaction videos
+#
+# Technology patterns:
+# - "\\b(JavaScript|Python|React)\\b" # Programming languages
+# - "\\b(iPhone|Android|iOS)\\b"      # Mobile platforms
+# - "\\b(AI|ML|Machine Learning)\\b"  # AI/ML content
+
+# ============================================================================
+# TROUBLESHOOTING TIPS
+# ============================================================================
+
+# 1. Enable detailed logging for debugging:
+#    logDetails = true
+#    logSkipped = true
+#
+# 2. Test regex patterns online before using them:
+#    - Use tools like regex101.com
+#    - Remember to escape backslashes in TOML strings
+#
+# 3. Start with permissive filters and gradually tighten:
+#    - Begin with enableLengthFilter = false
+#    - Add title filters one by one
+#
+# 4. Monitor cache performance:
+#    - Adjust cacheDuration based on your needs
+#    - Shorter cache = more API calls but fresher data
+#    - Longer cache = fewer API calls but potentially stale data
+#
+# 5. Handle API rate limits:
+#    - Increase timeout if requests are timing out
+#    - Reduce retries if you're hitting rate limits
+#    - Consider longer cache duration for high-volume channels

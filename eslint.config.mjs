@@ -37,6 +37,9 @@ export default [
         TextEncoder: 'readonly',
         AbortSignal: 'readonly',
         File: 'readonly',
+        AbortController: 'readonly',
+        TextDecoder: 'readonly',
+        Headers: 'readonly',
       },
     },
     plugins: {

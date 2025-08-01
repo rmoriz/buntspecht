@@ -54,6 +54,8 @@
     "@opentelemetry/sdk-node": "^0.202.0",
     "@opentelemetry/semantic-conventions": "^1.34.0",
     "commander": "^14.0.0",
+    "iconv-lite": "^0.6.3",
+    "jschardet": "^3.1.4",
     "masto": "^7.1.0",
     "node-cron": "^4.2.0",
     "node-vault": "^0.10.5",

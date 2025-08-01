@@ -9,8 +9,7 @@ import { AttachmentProviderStrategy } from '../execution/AttachmentProviderStrat
 import { ScheduledProvider } from './ProviderManager';
 import { ProviderConfig } from '../../types/config';
 import { SocialMediaClient } from '../socialMediaClient';
-import { MessageMiddlewareManager, DefaultMessageMiddlewareFactory } from '../middleware';
-import { MessageMiddleware } from '../middleware/types';
+import { MessageMiddlewareManager, DefaultMessageMiddlewareFactory, MessageMiddleware } from '../middleware';
 
 /**
  * Handles task execution, push provider management, and rate limiting

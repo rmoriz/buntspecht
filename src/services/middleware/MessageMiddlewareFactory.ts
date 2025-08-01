@@ -10,6 +10,7 @@ import { AttachmentMiddleware, AttachmentConfig } from './builtin/AttachmentMidd
 import { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMiddleware';
 import { YouTubeCaptionMiddleware, YouTubeCaptionConfig } from './builtin/YouTubeCaptionMiddleware';
 import { YouTubeShortsFilterMiddleware, YouTubeShortsFilterConfig } from './builtin/YouTubeShortsFilterMiddleware';
+import { YouTubeVideoFilterMiddleware, YouTubeVideoFilterConfig } from './builtin/YouTubeVideoFilterMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -26,7 +27,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'attachment',
     'openrouter',
     'youtube_caption',
-    'youtube_shorts_filter'
+    'youtube_shorts_filter',
+    'youtube_video_filter'
   ];
 
   /**
@@ -110,6 +112,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new YouTubeShortsFilterMiddleware(
           config.name,
           config.config as unknown as YouTubeShortsFilterConfig,
+          enabled
+        );
+
+      case 'youtube_video_filter':
+        return new YouTubeVideoFilterMiddleware(
+          config.name,
+          config.config as unknown as YouTubeVideoFilterConfig,
           enabled
         );
 
