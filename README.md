@@ -275,12 +275,15 @@ name = "mastodon-account"
 type = "mastodon"  # Account type (default: mastodon)
 instance = "https://mastodon.social"
 accessToken = "your-mastodon-access-token-here"
+language = "de"  # Optional: BCP 47 language tag (e.g. "en", "de", "fr", "zh-CN")
+# Specifies the language of posts for this Mastodon account. Only affects Mastodon posts.
 
 [[accounts]]
 name = "mastodon-account"
 type = "mastodon"
 instance = "https://mastodon.social"
 accessToken = "your-mastodon-access-token"  # Traditional hardcoded token
+# language = "en"  # Optional
 
 [[accounts]]
 name = "bluesky-account"
@@ -288,6 +291,7 @@ type = "bluesky"  # Account type for Bluesky
 instance = "https://bsky.social"  # Optional: defaults to https://bsky.social
 identifier = "yourhandle.bsky.social"  # Your Bluesky handle or DID
 password = "your-app-password"  # Traditional hardcoded app password from Bluesky settings
+
 
 # Examples with external secret sources (monitored for automatic rotation)
 [[accounts]]

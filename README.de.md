@@ -447,12 +447,15 @@ name = "mastodon-account"
 type = "mastodon"  # Account-Typ (Standard: mastodon)
 instance = "https://mastodon.social"
 accessToken = "dein-mastodon-access-token-hier"
+language = "de"  # Optional: BCP 47 Sprach-Tag (z.B. "de", "en", "fr", "zh-CN")
+# Gibt die Sprache der Posts für diesen Mastodon-Account an. Nur relevant für Mastodon.
 
 [[accounts]]
 name = "mastodon-account"
 type = "mastodon"
 instance = "https://mastodon.social"
 accessToken = "dein-mastodon-access-token"  # Traditioneller hardcodierter Token
+# language = "en"  # Optional
 
 [[accounts]]
 name = "bluesky-account"
