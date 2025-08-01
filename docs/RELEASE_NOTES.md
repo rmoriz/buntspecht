@@ -1,3 +1,44 @@
+# v0.21.0 Release Notes
+
+## 🎯 Release Date
+August 1, 2025
+
+## 🔥 What's New
+
+### Comprehensive Middleware System
+- 9 built-in middleware types for message transformation, filtering, scheduling, attachments, and AI enhancements
+- Provider-specific middleware isolation and chainable transformations
+
+### RSS/Atom Feed Provider
+- Advanced RSS/Atom feed provider with filtering, encoding, and template support
+- Chronological and configurable processing order
+- Automatic cache warming and duplicate prevention
+
+### YouTube Middleware
+- YouTube Caption Middleware for extracting and posting video captions
+- YouTube Shorts Filter Middleware for filtering short-form content
+
+### Mastodon Language Support
+- Configurable language field for Mastodon posts (BCP 47 tag)
+
+### Major Refactoring & Performance
+- Refactored core scheduling, execution, and secret management for maintainability and speed
+- Improved file watcher and scheduler for reliable file-triggered posting
+
+### Webhook & Provider Enhancements
+- Enhanced webhook server with provider-specific paths and validation
+- Expanded configuration examples and documentation
+
+### Testing & Quality
+- 400+ tests for comprehensive coverage and reliability
+- Improved linting and code quality
+
+## 🚨 Migration Notes
+- No breaking changes; existing configurations remain compatible
+- See updated example configs and documentation for new features
+
+---
+
 # v0.12.0 Release Notes
 
 ## 🎯 Release Date
