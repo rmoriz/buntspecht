@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        bun-version: ["1.2.18"]
+        bun-version: ["1.2.19"]
     
     steps:
     - name: Checkout code
@@ -44,7 +44,7 @@ jobs:
     - name: Setup Bun
       uses: oven-sh/setup-bun@v1
       with:
-        bun-version: "1.2.18"
+        bun-version: "1.2.19"
         
     - name: Install dependencies
       run: bun install --frozen-lockfile
@@ -72,7 +72,7 @@ jobs:
     - name: Setup Bun
       uses: oven-sh/setup-bun@v1
       with:
-        bun-version: "1.2.18"
+        bun-version: "1.2.19"
         
     - name: Install dependencies
       run: bun install --frozen-lockfile
