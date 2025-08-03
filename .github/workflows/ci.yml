@@ -30,8 +30,11 @@ jobs:
     - name: Run linter
       run: bun run lint
       
-    - name: Run tests
-      run: bun run test:coverage
+    - name: Run tests with Jest
+      run: npm run test:coverage
+      
+    - name: Run tests with Bun
+      run: bun test --coverage
 
   build:
     needs: test

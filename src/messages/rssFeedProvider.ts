@@ -65,7 +65,7 @@ export class RSSFeedProvider implements MessageProvider {
     };
     
     const cacheDir = config.cache?.filePath ? require('path').dirname(config.cache.filePath) : './cache';
-    this.deduplicator = new MessageDeduplicator(cacheDir, console as any);
+    this.deduplicator = new MessageDeduplicator(cacheDir, console as unknown as Logger);
   }
 
   private isValidUrl(url: string): boolean {
@@ -139,7 +139,7 @@ export class RSSFeedProvider implements MessageProvider {
     return { text: this.formatItem(oldest) };
   }
 
-  private async fetchFeedItems(): Promise<any[]> {
+  private async fetchFeedItems(): Promise<Record<string, any>[]> {
     const maxRetries = this.config.retries || 3;
     let lastError: Error | null = null;
 
@@ -344,14 +344,14 @@ export class RSSFeedProvider implements MessageProvider {
     return 'utf-8';
   }
 
-  private getItemKey(item: any): string | null {
+  private getItemKey(item: Record<string, any>): string | null {
     return item?.pubDate || item?.isoDate || item?.id || item?.title || item?.link || null;
   }
 
   /**
    * Sort RSS items by date (oldest first) for chronological processing
    */
-  private sortItemsByDate(items: any[]): any[] {
+  private sortItemsByDate(items: Record<string, any>[]): Record<string, any>[] {
     return items.sort((a, b) => {
       const dateA = this.getItemDate(a);
       const dateB = this.getItemDate(b);
@@ -373,7 +373,7 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Extract and parse date from RSS item
    */
-  private getItemDate(item: any): Date | null {
+  private getItemDate(item: Record<string, any>): Date | null {
     if (!item) return null;
     
     // Try different date fields in order of preference
@@ -389,7 +389,7 @@ export class RSSFeedProvider implements MessageProvider {
     }
   }
 
-  private formatItem(item: any): string {
+  private formatItem(item: Record<string, any>): string {
     if (!item) return '';
     
     // If template is provided, use it
@@ -430,7 +430,7 @@ export class RSSFeedProvider implements MessageProvider {
         templateData.contentSnippet = templateData.contentSnippet.replace(/<[^>]*>/g, '').trim();
       }
       
-      const processor = new JsonTemplateProcessor(this.logger || console as any);
+      const processor = new JsonTemplateProcessor(this.logger || console as unknown as Logger);
       return processor.applyTemplate(this.config.template, templateData);
     }
     
@@ -522,7 +522,7 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Apply content filters to RSS items
    */
-  private applyFilters(items: any[]): any[] {
+  private applyFilters(items: Record<string, any>[]): Record<string, any>[] {
     if (!this.config.filters) {
       return items;
     }
@@ -577,7 +577,7 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Apply predefined filter presets
    */
-  private applyPresetFilters(items: any[], presets: NonNullable<RSSFeedProviderConfig['filters']>['presets']): any[] {
+  private applyPresetFilters(items: Record<string, any>[], presets: NonNullable<RSSFeedProviderConfig['filters']>['presets']): Record<string, any>[] {
     if (!presets) return items;
 
     let filteredItems = items;

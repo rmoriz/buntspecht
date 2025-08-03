@@ -17,9 +17,13 @@
     "start": "bun run dist/index.js",
     "dev": "bun run src/index.ts",
     "test": "jest",
+    "test:node": "jest",
     "test:bun": "bun test",
+    "test:cross": "npm run test:node && npm run test:bun",
     "test:watch": "jest --watch",
+    "test:watch:bun": "bun test --watch",
     "test:coverage": "jest --coverage",
+    "test:coverage:bun": "bun test --coverage",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "check:readme": "node scripts/update-german-readme.js",
@@ -76,6 +80,7 @@
     "typescript": "^5.8.3"
   },
   "engines": {
+    "node": ">=20.10.0",
     "bun": ">=1.2.19"
   }
 }

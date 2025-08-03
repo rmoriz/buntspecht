@@ -1,13 +1,17 @@
 // Re-export the new modular secret resolver for backward compatibility
 export { 
-  SecretResolver,
-  SecretProvider,
-  EnvironmentSecretProvider,
+  SecretResolver
+} from './secrets';
+
+// Export types
+export type { 
+  SecretProvider
+} from './secrets';
+
+// Export specific providers that actually exist
+export { 
   FileSecretProvider,
-  VaultSecretProvider,
-  AWSSecretsProvider,
-  AzureKeyVaultProvider,
-  GCPSecretManagerProvider
+  VaultSecretProvider
 } from './secrets';
 
 // This file has been refactored into a modular structure.

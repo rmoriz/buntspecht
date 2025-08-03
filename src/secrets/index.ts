@@ -5,6 +5,7 @@ export { RotationDetector, type RotationStats } from './RotationDetector';
 
 // Export types
 export * from './types';
+export type { SecretProvider } from './types';
 
 // Export providers
 export { BaseSecretProvider } from './providers/BaseSecretProvider';

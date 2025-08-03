@@ -1,15 +1,41 @@
-import * as fs from 'fs';
-import * as os from 'os';
 import { ConfigLoader } from '../config/configLoader';
 import { CliOptions } from '../types/config';
+import { CrossRuntimeTestHelpers } from './utils/crossRuntimeHelpers';
+import { createMockFunction, isJest } from './utils/testRuntime';
 
-// Mock fs module
+// Jest-specific mocking (must be at top level)
 jest.mock('fs');
-const mockFs = fs as jest.Mocked<typeof fs>;
-
-// Mock os module
 jest.mock('os');
-const mockOs = os as jest.Mocked<typeof os>;
+
+import * as fs from 'fs';
+import * as os from 'os';
+
+// Cross-runtime compatible mocking
+let mockFs: any;
+let mockOs: any;
+
+if (isJest) {
+  // Jest mocking
+  mockFs = fs as jest.Mocked<typeof fs>;
+  mockOs = os as jest.Mocked<typeof os>;
+} else {
+  // Bun-compatible mocking (manual mocking)
+  mockFs = {
+    existsSync: createMockFunction(),
+    readFileSync: createMockFunction(),
+    writeFileSync: createMockFunction(),
+    mkdirSync: createMockFunction(),
+    statSync: createMockFunction()
+  };
+  mockOs = {
+    homedir: createMockFunction(),
+    tmpdir: createMockFunction()
+  };
+  
+  // Replace the actual modules for Bun
+  (global as any).fs = mockFs;
+  (global as any).os = mockOs;
+}
 
 describe('ConfigLoader', () => {
   const mockConfig = `
@@ -70,7 +96,7 @@ level = "debug"
     it('should load config from CLI parameter', () => {
       const cliOptions: CliOptions = { config: '/custom/config.toml' };
       
-      mockFs.existsSync.mockImplementation((path) => path === '/custom/config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === '/custom/config.toml');
       mockFs.readFileSync.mockReturnValue(mockConfig);
 
       const config = ConfigLoader.loadConfig(cliOptions);
@@ -101,7 +127,7 @@ level = "debug"
       process.env.BUNTSPECHT_CONFIG = '/env/config.toml';
       const cliOptions: CliOptions = {};
       
-      mockFs.existsSync.mockImplementation((path) => path === '/env/config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === '/env/config.toml');
       mockFs.readFileSync.mockReturnValue(mockConfig);
 
       const config = ConfigLoader.loadConfig(cliOptions);
@@ -123,7 +149,7 @@ level = "debug"
     it('should load config from current directory', () => {
       const cliOptions: CliOptions = {};
       
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(mockConfig);
 
       const config = ConfigLoader.loadConfig(cliOptions);
@@ -135,7 +161,7 @@ level = "debug"
       const cliOptions: CliOptions = {};
       const homePath = '/home/user/.config/buntspecht/config.toml';
       
-      mockFs.existsSync.mockImplementation((path) => path === homePath);
+      mockFs.existsSync.mockImplementation((path: string) => path === homePath);
       mockFs.readFileSync.mockReturnValue(mockConfig);
 
       const config = ConfigLoader.loadConfig(cliOptions);
@@ -175,7 +201,7 @@ message = "PING"
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(minimalConfig);
 
       const config = ConfigLoader.loadConfig(cliOptions);
@@ -203,7 +229,7 @@ accounts = ["test-account"]
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
@@ -226,7 +252,7 @@ level = "info"
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
@@ -253,7 +279,7 @@ level = "info"
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
@@ -280,7 +306,7 @@ level = "info"
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(invalidConfig);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
@@ -295,7 +321,7 @@ instance = "https://test.mastodon"
 `;
       
       const cliOptions: CliOptions = {};
-      mockFs.existsSync.mockImplementation((path) => path === './config.toml');
+      mockFs.existsSync.mockImplementation((path: string) => path === './config.toml');
       mockFs.readFileSync.mockReturnValue(invalidToml);
 
       expect(() => ConfigLoader.loadConfig(cliOptions)).toThrow(
