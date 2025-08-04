@@ -30,6 +30,7 @@ Dieses Dokument beschreibt die Migration des Buntspecht-Projekts von Node.js zu 
 - **Setup**: Ersetzt `actions/setup-node` durch `oven-sh/setup-bun`
 - **Dependencies**: Nutzt `bun install --frozen-lockfile`
 - **Build & Test**: Alle Befehle nutzen jetzt `bun run`
+- **Bun Tests**: Als nicht-kritisch markiert mit `continue-on-error: true` während der Migration
 - **Security Audit**: Nutzt `bun audit` statt `npm audit`
 
 ### 4. Docker Compose
@@ -107,3 +108,4 @@ Falls ein Rollback zu Node.js nötig ist:
 1. Testen der neuen Bun-basierten Pipeline
 2. Performance-Vergleich mit der Node.js-Version
 3. Eventuelle Optimierungen der Bun-spezifischen Features
+4. Test-Suite vollständig zu Bun migrieren (aktuell als nicht-kritisch markiert)
