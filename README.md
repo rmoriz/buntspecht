@@ -38,8 +38,8 @@ A TypeScript-based **multi-platform social media bot** for **Mastodon**, **Blues
 - 🔧 **Message Middleware System**: Transform, filter, and enhance messages with powerful middleware
 - 📎 **Attachment Management**: Add, remove, validate, and modify file attachments
 - 🤖 **AI Message Enhancement**: Integrate with OpenRouter for AI-powered message processing
-- 🎯 **Advanced RSS Filtering**: Built-in YouTube Shorts filtering, regex patterns, content-based filtering
-- 📺 **YouTube Integration**: Automatic caption extraction and Shorts filtering middleware
+- 🎯 **Advanced RSS Filtering**: Built-in YouTube Shorts filtering, YouTube Premiere filtering, regex patterns, content-based filtering
+- 📺 **YouTube Integration**: Automatic caption extraction, Shorts filtering, and Premiere filtering middleware
 
 ## Installation
 
@@ -2427,6 +2427,9 @@ See [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for detailed release documenta
 - [RSS Feed Filtering](docs/RSS_FEED_FILTERING.md) - Advanced filtering for RSS feeds with YouTube Shorts filtering, regex patterns, and content-based filtering
 - [YouTube Caption Middleware](docs/YOUTUBE_CAPTION_MIDDLEWARE.md) - Extract and add YouTube video captions automatically
 - [YouTube Shorts Filter Middleware](docs/YOUTUBE_SHORTS_FILTER_MIDDLEWARE.md) - Filter out YouTube Shorts content
+- [YouTube Premiere Filter Middleware](docs/YOUTUBE_PREMIERE_FILTER_MIDDLEWARE.md) - Filter out YouTube Premieres from RSS feeds
+- [YouTube Video Filter Middleware](docs/YOUTUBE_VIDEO_FILTER_MIDDLEWARE.md) - Filter YouTube videos based on advanced criteria
+- [YouTube Premiere Filter Middleware](docs/YOUTUBE_PREMIERE_FILTER_MIDDLEWARE.md) - Filter out YouTube Premieres from RSS feeds
 
 ### Core Documentation
 

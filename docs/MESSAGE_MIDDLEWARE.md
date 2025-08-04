@@ -44,7 +44,7 @@ suffix = " #bot #automated"
 
 ## Built-in Middleware Types
 
-Buntspecht includes 9 built-in middleware types that cover most common message processing needs:
+Buntspecht includes built-in middleware types that cover most common message processing needs:
 
 ### 1. Text Transform Middleware (`text_transform`)
 
@@ -347,6 +347,16 @@ skipReason = "AI processing failed"
 - `openai/gpt-4`
 - `openai/gpt-3.5-turbo`
 - And many more via OpenRouter
+
+### 10. YouTube-related Middleware
+
+Buntspecht includes specialized middleware for handling YouTube content:
+
+- **[YouTube Caption Middleware](YOUTUBE_CAPTION_MIDDLEWARE.md)** (`youtube_caption`) - Extract and add captions from YouTube videos
+- **[YouTube Shorts Filter Middleware](YOUTUBE_SHORTS_FILTER_MIDDLEWARE.md)** (`youtube_shorts_filter`) - Filter out YouTube Shorts
+- **[YouTube Video Filter Middleware](YOUTUBE_VIDEO_FILTER_MIDDLEWARE.md)** (`youtube_video_filter`) - Filter YouTube videos by length, title, etc.
+- **[YouTube Premiere Filter Middleware](YOUTUBE_PREMIERE_FILTER_MIDDLEWARE.md)** (`youtube_premiere_filter`) - Filter out YouTube Premieres
+- **[YouTube Premiere Filter Middleware](YOUTUBE_PREMIERE_FILTER_MIDDLEWARE.md)** (`youtube_premiere_filter`) - Filter out YouTube Premieres
 
 ## Provider-Specific Middleware Isolation
 

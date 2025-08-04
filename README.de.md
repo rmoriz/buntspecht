@@ -36,8 +36,8 @@ Ein TypeScript-basierter **Multi-Plattform Social Media Bot** für **Mastodon**,
 - 🔧 **Message-Middleware-System**: Nachrichten mit mächtiger Middleware transformieren, filtern und verbessern
 - 📎 **Attachment-Management**: Dateianhänge hinzufügen, entfernen, validieren und modifizieren
 - 🤖 **KI-Nachrichten-Verbesserung**: Integration mit OpenRouter für KI-gestützte Nachrichtenverarbeitung
-- 🎯 **Erweiterte RSS-Filterung**: Eingebaute YouTube Shorts-Filterung, Regex-Patterns, inhaltsbasierte Filterung
-- 📺 **YouTube-Integration**: Automatische Untertitel-Extraktion und Shorts-Filterung Middleware
+- 🎯 **Erweiterte RSS-Filterung**: Eingebaute YouTube Shorts-Filterung, YouTube Premiere-Filterung, Regex-Patterns, inhaltsbasierte Filterung
+- 📺 **YouTube-Integration**: Automatische Untertitel-Extraktion, Shorts-Filterung und Premiere-Filterung Middleware
 
 ## Installation
 
@@ -416,6 +416,7 @@ Für vollständige Middleware-Dokumentation siehe [docs/MESSAGE_MIDDLEWARE.md](d
 - [RSS Feed Filterung](docs/RSS_FEED_FILTERING.md) - Erweiterte Filterung für RSS-Feeds mit YouTube Shorts-Filterung, Regex-Patterns und inhaltsbasierter Filterung
 - [YouTube Caption Middleware](docs/YOUTUBE_CAPTION_MIDDLEWARE.md) - YouTube-Video-Untertitel automatisch extrahieren und hinzufügen
 - [YouTube Shorts Filter Middleware](docs/YOUTUBE_SHORTS_FILTER_MIDDLEWARE.md) - YouTube Shorts-Inhalte herausfiltern
+- [YouTube Premiere Filter Middleware](docs/YOUTUBE_PREMIERE_FILTER_MIDDLEWARE.md) - YouTube Premieres aus RSS-Feeds herausfiltern
 
 Siehe auch die [Konfigurationsbeispiele](examples/configuration/) für praktische Anwendungen aller Features.
 

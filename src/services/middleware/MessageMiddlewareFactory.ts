@@ -11,6 +11,7 @@ import { OpenRouterMiddleware, OpenRouterConfig } from './builtin/OpenRouterMidd
 import { YouTubeCaptionMiddleware, YouTubeCaptionConfig } from './builtin/YouTubeCaptionMiddleware';
 import { YouTubeShortsFilterMiddleware, YouTubeShortsFilterConfig } from './builtin/YouTubeShortsFilterMiddleware';
 import { YouTubeVideoFilterMiddleware, YouTubeVideoFilterConfig } from './builtin/YouTubeVideoFilterMiddleware';
+import { YouTubePremiereFilterMiddleware, YouTubePremiereFilterConfig } from './builtin/YouTubePremiereFilterMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -28,7 +29,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'openrouter',
     'youtube_caption',
     'youtube_shorts_filter',
-    'youtube_video_filter'
+    'youtube_video_filter',
+    'youtube_premiere_filter'
   ];
 
   /**
@@ -119,6 +121,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new YouTubeVideoFilterMiddleware(
           config.name,
           config.config as unknown as YouTubeVideoFilterConfig,
+          enabled
+        );
+
+      case 'youtube_premiere_filter':
+        return new YouTubePremiereFilterMiddleware(
+          config.name,
+          config.config as unknown as YouTubePremiereFilterConfig,
           enabled
         );
 

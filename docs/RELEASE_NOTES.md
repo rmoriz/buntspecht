@@ -17,6 +17,7 @@ August 1, 2025
 ### YouTube Middleware
 - YouTube Caption Middleware for extracting and posting video captions
 - YouTube Shorts Filter Middleware for filtering short-form content
+- YouTube Premiere Filter Middleware for filtering premiere announcements
 
 ### Mastodon Language Support
 - Configurable language field for Mastodon posts (BCP 47 tag)

@@ -1,0 +1,165 @@
+# YouTube Premiere Filter Middleware Example Configuration
+# This example shows how to configure the YouTube Premiere Filter Middleware
+# to automatically skip YouTube Premieres in RSS feeds
+
+[logging]
+level = "info"
+
+# RSS Feed Provider for YouTube Channel
+[[bot.providers]]
+name = "youtube-channel"
+type = "rssfeed"
+enabled = true
+schedule = "*/5 * * * *"  # Check every 5 minutes
+
+[bot.providers.config]
+feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=YOUR_CHANNEL_ID"
+template = "🎥 Neues Video: {{title}}\n{{link}}"
+
+# YouTube Premiere Filter Middleware Configuration
+[[bot.providers.middleware]]
+name = "premiere-filter"
+type = "youtube_premiere_filter"
+enabled = true
+
+[bot.providers.middleware.config]
+# Whether to skip YouTube Premieres (default: true)
+skipPremieres = true
+
+# Custom skip reason when premieres are found (optional)
+skipReason = "YouTube Premiere wird automatisch übersprungen"
+
+# Whether to log when premieres are skipped (default: true)
+logSkipped = true
+
+# Social Media Accounts
+[[accounts]]
+name = "mastodon-main"
+platform = "mastodon"
+enabled = true
+
+[accounts.config]
+instanceUrl = "https://mastodon.social"
+accessToken = "${MASTODON_ACCESS_TOKEN}"
+
+# Provider-Account Mapping
+[[postings]]
+provider = "youtube-channel"
+accounts = ["mastodon-main"]
+visibility = "public"
+
+# Alternative Configuration Examples:
+
+# Example 1: Allow premieres but track them
+# [[providers.middleware]]
+# name = "premiere-tracker"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = false
+# logSkipped = true
+
+# Example 2: Silent premiere filtering (no logging)
+# [[providers.middleware]]
+# name = "silent-premiere-filter"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = true
+# logSkipped = false
+# skipReason = "Premiere content filtered"
+
+# Example 3: Multiple providers with different premiere handling
+# [[providers]]
+# name = "main-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/10 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=MAIN_CHANNEL_ID"
+# 
+# [[providers.middleware]]
+# name = "main-premiere-filter"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = true
+# skipReason = "Hauptkanal: Nur veröffentlichte Videos"
+# 
+# [[providers]]
+# name = "announcements-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/15 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=ANNOUNCEMENTS_CHANNEL_ID"
+# 
+# [[providers.middleware]]
+# name = "premiere-announcer"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = false  # Allow premieres from this channel
+# logSkipped = false
+
+# Example 4: Combined with other middleware
+# [[providers]]
+# name = "tech-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "*/5 * * * *"
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=TECH_CHANNEL_ID"
+# template = "🔧 {{title}}\n{{link}}"
+# 
+# # First filter out premieres
+# [[providers.middleware]]
+# name = "no-premieres"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = true
+# skipReason = "Tech-Kanal: Keine Premieres"
+# 
+# # Then filter out shorts
+# [[providers.middleware]]
+# name = "no-shorts"
+# type = "youtube_shorts_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipShorts = true
+# skipReason = "Tech-Kanal: Keine Shorts"
+
+# Example 5: Scheduled premiere announcement with customized message
+# [[providers]]
+# name = "premiere-channel"
+# type = "rssfeed"
+# enabled = true
+# schedule = "0 */1 * * *"  # Every hour
+# [providers.config]
+# feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=PREMIERE_CHANNEL_ID"
+# template = "🎬 **PREMIERE ANKÜNDIGUNG** 🎬\n\n{{title}}\n\nSei dabei wenn es losgeht: {{link}}"
+# 
+# # Use a custom middleware chain that modifies the premiere instead of skipping it
+# [[providers.middleware]]
+# name = "detect-premieres"
+# type = "youtube_premiere_filter"
+# enabled = true
+# [providers.middleware.config]
+# skipPremieres = false  # Don't skip, just detect
+# 
+# # Add conditional transformation based on premiere detection
+# [[providers.middleware]]
+# name = "premiere-transformer"
+# type = "conditional"
+# enabled = true
+# [providers.middleware.config]
+# condition = "data.detect-premieres_premiere_detected == true"
+# 
+# # Apply text transform only to premieres
+# [[providers.middleware.config.middlewares]]
+# name = "format-premiere"
+# type = "text_transform"
+# enabled = true
+# [providers.middleware.config.middlewares.config]
+# template = "🎬 **DEMNÄCHST** 🎬\n\n{{title}}\n\nStell dir eine Erinnerung: {{link}}"
