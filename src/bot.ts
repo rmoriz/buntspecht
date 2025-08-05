@@ -396,16 +396,15 @@ export class MastodonPingBot {
    * Initialize only the minimal components needed for purging (no providers, webhook, or scheduler)
    */
   public async initializeForPurging(): Promise<void> {
+    // Load configuration with secret resolution (same as regular initialize)
+    this.config = await ConfigLoader.loadConfigWithSecrets(this.cliOptions);
+    this.logger = new Logger(this.config.logging.level);
+    
     this.logger.info('Initializing Buntspecht for purging...');
     
-    // Load configuration
-    this.config = await ConfigLoader.load(this.cliOptions.config);
-    
     // Initialize telemetry
-    this.telemetry = await this.createTelemetryService();
-    
-    // Initialize secret resolver
-    this.secretResolver = new SecretResolver(this.config, this.logger, this.telemetry);
+    this.telemetry = await createTelemetryService(this.config.telemetry!, this.logger);
+    await this.telemetry.initialize();
     
     // Initialize social media client (needed for purging)
     this.socialMediaClient = new SocialMediaClient(this.config, this.logger, this.telemetry);
