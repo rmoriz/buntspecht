@@ -346,9 +346,9 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
       // Get pinned posts if we need to preserve them
       const pinnedPosts = preservePinned ? await this.getPinnedPosts(accountClient) : new Set<string>();
 
-      // Phase 1: Collect all posts that need to be deleted
-      this.logger.info(`Collecting posts to delete for account "${accountName}"...`);
-      const postsToDelete: { id: string; createdAt: string; favouritesCount: number }[] = [];
+       // Phase 1: Collect all posts silently for analysis
+      this.logger.info(`Scanning posts for account "${accountName}"...`);
+      const allPosts: { id: string; createdAt: string; favouritesCount: number; pinned: boolean }[] = [];
 
       while (true) {
         // Fetch user's statuses in batches
@@ -365,34 +365,11 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
 
         for (const status of statuses) {
           processedCount++;
-          const postDate = new Date(status.createdAt);
-          
-          // Skip if post is newer than cutoff date
-          if (postDate > cutoffDate) {
-            skippedCount++;
-            this.logger.debug(`Skipping recent post ${status.id} from ${postDate.toISOString()}`);
-            continue;
-          }
-
-          // Skip if post is pinned and we're preserving pinned posts
-          if (preservePinned && pinnedPosts.has(status.id)) {
-            skippedCount++;
-            this.logger.debug(`Skipping pinned post ${status.id}`);
-            continue;
-          }
-
-          // Skip if post has enough stars and we're preserving starred posts
-          if (preserveStarred && status.favouritesCount >= minStars) {
-            skippedCount++;
-            this.logger.debug(`Skipping starred post ${status.id} with ${status.favouritesCount} stars`);
-            continue;
-          }
-
-          // Add to deletion list
-          postsToDelete.push({
+          allPosts.push({
             id: status.id,
             createdAt: status.createdAt,
-            favouritesCount: status.favouritesCount
+            favouritesCount: status.favouritesCount,
+            pinned: pinnedPosts.has(status.id)
           });
         }
 
@@ -406,18 +383,56 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
           await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
         }
 
-        // Log collection progress
-        this.logger.info(`Collected ${processedCount} posts for "${accountName}": ${postsToDelete.length} to delete, ${skippedCount} to preserve`);
+        // Log scanning progress
+        this.logger.info(`Scanned ${processedCount} posts for "${accountName}"...`);
       }
 
-      // Phase 2: Sort posts chronologically (oldest first) and delete them
+      // Phase 2: Sort all posts chronologically (oldest first) and determine which to delete
+      allPosts.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      
+      this.logger.info(`Analyzing ${allPosts.length} posts for account "${accountName}" in chronological order (oldest first)...`);
+      const postsToDelete: { id: string; createdAt: string; favouritesCount: number }[] = [];
+
+      for (const post of allPosts) {
+        const postDate = new Date(post.createdAt);
+        
+        // Skip if post is newer than cutoff date
+        if (postDate > cutoffDate) {
+          skippedCount++;
+          this.logger.debug(`Skipping recent post ${post.id} from ${postDate.toISOString()}`);
+          continue;
+        }
+
+        // Skip if post is pinned and we're preserving pinned posts
+        if (preservePinned && post.pinned) {
+          skippedCount++;
+          this.logger.debug(`Skipping pinned post ${post.id} from ${postDate.toISOString()}`);
+          continue;
+        }
+
+        // Skip if post has enough stars and we're preserving starred posts
+        if (preserveStarred && post.favouritesCount >= minStars) {
+          skippedCount++;
+          this.logger.debug(`Skipping starred post ${post.id} from ${postDate.toISOString()} with ${post.favouritesCount} stars`);
+          continue;
+        }
+
+        // Add to deletion list
+        postsToDelete.push({
+          id: post.id,
+          createdAt: post.createdAt,
+          favouritesCount: post.favouritesCount
+        });
+        
+        this.logger.debug(`Marked for deletion: post ${post.id} from ${postDate.toISOString()} (${post.favouritesCount} stars)`);
+      }
+      // Phase 3: Delete posts in chronological order (oldest first)
       if (postsToDelete.length === 0) {
         this.logger.info(`No posts to delete for account "${accountName}"`);
         return;
       }
 
-      // Sort posts by creation date (oldest first)
-      postsToDelete.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      // Posts are already sorted chronologically (oldest first) from Phase 2
 
       this.logger.info(`Deleting ${postsToDelete.length} posts for account "${accountName}" in chronological order (oldest first)...`);
       

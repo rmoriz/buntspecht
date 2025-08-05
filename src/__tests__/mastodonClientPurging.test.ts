@@ -211,7 +211,7 @@ describe('MastodonClient - Purging', () => {
       expect(mockClient.v1.statuses.$select().remove).not.toHaveBeenCalled();
       
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Skipping pinned post 1'
+        expect.stringMatching(/Skipping pinned post 1 from .+/)
       );
     });
 
