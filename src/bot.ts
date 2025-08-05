@@ -393,6 +393,28 @@ export class MastodonPingBot {
   }
 
   /**
+   * Initialize only the minimal components needed for purging (no providers, webhook, or scheduler)
+   */
+  public async initializeForPurging(): Promise<void> {
+    this.logger.info('Initializing Buntspecht for purging...');
+    
+    // Load configuration
+    this.config = await ConfigLoader.load(this.cliOptions.config);
+    
+    // Initialize telemetry
+    this.telemetry = await this.createTelemetryService();
+    
+    // Initialize secret resolver
+    this.secretResolver = new SecretResolver(this.config, this.logger, this.telemetry);
+    
+    // Initialize social media client (needed for purging)
+    this.socialMediaClient = new SocialMediaClient(this.config, this.logger, this.telemetry);
+    
+    // Skip verification for purging operations to be faster
+    this.logger.debug('Skipping social media verification for purging operation');
+  }
+
+  /**
    * Purge old posts from Mastodon accounts
    */
   public async purgeOldPosts(accountNames?: string[]): Promise<void> {

@@ -18,6 +18,31 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // Handle purge commands with minimal initialization (only social media client)
+  if (cliOptions.purgeOldPosts || cliOptions.purgeAccount) {
+    const bot = new MastodonPingBot(cliOptions);
+    
+    try {
+      // Only initialize configuration and social media client, skip providers/webhook/scheduler
+      await bot.initializeForPurging();
+      
+      if (cliOptions.purgeOldPosts) {
+        await bot.purgeOldPosts();
+        await bot.stop();
+        return;
+      }
+
+      if (cliOptions.purgeAccount) {
+        await bot.purgeOldPosts([cliOptions.purgeAccount]);
+        await bot.stop();
+        return;
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  }
+
   // Handle commands that only need configuration loading (no full bot initialization)
   if (cliOptions.listProviders || cliOptions.listPushProviders || cliOptions.pushProviderStatus || 
       cliOptions.webhookStatus || cliOptions.secretRotationStatus) {
@@ -127,18 +152,6 @@ export async function main(): Promise<void> {
     if (cliOptions.warmCache) {
       await bot.warmCache();
       // Properly shutdown services to allow process to exit
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.purgeOldPosts) {
-      await bot.purgeOldPosts();
-      await bot.stop();
-      return;
-    }
-
-    if (cliOptions.purgeAccount) {
-      await bot.purgeOldPosts([cliOptions.purgeAccount]);
       await bot.stop();
       return;
     }
