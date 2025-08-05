@@ -45,17 +45,18 @@ export class JsonTemplateProcessor {
       
       const value = this.getNestedProperty(data, path);
       
+      // If we have a function call, let the function handle null/undefined values
+      if (functionCall) {
+        return this.applyTemplateFunction(value, functionCall, path);
+      }
+      
+      // For variables without functions, handle null/undefined as before
       if (value === undefined || value === null) {
         this.logger.warn(`Template variable "${path}" not found in JSON data`);
         return match; // Return the original placeholder if variable not found
       }
       
       let result = String(value);
-      
-      // Apply function if specified
-      if (functionCall) {
-        result = this.applyTemplateFunction(value, functionCall, path);
-      }
       
       return result;
     });
@@ -142,8 +143,16 @@ export class JsonTemplateProcessor {
    * Joins an array with a separator and optional prefix for each element
    * Usage: {{tags|join: }} or {{tags|join: ,#}} or {{tags|join:#,#}}
    * Args: [separator, prefix?]
+   * 
+   * Note: If value is null or undefined, treats it as an empty array
    */
   private joinFunction(value: unknown, args: string[], variablePath: string): string {
+    // Handle null/undefined as empty arrays for join function
+    if (value === null || value === undefined) {
+      this.logger.debug(`join function: treating null/undefined variable "${variablePath}" as empty array`);
+      value = [];
+    }
+    
     if (!Array.isArray(value)) {
       this.logger.warn(`join function can only be applied to arrays, but variable "${variablePath}" is not an array`);
       return String(value);

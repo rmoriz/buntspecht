@@ -86,4 +86,43 @@ describe('JsonTemplateProcessor - join function', () => {
     
     expect(result).toBe('🎮 isolani44 ist live: #Deutsch #Road2CM #Österreich #Schwammerl #test');
   });
+
+  it('should handle undefined tags with join function', () => {
+    const template = 'Tags: {{tags|join: ,#}}';
+    const data = {}; // tags is undefined
+    
+    const result = processor.applyTemplate(template, data);
+    
+    expect(result).toBe('Tags: ');
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'join function: treating null/undefined variable "tags" as empty array'
+    );
+  });
+
+  it('should handle null tags with join function', () => {
+    const template = 'Tags: {{tags|join: ,#}}';
+    const data = { tags: null };
+    
+    const result = processor.applyTemplate(template, data);
+    
+    expect(result).toBe('Tags: ');
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'join function: treating null/undefined variable "tags" as empty array'
+    );
+  });
+
+  it('should handle real-world Twitch example with undefined tags', () => {
+    const template = '🎮♟️ {{streamer_name}} is going live at {{url}} with {{stream_title}}. ({{followers_count}} Followers) {{tags|join: ,#}}';
+    const data = {
+      streamer_name: 'Elaynah',
+      url: 'https://twitch.tv/elaynah',
+      stream_title: 'Chess Climb 🧩 Tactics | !Bloom !YouTube !x !shorts !TikTok',
+      followers_count: '24433'
+      // tags is undefined
+    };
+    
+    const result = processor.applyTemplate(template, data);
+    
+    expect(result).toBe('🎮♟️ Elaynah is going live at https://twitch.tv/elaynah with Chess Climb 🧩 Tactics | !Bloom !YouTube !x !shorts !TikTok. (24433 Followers) ');
+  });
 });
