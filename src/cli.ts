@@ -26,6 +26,8 @@ export function parseCliArguments(): CliOptions {
     .option('--about', 'show information about Buntspecht and its automated release system')
     .option('--warm-cache', 'process all items from JSON providers and populate the cache without posting')
     .option('--trigger-provider <n>', 'immediately execute a specific provider (ignores cron schedule) and exit')
+    .option('--purge-old-posts', 'purge old posts from all Mastodon accounts with purging enabled and exit')
+    .option('--purge-account <name>', 'purge old posts from a specific Mastodon account and exit')
     .parse();
 
   const options = program.opts();
@@ -48,5 +50,7 @@ export function parseCliArguments(): CliOptions {
     verifySecrets: options.verifySecrets,
     about: options.about,
     warmCache: options.warmCache,
+    purgeOldPosts: options.purgeOldPosts,
+    purgeAccount: options.purgeAccount,
   } as CliOptions;
 }

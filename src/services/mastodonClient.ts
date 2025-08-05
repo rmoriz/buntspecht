@@ -286,4 +286,166 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
       return false;
     }
   }
+
+  /**
+   * Purges old posts from specified accounts based on their purging configuration
+   */
+  public async purgeOldPosts(accountNames?: string[]): Promise<void> {
+    const accountsToPurge = accountNames || Array.from(this.clients.keys());
+    
+    for (const accountName of accountsToPurge) {
+      const accountClient = this.clients.get(accountName);
+      if (!accountClient) {
+        this.logger.warn(`Account "${accountName}" not found, skipping purge`);
+        continue;
+      }
+
+      const purgeConfig = accountClient.config.purging;
+      if (!purgeConfig?.enabled) {
+        this.logger.debug(`Purging not enabled for account "${accountName}", skipping`);
+        continue;
+      }
+
+      if (!purgeConfig.olderThanDays || purgeConfig.olderThanDays <= 0) {
+        this.logger.warn(`Invalid olderThanDays configuration for account "${accountName}", skipping`);
+        continue;
+      }
+
+      await this.purgeAccountPosts(accountClient, purgeConfig);
+    }
+  }
+
+  /**
+   * Purges old posts for a specific account
+   */
+  private async purgeAccountPosts(accountClient: AccountClient, purgeConfig: NonNullable<AccountConfig['purging']>): Promise<void> {
+    const accountName = accountClient.name;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - (purgeConfig.olderThanDays || 30));
+    
+    const preserveStarred = purgeConfig.preserveStarredPosts !== false;
+    const preservePinned = purgeConfig.preservePinnedPosts !== false;
+    const minStars = purgeConfig.minStarsToPreserve || 5;
+    const dryRun = purgeConfig.dryRun || false;
+    const batchSize = purgeConfig.batchSize || 20;
+    const delayBetweenBatches = purgeConfig.delayBetweenBatches || 1000;
+
+    this.logger.info(`Starting post purge for account "${accountName}": deleting posts older than ${cutoffDate.toISOString()} ${dryRun ? '(DRY RUN)' : ''}`);
+    this.logger.info(`Purge settings: preserveStarred=${preserveStarred}, preservePinned=${preservePinned}, minStars=${minStars}`);
+
+    try {
+      // Get account info to retrieve account ID
+      const accountInfo = await accountClient.client.v1.accounts.verifyCredentials();
+      let deletedCount = 0;
+      let skippedCount = 0;
+      let processedCount = 0;
+      let maxId: string | undefined;
+
+      // Get pinned posts if we need to preserve them
+      const pinnedPosts = preservePinned ? await this.getPinnedPosts(accountClient) : new Set<string>();
+
+      while (true) {
+        // Fetch user's statuses in batches
+        const statuses = await accountClient.client.v1.accounts.$select(accountInfo.id).statuses.list({
+          limit: batchSize,
+          maxId: maxId,
+          excludeReplies: false, // Include replies in purge consideration
+          excludeReblogs: true,  // Don't include reblogs (can't delete others' posts anyway)
+        });
+
+        if (statuses.length === 0) {
+          break; // No more posts to process
+        }
+
+        for (const status of statuses) {
+          processedCount++;
+          const postDate = new Date(status.createdAt);
+          
+          // Skip if post is newer than cutoff date
+          if (postDate > cutoffDate) {
+            skippedCount++;
+            this.logger.debug(`Skipping recent post ${status.id} from ${postDate.toISOString()}`);
+            continue;
+          }
+
+          // Skip if post is pinned and we're preserving pinned posts
+          if (preservePinned && pinnedPosts.has(status.id)) {
+            skippedCount++;
+            this.logger.debug(`Skipping pinned post ${status.id}`);
+            continue;
+          }
+
+          // Skip if post has enough stars and we're preserving starred posts
+          if (preserveStarred && status.favouritesCount >= minStars) {
+            skippedCount++;
+            this.logger.debug(`Skipping starred post ${status.id} with ${status.favouritesCount} stars`);
+            continue;
+          }
+
+          // Delete the post
+          if (dryRun) {
+            this.logger.info(`[DRY RUN] Would delete post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
+            deletedCount++;
+          } else {
+            try {
+              await accountClient.client.v1.statuses.$select(status.id).remove();
+              deletedCount++;
+              this.logger.debug(`Deleted post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
+            } catch (deleteError) {
+              this.logger.error(`Failed to delete post ${status.id}:`, deleteError);
+              // Continue with other posts
+            }
+          }
+        }
+
+        // Update maxId for pagination
+        if (statuses.length > 0) {
+          maxId = statuses[statuses.length - 1].id;
+        }
+
+        // Add delay between batches to be respectful to the API
+        if (delayBetweenBatches > 0) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        }
+
+        // Log progress
+        this.logger.info(`Processed ${processedCount} posts for "${accountName}": ${deletedCount} deleted, ${skippedCount} skipped`);
+      }
+
+      this.logger.info(`Completed post purge for account "${accountName}": ${deletedCount} posts ${dryRun ? 'would be ' : ''}deleted, ${skippedCount} posts preserved, ${processedCount} total posts processed`);
+      
+      // Record telemetry
+      if (this.telemetry && typeof this.telemetry.recordCustomMetric === 'function') {
+        this.telemetry.recordCustomMetric('mastodon.posts_purged', deletedCount, {
+          account: accountName,
+          dry_run: dryRun.toString(),
+          preserved_count: skippedCount.toString(),
+        });
+      }
+
+    } catch (error) {
+      this.logger.error(`Failed to purge posts for account "${accountName}":`, error);
+      throw new Error(`Post purge failed for ${accountName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Gets the IDs of pinned posts for an account
+   */
+  private async getPinnedPosts(accountClient: AccountClient): Promise<Set<string>> {
+    try {
+      const accountInfo = await accountClient.client.v1.accounts.verifyCredentials();
+      const pinnedStatuses = await accountClient.client.v1.accounts.$select(accountInfo.id).statuses.list({
+        pinned: true,
+        limit: 40, // Mastodon allows up to 5 pinned posts, but we'll be generous
+      });
+      
+      const pinnedIds = new Set(pinnedStatuses.map(status => status.id));
+      this.logger.debug(`Found ${pinnedIds.size} pinned posts for account "${accountClient.name}"`);
+      return pinnedIds;
+    } catch (error) {
+      this.logger.warn(`Failed to fetch pinned posts for account "${accountClient.name}":`, error);
+      return new Set(); // Return empty set if we can't fetch pinned posts
+    }
+  }
 }

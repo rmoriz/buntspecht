@@ -14,6 +14,18 @@ export interface AccountConfig {
   identifierSource?: string; // External source for identifier
   passwordSource?: string; // External source for password
   instanceSource?: string; // External source for instance (if needed)
+  
+  // Mastodon-specific purging configuration
+  purging?: {
+    enabled?: boolean; // Default: false
+    olderThanDays?: number; // Delete posts older than this many days
+    preserveStarredPosts?: boolean; // Don't delete posts with >= 5 stars (default: true)
+    preservePinnedPosts?: boolean; // Don't delete pinned posts (default: true)
+    minStarsToPreserve?: number; // Minimum stars to preserve a post (default: 5)
+    dryRun?: boolean; // Only log what would be deleted without actually deleting (default: false)
+    batchSize?: number; // Number of posts to process in each batch (default: 20)
+    delayBetweenBatches?: number; // Delay in milliseconds between batches (default: 1000)
+  };
 }
 
 export interface ProviderConfig {
@@ -116,4 +128,6 @@ export interface CliOptions {
   checkSecretRotations?: boolean;
   listMonitoredSecrets?: boolean;
   warmCache?: boolean;
+  purgeOldPosts?: boolean;
+  purgeAccount?: string;
 }

@@ -131,6 +131,18 @@ export async function main(): Promise<void> {
       return;
     }
 
+    if (cliOptions.purgeOldPosts) {
+      await bot.purgeOldPosts();
+      await bot.stop();
+      return;
+    }
+
+    if (cliOptions.purgeAccount) {
+      await bot.purgeOldPosts([cliOptions.purgeAccount]);
+      await bot.stop();
+      return;
+    }
+
     // Start the bot normally
     await bot.start();
 

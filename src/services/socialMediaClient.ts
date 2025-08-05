@@ -185,4 +185,17 @@ export class SocialMediaClient extends BaseConfigurableService<BotConfig> {
       return false;
     }
   }
+
+  /**
+   * Purges old posts from Mastodon accounts based on their purging configuration
+   * Note: This only works for Mastodon accounts, Bluesky accounts are ignored
+   */
+  public async purgeOldPosts(accountNames?: string[]): Promise<void> {
+    this.logger.info('Starting post purge operation...');
+    
+    // Only purge Mastodon accounts since Bluesky doesn't support post deletion via API in the same way
+    await this.mastodonClient.purgeOldPosts(accountNames);
+    
+    this.logger.info('Post purge operation completed');
+  }
 }

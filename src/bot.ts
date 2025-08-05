@@ -391,4 +391,23 @@ export class MastodonPingBot {
   public isSecretRotationEnabled(): boolean {
     return !!this.secretRotationDetector;
   }
+
+  /**
+   * Purge old posts from Mastodon accounts
+   */
+  public async purgeOldPosts(accountNames?: string[]): Promise<void> {
+    if (accountNames) {
+      this.logger.info(`Starting post purge for specific accounts: ${accountNames.join(', ')}`);
+    } else {
+      this.logger.info('Starting post purge for all accounts with purging enabled...');
+    }
+    
+    try {
+      await this.socialMediaClient.purgeOldPosts(accountNames);
+      this.logger.info('Post purge completed successfully');
+    } catch (error) {
+      this.logger.error('Post purge failed:', error);
+      throw error;
+    }
+  }
 }
