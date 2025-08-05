@@ -86,7 +86,6 @@ describe('MastodonClient - Purging', () => {
             preserveStarredPosts: true,
             preservePinnedPosts: true,
             minStarsToPreserve: 5,
-            dryRun: false,
             batchSize: 20,
             delayBetweenBatches: 100
           }
@@ -123,7 +122,7 @@ describe('MastodonClient - Purging', () => {
     });
 
     it('should skip accounts with invalid olderThanDays configuration', async () => {
-      config.accounts[0].purging = { ...config.accounts[0].purging, olderThanDays: 0 };
+      config.accounts[0].purging = { ...config.accounts[0].purging!, olderThanDays: 0 };
       client = new MastodonClient(config, mockLogger, mockTelemetry);
       
       await client.purgeOldPosts(['test-account']);
@@ -183,40 +182,6 @@ describe('MastodonClient - Purging', () => {
       );
     });
 
-    it('should handle dry run mode', async () => {
-      config.accounts[0].purging = { ...config.accounts[0].purging, dryRun: true };
-      client = new MastodonClient(config, mockLogger, mockTelemetry);
-      
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 30);
-      
-      const oldPost = {
-        id: '1',
-        createdAt: new Date(cutoffDate.getTime() - 86400000).toISOString(),
-        favouritesCount: 2
-      };
-
-      // Setup mock for status list calls
-      const mockStatusList = jest.fn()
-        .mockResolvedValueOnce([]) // First call for pinned posts
-        .mockResolvedValueOnce([oldPost]) // Second call for regular posts
-        .mockResolvedValueOnce([]); // Third call returns empty (end of pagination)
-      
-      mockClient.v1.accounts.$select.mockReturnValue({
-        statuses: {
-          list: mockStatusList
-        }
-      });
-
-      await client.purgeOldPosts(['test-account']);
-
-      // Should not actually delete in dry run mode
-      expect(mockClient.v1.statuses.$select().remove).not.toHaveBeenCalled();
-      
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('[DRY RUN] Would delete post 1')
-      );
-    });
 
     it('should preserve pinned posts', async () => {
       const cutoffDate = new Date();

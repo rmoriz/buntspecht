@@ -326,11 +326,10 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
     const preserveStarred = purgeConfig.preserveStarredPosts !== false;
     const preservePinned = purgeConfig.preservePinnedPosts !== false;
     const minStars = purgeConfig.minStarsToPreserve || 5;
-    const dryRun = purgeConfig.dryRun || false;
     const batchSize = purgeConfig.batchSize || 20;
     const delayBetweenBatches = purgeConfig.delayBetweenBatches || 1000;
 
-    this.logger.info(`Starting post purge for account "${accountName}": deleting posts older than ${cutoffDate.toISOString()} ${dryRun ? '(DRY RUN)' : ''}`);
+    this.logger.info(`Starting post purge for account "${accountName}": deleting posts older than ${cutoffDate.toISOString()}`);
     this.logger.info(`Purge settings: preserveStarred=${preserveStarred}, preservePinned=${preservePinned}, minStars=${minStars}`);
 
     try {
@@ -383,18 +382,13 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
           }
 
           // Delete the post
-          if (dryRun) {
-            this.logger.info(`[DRY RUN] Would delete post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
+          try {
+            await accountClient.client.v1.statuses.$select(status.id).remove();
             deletedCount++;
-          } else {
-            try {
-              await accountClient.client.v1.statuses.$select(status.id).remove();
-              deletedCount++;
-              this.logger.debug(`Deleted post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
-            } catch (deleteError) {
-              this.logger.error(`Failed to delete post ${status.id}:`, deleteError);
-              // Continue with other posts
-            }
+            this.logger.debug(`Deleted post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
+          } catch (deleteError) {
+            this.logger.error(`Failed to delete post ${status.id}:`, deleteError);
+            // Continue with other posts
           }
         }
 
@@ -412,12 +406,11 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
         this.logger.info(`Processed ${processedCount} posts for "${accountName}": ${deletedCount} deleted, ${skippedCount} skipped`);
       }
 
-      this.logger.info(`Completed post purge for account "${accountName}": ${deletedCount} posts ${dryRun ? 'would be ' : ''}deleted, ${skippedCount} posts preserved, ${processedCount} total posts processed`);
+      this.logger.info(`Completed post purge for account "${accountName}": ${deletedCount} posts deleted, ${skippedCount} posts preserved, ${processedCount} total posts processed`);
       
       // Record telemetry using existing methods
       this.telemetry.incrementCounter('mastodon.posts_purged', deletedCount, {
         account: accountName,
-        dry_run: dryRun.toString(),
         preserved_count: skippedCount.toString(),
       });
 
