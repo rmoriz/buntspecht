@@ -56,7 +56,7 @@ export class JsonTemplateProcessor {
         return match; // Return the original placeholder if variable not found
       }
       
-      let result = String(value);
+      const result = String(value);
       
       return result;
     });
