@@ -414,14 +414,12 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
 
       this.logger.info(`Completed post purge for account "${accountName}": ${deletedCount} posts ${dryRun ? 'would be ' : ''}deleted, ${skippedCount} posts preserved, ${processedCount} total posts processed`);
       
-      // Record telemetry
-      if (this.telemetry && typeof this.telemetry.recordCustomMetric === 'function') {
-        this.telemetry.recordCustomMetric('mastodon.posts_purged', deletedCount, {
-          account: accountName,
-          dry_run: dryRun.toString(),
-          preserved_count: skippedCount.toString(),
-        });
-      }
+      // Record telemetry using existing methods
+      this.telemetry.incrementCounter('mastodon.posts_purged', deletedCount, {
+        account: accountName,
+        dry_run: dryRun.toString(),
+        preserved_count: skippedCount.toString(),
+      });
 
     } catch (error) {
       this.logger.error(`Failed to purge posts for account "${accountName}":`, error);

@@ -3,7 +3,6 @@ import { BotConfig, AccountConfig } from '../types/config';
 import { TestHelpers } from './utils/testHelpers';
 
 // Mock masto library
-const mockCreateRestAPIClient = jest.fn();
 const mockClient = {
   v1: {
     accounts: {
@@ -21,6 +20,8 @@ const mockClient = {
     }
   }
 };
+
+const mockCreateRestAPIClient = jest.fn().mockReturnValue(mockClient);
 
 jest.mock('masto', () => ({
   createRestAPIClient: mockCreateRestAPIClient
