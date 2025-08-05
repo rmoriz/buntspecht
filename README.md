@@ -955,7 +955,8 @@ Buntspecht includes functionality to automatically purge old posts from Mastodon
 - **Account-Specific Configuration**: Each Mastodon account can have individual purging settings
 - **Preservation Options**: Protect pinned posts, highly-starred posts, or recent content
 - **Batch Processing**: Efficient batch collection and deletion with configurable delays
-- **Rate Limiting**: Respects API rate limits with configurable delays between batches
+- **Advanced Rate Limiting**: Individual deletion delays plus exponential backoff for rate limit errors
+- **Error Resilience**: Automatic retries with exponential backoff for rate-limited requests
 - **Comprehensive Logging**: Detailed progress tracking for collection and deletion phases
 
 ### Configuration
@@ -977,6 +978,9 @@ minStarsToPreserve = 5           # Minimum stars to preserve a post (default: 5)
 preservePinnedPosts = true       # Preserve pinned posts (default: true)
 batchSize = 20                   # Posts to process per batch (default: 20)
 delayBetweenBatches = 1000       # Delay between batches in ms (default: 1000)
+delayBetweenDeletions = 200      # Delay between individual deletions in ms (default: 200)
+maxRetries = 3                   # Maximum retries for rate limit errors (default: 3)
+retryDelayBase = 1000            # Base delay for exponential backoff in ms (default: 1000)
 ```
 
 ### Usage
@@ -1014,8 +1018,34 @@ Posts are preserved if they meet any of these criteria:
 
 - **Minimal Initialization**: Runs independently without starting the full bot
 - **Error Resilience**: Continues purging even if individual post deletions fail
-- **API Respect**: Configurable delays to avoid overwhelming the Mastodon API
+- **Advanced Rate Limiting**: Multiple layers of rate limiting protection
 - **Detailed Logging**: Comprehensive logging for audit and troubleshooting
+
+### Rate Limiting Configuration
+
+To avoid hitting Mastodon API rate limits, configure appropriate delays:
+
+```toml
+[accounts.purging]
+# For conservative rate limiting (recommended for large instances)
+delayBetweenDeletions = 500      # 500ms between each deletion
+delayBetweenBatches = 2000       # 2 seconds between batches
+maxRetries = 5                   # More retries for busy instances
+
+# For faster purging (smaller instances or fewer posts)
+delayBetweenDeletions = 100      # 100ms between each deletion  
+delayBetweenBatches = 500        # 500ms between batches
+maxRetries = 3                   # Standard retry count
+
+# Exponential backoff timing
+retryDelayBase = 1000            # 1s, 2s, 4s, 8s... retry delays
+```
+
+**Rate Limit Handling**:
+- Detects HTTP 429 (rate limit) errors automatically
+- Uses exponential backoff: 1s → 2s → 4s → 8s retry delays
+- Continues with remaining posts after max retries exceeded
+- Logs rate limiting events for monitoring
 
 ## Bluesky Enhanced Features
 
