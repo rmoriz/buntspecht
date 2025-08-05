@@ -1,37 +1,38 @@
 import { MastodonClient } from '../services/mastodonClient';
 import { BotConfig, AccountConfig } from '../types/config';
-import { TestHelpers } from './utils/testHelpers';
+import { createRestAPIClient } from 'masto';
 
-// Mock masto library
-const mockClient = {
-  v1: {
-    accounts: {
-      verifyCredentials: jest.fn(),
-      $select: jest.fn(() => ({
-        statuses: {
-          list: jest.fn()
-        }
-      }))
-    },
-    statuses: {
-      $select: jest.fn(() => ({
-        remove: jest.fn()
-      }))
+// Mock masto library - Jest hoists this to the top
+jest.mock('masto', () => {
+  const mockClient = {
+    v1: {
+      accounts: {
+        verifyCredentials: jest.fn(),
+        $select: jest.fn(() => ({
+          statuses: {
+            list: jest.fn()
+          }
+        }))
+      },
+      statuses: {
+        $select: jest.fn(() => ({
+          remove: jest.fn()
+        }))
+      }
     }
-  }
-};
+  };
 
-const mockCreateRestAPIClient = jest.fn().mockReturnValue(mockClient);
-
-jest.mock('masto', () => ({
-  createRestAPIClient: mockCreateRestAPIClient
-}));
+  return {
+    createRestAPIClient: jest.fn().mockReturnValue(mockClient)
+  };
+});
 
 describe('MastodonClient - Purging', () => {
   let client: MastodonClient;
   let mockLogger: any;
   let mockTelemetry: any;
   let config: BotConfig;
+  let mockClient: any;
 
   beforeEach(() => {
     mockLogger = {
@@ -52,12 +53,18 @@ describe('MastodonClient - Purging', () => {
       }),
       recordPost: jest.fn(),
       recordError: jest.fn(),
-      recordCustomMetric: jest.fn(),
+      incrementCounter: jest.fn(),
     };
     
     // Reset mocks
     jest.clearAllMocks();
-    mockCreateRestAPIClient.mockReturnValue(mockClient);
+    
+    // Get the mocked client from the mocked createRestAPIClient
+    const mockCreateRestAPIClient = createRestAPIClient as jest.MockedFunction<typeof createRestAPIClient>;
+    mockClient = mockCreateRestAPIClient({
+      url: 'https://test.mastodon',
+      accessToken: 'test-token'
+    });
     
     // Mock account verification
     mockClient.v1.accounts.verifyCredentials.mockResolvedValue({
@@ -148,14 +155,17 @@ describe('MastodonClient - Purging', () => {
         favouritesCount: 10 // Above threshold
       };
 
-      // Mock status list to return our test posts
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([oldPost, recentPost, starredOldPost])
-        .mockResolvedValueOnce([]); // Second call returns empty (end of pagination)
-
-      // Mock pinned posts (empty)
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([]); // For pinned posts call
+      // Setup mock for status list calls
+      const mockStatusList = jest.fn()
+        .mockResolvedValueOnce([]) // First call for pinned posts
+        .mockResolvedValueOnce([oldPost, recentPost, starredOldPost]) // Second call for regular posts
+        .mockResolvedValueOnce([]); // Third call returns empty (end of pagination)
+      
+      mockClient.v1.accounts.$select.mockReturnValue({
+        statuses: {
+          list: mockStatusList
+        }
+      });
 
       // Mock status deletion
       mockClient.v1.statuses.$select.mockReturnValue({
@@ -186,13 +196,17 @@ describe('MastodonClient - Purging', () => {
         favouritesCount: 2
       };
 
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([oldPost])
-        .mockResolvedValueOnce([]);
-
-      // Mock pinned posts (empty)
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([]);
+      // Setup mock for status list calls
+      const mockStatusList = jest.fn()
+        .mockResolvedValueOnce([]) // First call for pinned posts
+        .mockResolvedValueOnce([oldPost]) // Second call for regular posts
+        .mockResolvedValueOnce([]); // Third call returns empty (end of pagination)
+      
+      mockClient.v1.accounts.$select.mockReturnValue({
+        statuses: {
+          list: mockStatusList
+        }
+      });
 
       await client.purgeOldPosts(['test-account']);
 
@@ -214,14 +228,17 @@ describe('MastodonClient - Purging', () => {
         favouritesCount: 2
       };
 
-      // Mock pinned posts to include our test post
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([pinnedOldPost]); // For pinned posts call
-
-      // Mock regular posts to include the same post
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([pinnedOldPost])
-        .mockResolvedValueOnce([]);
+      // Setup mock for status list calls
+      const mockStatusList = jest.fn()
+        .mockResolvedValueOnce([pinnedOldPost]) // First call for pinned posts
+        .mockResolvedValueOnce([pinnedOldPost]) // Second call for regular posts
+        .mockResolvedValueOnce([]); // Third call returns empty (end of pagination)
+      
+      mockClient.v1.accounts.$select.mockReturnValue({
+        statuses: {
+          list: mockStatusList
+        }
+      });
 
       await client.purgeOldPosts(['test-account']);
 
@@ -259,11 +276,17 @@ describe('MastodonClient - Purging', () => {
 
   describe('getPinnedPosts', () => {
     it('should return empty set when pinned posts fetch fails', async () => {
-      mockClient.v1.accounts.$select().statuses.list.mockRejectedValue(new Error('API Error'));
+      // Setup mock to fail on first call (pinned posts) but succeed on second call (regular posts)
+      const mockStatusList = jest.fn()
+        .mockRejectedValueOnce(new Error('API Error')) // First call for pinned posts fails
+        .mockResolvedValueOnce([]) // Second call for regular posts succeeds
+        .mockResolvedValueOnce([]); // Third call returns empty (end of pagination)
       
-      // Call purgeOldPosts to trigger getPinnedPosts internally
-      mockClient.v1.accounts.$select().statuses.list
-        .mockResolvedValueOnce([]); // For main posts call
+      mockClient.v1.accounts.$select.mockReturnValue({
+        statuses: {
+          list: mockStatusList
+        }
+      });
       
       await client.purgeOldPosts(['test-account']);
       
