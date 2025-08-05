@@ -942,459 +942,80 @@ The webhook server includes a built-in health check endpoint for Docker and moni
 The health check endpoint is automatically used by the Docker container for health monitoring. You can also manually check the health:
 
 ```bash
-curl http://localhost:3000/health
+./buntspecht --check-secret-rotations
 ```
 
-### Webhook API
+## Post Purging
 
-**Endpoint:** `POST /webhook`
+Buntspecht includes functionality to automatically purge old posts from Mastodon accounts. This feature helps manage your social media footprint and comply with data retention policies.
 
-**Headers:**
-- `Content-Type: application/json`
-- `X-Webhook-Secret: your-secret` (if secret is configured)
+### Features
 
-**Request Body:**
-```json
-{
-  "provider": "push-provider-name",
-  "message": "Custom message to post",
-  "metadata": {
-    "key": "value"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully triggered push provider \"provider-name\"",
-  "timestamp": "2024-01-01T12:00:00.000Z",
-  "provider": "provider-name"
-}
-```
-
-### Webhook Examples
-
-#### Basic Webhook Call
-```bash
-# Generic webhook - specify provider in JSON
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Secret: your-webhook-secret-here" \
-  -d '{"provider": "webhook-alerts", "message": "Test alert message"}'
-
-# Provider-specific webhook - provider determined by URL path
-curl -X POST http://localhost:3000/webhook/github \
-  -H "Content-Type: application/json" \
-  -H "X-Hub-Signature-256: sha256=calculated_signature" \
-  -d '{"action": "opened", "repository": {"name": "my-repo"}}'
-```
-
-#### GitHub Webhook Integration
-Configure GitHub webhook URL: `http://your-server:3000/webhook`
-
-```json
-{
-  "provider": "cicd-notifications",
-  "message": "🚀 New release v1.2.3 published",
-  "metadata": {
-    "repository": "user/repo",
-    "tag": "v1.2.3"
-  }
-}
-```
-
-#### Monitoring System Integration
-```bash
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Secret: your-secret" \
-  -d '{
-    "provider": "monitoring-critical",
-    "message": "🔴 CRITICAL: CPU usage > 90% on server-01"
-  }'
-```
-
-#### CI/CD Pipeline Integration
-```json
-{
-  "provider": "cicd-notifications", 
-  "message": "✅ Deployment to production completed successfully",
-  "metadata": {
-    "environment": "production",
-    "version": "1.2.3",
-    "duration": "2m 30s"
-  }
-}
-```
-
-### Webhook Security
-
-- **Authentication**: Webhook secrets are required for security
-  - **Global Secret**: A global webhook secret in `[webhook]` section is mandatory when webhooks are enabled
-  - **Provider-Specific Secrets**: Each push provider can have its own `webhookSecret` that overrides the global secret
-  - **Secret Priority**: Provider-specific secret > Global secret (no fallback to unauthenticated requests)
-- **IP Whitelisting**: Restrict access to trusted IP ranges
-- **HTTPS**: Always use HTTPS in production environments
-- **Rate Limiting**: Consider implementing rate limiting at the reverse proxy level
-- **Payload Validation**: All requests are validated for proper JSON format and required fields
-
-#### Two Webhook Types
-
-**1. Provider-Specific Webhooks** - For external services:
-
-```toml
-# GitHub integration with provider-specific webhook
-[[bot.providers]]
-name = "github-events"
-type = "push"
-accounts = ["mastodon-main"]
-# Custom webhook path - GitHub sends directly here
-webhookPath = "/webhook/github"
-# Template applied automatically to incoming JSON
-template = "🔔 GitHub {{action}} in {{repository.name}}"
-
-# Named templates for specific GitHub event types
-[bot.providers.templates]
-"push" = "🚀 {{head_commit.author.name}} pushed to {{repository.name}}: {{head_commit.message}}"
-"pull_request" = "🔧 PR {{action}}: \"{{pull_request.title}}\" by @{{pull_request.user.login}}"
-"issues" = "🐛 Issue {{action}}: \"{{issue.title}}\" by @{{issue.user.login}}"
-
-[bot.providers.config]
-# HMAC authentication (recommended for external services)
-hmacSecret = "github-webhook-secret"
-hmacAlgorithm = "sha256"  # sha1, sha256, sha512
-hmacHeader = "X-Hub-Signature-256"  # Custom header name
-# Alternative: Simple secret authentication
-# webhookSecret = "simple-secret"
-```
-
-**2. Generic Webhook** - For flexible usage:
-
-```toml
-# Manual notifications via generic webhook
-[[bot.providers]]
-name = "monitoring-alerts"
-type = "push"
-accounts = ["alerts-account"]
-# No webhookPath - only accessible via generic webhook
-template = "🚨 {{severity}}: {{message}}"
-
-[bot.providers.config]
-# Simple secret or HMAC authentication
-webhookSecret = "monitoring-specific-secret-123"
-# Or HMAC for enhanced security:
-# hmacSecret = "monitoring-hmac-secret"
-# hmacAlgorithm = "sha512"
-# hmacHeader = "X-Monitor-Signature"
-```
-
-#### Provider-Specific Authentication Options
-
-Each provider supports multiple authentication methods:
-
-**HMAC Authentication (Recommended):**
-```toml
-[bot.providers.config]
-hmacSecret = "your-hmac-secret"
-hmacAlgorithm = "sha256"  # sha1, sha256, sha512
-hmacHeader = "X-Hub-Signature-256"  # Custom header name
-```
-
-**Simple Secret Authentication:**
-```toml
-[bot.providers.config]
-webhookSecret = "your-simple-secret"
-```
-
-**Authentication Priority:**
-1. Provider-specific HMAC (if configured)
-2. Global HMAC (fallback)
-3. Provider-specific simple secret
-4. Global simple secret
-5. No authentication (allows all requests)
-
-#### Webhook Path Configuration
-
-**Provider-Specific Paths:**
-```toml
-[[bot.providers]]
-name = "external-service"
-webhookPath = "/webhook/service-name"  # Custom path for this provider
-template = "📢 {{event}}: {{message}}"
-
-[bot.providers.config]
-hmacSecret = "service-specific-secret"
-```
-
-**External Service Examples:**
-- GitHub: `/webhook/github` with `X-Hub-Signature-256`
-- GitLab: `/webhook/gitlab` with `X-Gitlab-Token`
-- Twitch: `/webhook/twitch` with `X-Twitch-Signature`
-- Custom: `/webhook/monitoring` with `X-Monitor-Signature`
-
-**Benefits of Provider-Specific Webhooks:**
-- **Security Isolation**: Different external systems can use different secrets
-- **Granular Access Control**: Compromised secret only affects one provider
-- **Easier Secret Rotation**: Rotate secrets for specific integrations without affecting others
-- **Better Audit Trail**: Track webhook sources more precisely
-
-### Integration Examples
-
-The `examples/` directory contains comprehensive webhook integration examples:
-
-- `webhook-integration-example.js` - Complete integration patterns
-- `webhook-client.js` - Testing client for webhook endpoints
-- `config.webhook.example.toml` - Full webhook configuration example
-
-## Visibility Configuration
-
-Buntspecht provides fine-grained control over message visibility with support for all Mastodon visibility levels:
-
-- **`public`**: Visible to everyone, appears in public timelines
-- **`unlisted`**: Visible to everyone but doesn't appear in public timelines (default)
-- **`private`**: Only visible to followers (followers-only)
-- **`direct`**: Only visible to mentioned users (direct message)
-
-### Visibility Priority
-
-Visibility is determined by the following priority order (highest to lowest):
-
-1. **Webhook request `visibility` parameter** (for push providers)
-2. **Push provider config `defaultVisibility`**
-3. **Provider `visibility` setting**
-4. **Account `defaultVisibility`**
-5. **Global default** (`unlisted`)
-
-### Configuration Examples
-
-```toml
-# Account-level default visibility
-[[accounts]]
-name = "main-account"
-instance = "https://mastodon.social"
-accessToken = "your-token"
-defaultVisibility = "unlisted"  # Default for this account
-
-# Provider-level visibility
-[[bot.providers]]
-name = "public-announcements"
-type = "ping"
-visibility = "public"  # Override account default
-accounts = ["main-account"]
-
-# Push provider with visibility options
-[[bot.providers]]
-name = "alerts"
-type = "push"
-visibility = "unlisted"  # Provider default
-accounts = ["main-account"]
-
-[bot.providers.config]
-defaultVisibility = "private"  # Provider-specific default
-```
-
-### Webhook Visibility Control
-
-Push providers can receive visibility settings via webhook requests:
-
-```bash
-# Webhook with custom visibility
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Secret: your-secret" \
-  -d '{
-    "provider": "alerts",
-    "message": "Private maintenance notification",
-    "visibility": "private"
-  }'
-```
-
-## Multi-Account and Multi-Provider Configuration
-
-Buntspecht supports multiple Fediverse/Mastodon accounts with their own access tokens as well as simultaneous execution of multiple providers with individual schedules. This allows posting different types of messages at different times to different accounts.
-
-### Multi-Account Configuration
-
-First, configure multiple accounts:
-
-```toml
-# Multiple Social Media Accounts - Mastodon and Bluesky
-[[accounts]]
-name = "mastodon-main"
-type = "mastodon"
-instance = "https://mastodon.social"
-accessToken = "your-mastodon-main-token-here"
-
-[[accounts]]
-name = "mastodon-backup"
-type = "mastodon"
-instance = "https://fosstodon.org"
-accessToken = "your-mastodon-backup-token-here"
-
-[[accounts]]
-name = "bluesky-main"
-type = "bluesky"
-instance = "https://bsky.social"
-identifier = "yourhandle.bsky.social"
-password = "your-bluesky-app-password"
-
-[[accounts]]
-name = "work-account"
-type = "mastodon"
-instance = "https://your-company-instance.com"
-accessToken = "your-work-token-here"
-```
-
-### Multi-Provider Configuration with Account Assignment
-
-Then configure providers and assign them to accounts:
-
-```toml
-[bot]
-# Multi-Provider Configuration
-# Each provider can have its own schedule and configuration
-# Each provider can post to one or multiple accounts
-
-# Provider 1: Hourly ping messages (to all accounts)
-[[bot.providers]]
-name = "hourly-ping"
-type = "ping"
-cronSchedule = "0 * * * *"  # Every hour
-enabled = true
-accounts = ["main-account", "backup-account", "work-account"]  # To all accounts
-
-[bot.providers.config]
-message = "🤖 Hourly ping from Buntspecht!"
-
-# Provider 2: Daily system statistics (only to main account)
-[[bot.providers]]
-name = "daily-stats"
-type = "command"
-cronSchedule = "0 9 * * *"  # Every day at 9:00 AM
-enabled = true
-accounts = ["main-account"]  # Only to main account
-
-[bot.providers.config]
-command = "uptime"
-timeout = 10000
-
-# Provider 3: GitHub repository updates (to main and backup account)
-[[bot.providers]]
-name = "github-stats"
-type = "jsoncommand"
-cronSchedule = "0 */6 * * *"  # Every 6 hours
-enabled = true
-accounts = ["main-account", "backup-account"]  # To two accounts
-
-[bot.providers.config]
-command = "curl -s 'https://api.github.com/repos/octocat/Hello-World' | jq '{name: .name, stars: .stargazers_count}'"
-template = "📊 Repository {{name}} has {{stars}} stars!"
-
-# Provider 4: Work updates (only to work account)
-[[bot.providers]]
-name = "work-updates"
-type = "ping"
-cronSchedule = "0 10 * * 1"  # Every Monday at 10:00 AM
-enabled = true
-accounts = ["work-account"]  # Only to work account
-
-[bot.providers.config]
-message = "📅 New work week begins!"
-```
-
-### Advantages of Multi-Account and Multi-Provider Configuration
-
-- **Flexible account assignment**: Each provider can post to any accounts
-- **Robust error handling**: If posting to one account fails, others are still attempted
-- **Independent schedules**: Each provider can run at different times
-- **Individual activation**: Providers can be individually enabled/disabled
-- **Different message types**: Mix static messages, commands, and JSON templates
-- **Error tolerance**: Errors in one provider don't affect other providers
-- **Flexible configuration**: Each provider can have its own environment variables and settings
-- **Account separation**: Different content can be sent to different audiences
-
-### Cron Schedule Examples
-
-```
-"0 * * * *"       = every hour
-"*/30 * * * *"    = every 30 minutes  
-"0 9 * * *"       = every day at 9:00 AM
-"0 9 * * 1"       = every Monday at 9:00 AM
-"0 */6 * * *"     = every 6 hours
-"0 9,17 * * 1-5"  = Mon-Fri at 9:00 AM and 5:00 PM
-"*/15 9-17 * * 1-5" = every 15 min between 9-17, Mon-Fri
-```
-
-## Logging and Monitoring
-
-### Enhanced Logging Features
-
-Buntspecht provides comprehensive logging with detailed information about message posting:
-
-```
-[2025-07-06T12:48:21.509Z] INFO  Posting status to Bluesky test-account (https://bsky.social) (280 chars): "Your message content here..."
-[2025-07-06T12:48:21.511Z] INFO  Status posted successfully to Bluesky test-account. URI: at://did:plc:test/app.bsky.feed.post/test123
-```
-
-**Character Count Monitoring:**
-- Shows exact character count for each posted message
-- Helps verify compliance with platform limits:
-  - **Twitter/X**: 280 characters
-  - **Mastodon**: 500 characters (default, varies by instance)
-  - **Bluesky**: 300 characters
-- Useful for debugging trim function effectiveness
-- Enables analytics on message length patterns
-
-**Log Levels:**
-- `DEBUG`: Detailed execution information
-- `INFO`: Normal operations and status updates
-- `WARN`: Non-critical issues and warnings
-- `ERROR`: Critical errors and failures
-
-## Automatic Secret Rotation Detection
-
-Buntspecht includes **automatic secret rotation detection** that monitors external secret sources and automatically updates account credentials when secrets change. This ensures the bot continues working seamlessly when secrets are rotated in external systems.
-
-### Supported Secret Sources
-
-- **Environment Variables**: `${VARIABLE_NAME}`
-- **File-based**: `file:///path/to/secret.txt`
-- **HashiCorp Vault**: `vault://secret/path?key=fieldName`
-- **AWS Secrets Manager**: `aws://secret-name?key=fieldName&region=us-east-1`
-- **Azure Key Vault**: `azure://vault-name/secret-name?version=version-id`
-- **Google Cloud Secret Manager**: `gcp://project-id/secret-name?version=version-id`
+- **Chronological Deletion**: Posts are deleted in chronological order (oldest first) to ensure proper deletion sequence
+- **Account-Specific Configuration**: Each Mastodon account can have individual purging settings
+- **Preservation Options**: Protect pinned posts, highly-starred posts, or recent content
+- **Batch Processing**: Efficient batch collection and deletion with configurable delays
+- **Rate Limiting**: Respects API rate limits with configurable delays between batches
+- **Comprehensive Logging**: Detailed progress tracking for collection and deletion phases
 
 ### Configuration
 
+Add purging configuration to your Mastodon accounts:
+
 ```toml
-# Enable automatic secret rotation detection
-[secretRotation]
-enabled = true                          # Enable the feature
-checkInterval = "0 */15 * * * *"        # Check every 15 minutes (cron expression)
-retryOnFailure = true                   # Retry failed secret checks
-retryDelay = 60                         # Wait 60 seconds before retrying
-maxRetries = 3                          # Maximum number of retries
-notifyOnRotation = true                 # Log notifications when secrets are rotated
-testConnectionOnRotation = true         # Test account connections after secret rotation
+[[accounts]]
+name = "my-mastodon-account"
+platform = "mastodon"
+instanceUrl = "https://mastodon.social"
+# ... other account settings
+
+[accounts.purging]
+enabled = true                    # Enable purging for this account
+olderThanDays = 30               # Delete posts older than 30 days
+preserveStarredPosts = true      # Preserve posts with many stars (default: true)
+minStarsToPreserve = 5           # Minimum stars to preserve a post (default: 5)
+preservePinnedPosts = true       # Preserve pinned posts (default: true)
+batchSize = 20                   # Posts to process per batch (default: 20)
+delayBetweenBatches = 1000       # Delay between batches in ms (default: 1000)
 ```
 
-### CLI Commands
+### Usage
+
+Purging runs as a separate operation and exits when complete:
 
 ```bash
-# Check secret rotation status
-./buntspecht --secret-rotation-status
+# Purge all accounts with purging enabled (oldest posts first)
+bun start --purge-old-posts
 
-# List all monitored secrets
-./buntspecht --list-monitored-secrets
+# Purge specific account (oldest posts first)
+bun start --purge-account my-mastodon-account
 
-# Manually trigger secret rotation check
-./buntspecht --check-secret-rotations
-
-# Verify secret resolution without connecting
-./buntspecht --verify-secrets
+# Docker usage
+docker exec buntspecht bun start --purge-old-posts
+docker exec buntspecht bun start --purge-account my-mastodon-account
 ```
+
+### How It Works
+
+1. **Collection Phase**: Gathers all posts that match purging criteria (respects preservation rules)
+2. **Sorting Phase**: Sorts collected posts chronologically (oldest first)
+3. **Deletion Phase**: Deletes posts in batches with configurable delays
+4. **Progress Tracking**: Logs detailed progress for both collection and deletion
+
+### Preservation Rules
+
+Posts are preserved if they meet any of these criteria:
+
+- **Recent Posts**: Newer than the `olderThanDays` threshold
+- **Pinned Posts**: If `preservePinnedPosts` is enabled
+- **Popular Posts**: Have `minStarsToPreserve` or more favorites (if `preserveStarredPosts` is enabled)
+
+### Safety Features
+
+- **Minimal Initialization**: Runs independently without starting the full bot
+- **Error Resilience**: Continues purging even if individual post deletions fail
+- **API Respect**: Configurable delays to avoid overwhelming the Mastodon API
+- **Detailed Logging**: Comprehensive logging for audit and troubleshooting
 
 ## Bluesky Enhanced Features
 
@@ -1540,6 +1161,12 @@ docker exec buntspecht bun start --trigger-push provider-name
 # Trigger a push provider with custom message
 docker exec buntspecht bun start --trigger-push provider-name --trigger-push-message "Custom message"
 
+# Purge old posts from all Mastodon accounts with purging enabled (oldest posts first)
+docker exec buntspecht bun start --purge-old-posts
+
+# Purge old posts from a specific Mastodon account (oldest posts first)
+docker exec buntspecht bun start --purge-account account-name
+
 # View logs
 docker logs -f buntspecht
 
@@ -1579,6 +1206,12 @@ bun start --trigger-push provider-name
 
 # Trigger a push provider with custom message
 bun start --trigger-push provider-name --trigger-push-message "Custom message"
+
+# Purge old posts from all Mastodon accounts with purging enabled (oldest posts first)
+bun start --purge-old-posts
+
+# Purge old posts from a specific Mastodon account (oldest posts first)
+bun start --purge-account account-name
 
 # Use specific configuration file
 bun start --config /path/to/config.toml
