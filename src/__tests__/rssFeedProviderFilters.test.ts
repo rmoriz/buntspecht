@@ -1,12 +1,32 @@
 import { RSSFeedProvider, RSSFeedProviderConfig } from '../messages/rssFeedProvider';
 import { TestHelpers } from './utils/testHelpers';
 
+// Mock fetch to prevent live HTTP requests
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
 // Mock rss-parser
+const mockParseURL = jest.fn();
+const mockParseString = jest.fn();
+
+// Use dynamic import mocking for Jest compatibility
 jest.mock('rss-parser', () => {
   return jest.fn().mockImplementation(() => ({
-    parseURL: jest.fn()
+    parseURL: mockParseURL,
+    parseString: mockParseString
   }));
 });
+
+// Mock fs operations to prevent file system access during tests
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(false),
+  mkdirSync: jest.fn(),
+  readFileSync: jest.fn().mockReturnValue('[]'),
+  writeFileSync: jest.fn(),
+  readdirSync: jest.fn().mockReturnValue([]),
+  statSync: jest.fn().mockReturnValue({ mtime: new Date() }),
+  unlinkSync: jest.fn()
+}));
 
 describe('RSSFeedProvider Filters', () => {
   let provider: RSSFeedProvider;
@@ -55,6 +75,20 @@ describe('RSSFeedProvider Filters', () => {
     };
     mockTelemetry = TestHelpers.createMockTelemetry();
     jest.clearAllMocks();
+    
+    // Setup default fetch mock response to prevent live HTTP requests
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Map([['content-type', 'application/rss+xml; charset=utf-8']]),
+      arrayBuffer: () => Promise.resolve(new TextEncoder().encode('<rss></rss>').buffer)
+    });
+    
+    // Setup default parser mock response
+    mockParseString.mockResolvedValue({
+      items: createMockFeedItems()
+    });
   });
 
   describe('Preset Filters', () => {
