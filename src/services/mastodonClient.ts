@@ -335,13 +335,16 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
     try {
       // Get account info to retrieve account ID
       const accountInfo = await accountClient.client.v1.accounts.verifyCredentials();
-      let deletedCount = 0;
       let skippedCount = 0;
       let processedCount = 0;
       let maxId: string | undefined;
 
       // Get pinned posts if we need to preserve them
       const pinnedPosts = preservePinned ? await this.getPinnedPosts(accountClient) : new Set<string>();
+
+      // Phase 1: Collect all posts that need to be deleted
+      this.logger.info(`Collecting posts to delete for account "${accountName}"...`);
+      const postsToDelete: { id: string; createdAt: string; favouritesCount: number }[] = [];
 
       while (true) {
         // Fetch user's statuses in batches
@@ -381,15 +384,12 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
             continue;
           }
 
-          // Delete the post
-          try {
-            await accountClient.client.v1.statuses.$select(status.id).remove();
-            deletedCount++;
-            this.logger.debug(`Deleted post ${status.id} from ${postDate.toISOString()} (${status.favouritesCount} stars)`);
-          } catch (deleteError) {
-            this.logger.error(`Failed to delete post ${status.id}:`, deleteError);
-            // Continue with other posts
-          }
+          // Add to deletion list
+          postsToDelete.push({
+            id: status.id,
+            createdAt: status.createdAt,
+            favouritesCount: status.favouritesCount
+          });
         }
 
         // Update maxId for pagination
@@ -397,13 +397,48 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
           maxId = statuses[statuses.length - 1].id;
         }
 
-        // Add delay between batches to be respectful to the API
+        // Add delay between collection batches to be respectful to the API
         if (delayBetweenBatches > 0) {
           await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
         }
 
-        // Log progress
-        this.logger.info(`Processed ${processedCount} posts for "${accountName}": ${deletedCount} deleted, ${skippedCount} skipped`);
+        // Log collection progress
+        this.logger.info(`Collected ${processedCount} posts for "${accountName}": ${postsToDelete.length} to delete, ${skippedCount} to preserve`);
+      }
+
+      // Phase 2: Sort posts chronologically (oldest first) and delete them
+      if (postsToDelete.length === 0) {
+        this.logger.info(`No posts to delete for account "${accountName}"`);
+        return;
+      }
+
+      // Sort posts by creation date (oldest first)
+      postsToDelete.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      this.logger.info(`Deleting ${postsToDelete.length} posts for account "${accountName}" in chronological order (oldest first)...`);
+      
+      let deletedCount = 0;
+      for (let i = 0; i < postsToDelete.length; i += batchSize) {
+        const batch = postsToDelete.slice(i, i + batchSize);
+        
+        for (const post of batch) {
+          try {
+            await accountClient.client.v1.statuses.$select(post.id).remove();
+            deletedCount++;
+            this.logger.debug(`Deleted post ${post.id} from ${post.createdAt} (${post.favouritesCount} stars)`);
+          } catch (deleteError) {
+            this.logger.error(`Failed to delete post ${post.id}:`, deleteError);
+            // Continue with other posts
+          }
+        }
+
+        // Add delay between deletion batches to be respectful to the API
+        if (delayBetweenBatches > 0 && i + batchSize < postsToDelete.length) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        }
+
+        // Log deletion progress
+        this.logger.info(`Deleted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(postsToDelete.length / batchSize)} for "${accountName}": ${deletedCount}/${postsToDelete.length} posts deleted`);
       }
 
       this.logger.info(`Completed post purge for account "${accountName}": ${deletedCount} posts deleted, ${skippedCount} posts preserved, ${processedCount} total posts processed`);
