@@ -328,9 +328,13 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
     const minStars = purgeConfig.minStarsToPreserve || 5;
     const batchSize = purgeConfig.batchSize || 20;
     const delayBetweenBatches = purgeConfig.delayBetweenBatches || 1000;
+    const delayBetweenDeletions = purgeConfig.delayBetweenDeletions || 200;
+    const maxRetries = purgeConfig.maxRetries || 3;
+    const retryDelayBase = purgeConfig.retryDelayBase || 1000;
 
     this.logger.info(`Starting post purge for account "${accountName}": deleting posts older than ${cutoffDate.toISOString()}`);
     this.logger.info(`Purge settings: preserveStarred=${preserveStarred}, preservePinned=${preservePinned}, minStars=${minStars}`);
+    this.logger.info(`Rate limiting: delayBetweenDeletions=${delayBetweenDeletions}ms, delayBetweenBatches=${delayBetweenBatches}ms`);
 
     try {
       // Get account info to retrieve account ID
@@ -421,14 +425,41 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
       for (let i = 0; i < postsToDelete.length; i += batchSize) {
         const batch = postsToDelete.slice(i, i + batchSize);
         
-        for (const post of batch) {
-          try {
-            await accountClient.client.v1.statuses.$select(post.id).remove();
-            deletedCount++;
-            this.logger.debug(`Deleted post ${post.id} from ${post.createdAt} (${post.favouritesCount} stars)`);
-          } catch (deleteError) {
-            this.logger.error(`Failed to delete post ${post.id}:`, deleteError);
-            // Continue with other posts
+        for (let j = 0; j < batch.length; j++) {
+          const post = batch[j];
+          let retryCount = 0;
+          let success = false;
+
+          while (!success && retryCount <= maxRetries) {
+            try {
+              await accountClient.client.v1.statuses.$select(post.id).remove();
+              deletedCount++;
+              success = true;
+              this.logger.debug(`Deleted post ${post.id} from ${post.createdAt} (${post.favouritesCount} stars)`);
+            } catch (deleteError: unknown) {
+              const error = deleteError as { statusCode?: number };
+              if (error?.statusCode === 429) {
+                // Rate limit error - use exponential backoff
+                retryCount++;
+                const backoffDelay = retryDelayBase * Math.pow(2, retryCount - 1);
+                this.logger.warn(`Rate limit hit for post ${post.id}, retry ${retryCount}/${maxRetries} after ${backoffDelay}ms`);
+                
+                if (retryCount <= maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                } else {
+                  this.logger.error(`Failed to delete post ${post.id} after ${maxRetries} retries due to rate limiting`);
+                }
+              } else {
+                // Other error - don't retry
+                this.logger.error(`Failed to delete post ${post.id}:`, deleteError);
+                success = true; // Don't retry non-rate-limit errors
+              }
+            }
+          }
+
+          // Add delay between individual deletions (except for the last post in batch)
+          if (delayBetweenDeletions > 0 && j < batch.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, delayBetweenDeletions));
           }
         }
 

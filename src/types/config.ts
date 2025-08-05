@@ -24,6 +24,9 @@ export interface AccountConfig {
     minStarsToPreserve?: number; // Minimum stars to preserve a post (default: 5)
     batchSize?: number; // Number of posts to process in each batch (default: 20)
     delayBetweenBatches?: number; // Delay in milliseconds between batches (default: 1000)
+    delayBetweenDeletions?: number; // Delay in milliseconds between individual deletions (default: 200)
+    maxRetries?: number; // Maximum retries for rate limit errors (default: 3)
+    retryDelayBase?: number; // Base delay for exponential backoff in milliseconds (default: 1000)
   };
 }
 
