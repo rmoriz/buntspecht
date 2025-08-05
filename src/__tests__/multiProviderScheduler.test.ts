@@ -71,9 +71,17 @@ describe('MultiProviderScheduler', () => {
     scheduler = new MultiProviderScheduler(mockSocialMediaClient, config, logger, mockTelemetry);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    if (scheduler) {
+      try {
+        await scheduler.stop();
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+      scheduler = null as any;
+    }
     jest.clearAllMocks();
-    scheduler.stop();
+    jest.clearAllTimers();
   });
 
   describe('initialization', () => {

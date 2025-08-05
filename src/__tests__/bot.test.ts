@@ -157,8 +157,17 @@ describe('MastodonPingBot', () => {
     bot = new MastodonPingBot(cliOptions);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    if (bot) {
+      try {
+        await bot.stop();
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+      bot = null as any;
+    }
     jest.clearAllMocks();
+    jest.clearAllTimers();
   });
 
   describe('constructor', () => {

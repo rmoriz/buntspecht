@@ -49,6 +49,7 @@ describe('OpenRouterMiddleware', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 

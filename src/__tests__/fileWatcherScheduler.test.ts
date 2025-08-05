@@ -32,6 +32,7 @@ describe('FileWatcherScheduler', () => {
   afterEach(() => {
     scheduler.cleanup();
     jest.useRealTimers();
+    jest.clearAllTimers();
   });
 
   it('should create scheduler and start task processor', () => {

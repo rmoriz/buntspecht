@@ -46,6 +46,7 @@ describe('Secret Providers', () => {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+    jest.clearAllTimers();
   });
 
   describe('BaseSecretProvider', () => {

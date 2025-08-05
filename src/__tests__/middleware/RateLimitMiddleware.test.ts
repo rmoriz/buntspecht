@@ -31,6 +31,7 @@ describe('RateLimitMiddleware', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 

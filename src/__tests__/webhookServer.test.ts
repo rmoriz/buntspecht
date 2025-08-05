@@ -34,10 +34,18 @@ describe('WebhookServer', () => {
   });
 
   afterEach(async () => {
-    if (webhookServer && webhookServer.isServerRunning()) {
-      await webhookServer.stop();
+    if (webhookServer) {
+      try {
+        if (webhookServer.isServerRunning()) {
+          await webhookServer.stop();
+        }
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+      webhookServer = null as any;
     }
     TestHelpers.cleanupTestEnvironment();
+    jest.clearAllTimers();
   });
 
   describe('constructor', () => {
