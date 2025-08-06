@@ -7,6 +7,15 @@ import Parser from 'rss-parser';
 import * as iconv from 'iconv-lite';
 import * as jschardet from 'jschardet';
 
+// Extended RSS Item interface to include common custom properties
+interface RSSItem extends Parser.Item {
+  description?: string;
+  id?: string;
+  author?: string;
+  date?: string;
+  [key: string]: unknown; // Allow other custom properties
+}
+
 export interface RSSFeedProviderConfig extends MessageProviderConfig {
   feedUrl: string;
   template?: string; // Template for formatting feed items (optional)
@@ -47,7 +56,7 @@ export interface RSSFeedProviderConfig extends MessageProviderConfig {
 export class RSSFeedProvider implements MessageProvider {
   private config: RSSFeedProviderConfig;
   private logger?: Logger;
-  private telemetry?: TelemetryService;
+  private _telemetry?: TelemetryService;
   private deduplicator: MessageDeduplicator;
   private providerName = 'rssfeed';
 
@@ -79,7 +88,7 @@ export class RSSFeedProvider implements MessageProvider {
 
   public async initialize(logger: Logger, telemetry?: TelemetryService, providerName?: string): Promise<void> {
     this.logger = logger;
-    this.telemetry = telemetry;
+    this._telemetry = telemetry;
     
     // Set provider name if provided, otherwise keep default
     if (providerName) {
@@ -139,7 +148,7 @@ export class RSSFeedProvider implements MessageProvider {
     return { text: this.formatItem(oldest) };
   }
 
-  private async fetchFeedItems(): Promise<Record<string, any>[]> {
+  private async fetchFeedItems(): Promise<RSSItem[]> {
     const maxRetries = this.config.retries || 3;
     let lastError: Error | null = null;
 
@@ -344,14 +353,14 @@ export class RSSFeedProvider implements MessageProvider {
     return 'utf-8';
   }
 
-  private getItemKey(item: Record<string, any>): string | null {
-    return item?.pubDate || item?.isoDate || item?.id || item?.title || item?.link || null;
+  private getItemKey(item: RSSItem): string | null {
+    return item?.pubDate || item?.isoDate || item?.guid || item?.title || item?.link || null;
   }
 
   /**
    * Sort RSS items by date (oldest first) for chronological processing
    */
-  private sortItemsByDate(items: Record<string, any>[]): Record<string, any>[] {
+  private sortItemsByDate(items: RSSItem[]): RSSItem[] {
     return items.sort((a, b) => {
       const dateA = this.getItemDate(a);
       const dateB = this.getItemDate(b);
@@ -373,11 +382,11 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Extract and parse date from RSS item
    */
-  private getItemDate(item: Record<string, any>): Date | null {
+  private getItemDate(item: RSSItem): Date | null {
     if (!item) return null;
     
     // Try different date fields in order of preference
-    const dateStr = item.pubDate || item.isoDate || item.date;
+    const dateStr = item.pubDate || item.isoDate;
     if (!dateStr) return null;
     
     try {
@@ -389,7 +398,7 @@ export class RSSFeedProvider implements MessageProvider {
     }
   }
 
-  private formatItem(item: Record<string, any>): string {
+  private formatItem(item: RSSItem): string {
     if (!item) return '';
     
     // If template is provided, use it
@@ -522,7 +531,7 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Apply content filters to RSS items
    */
-  private applyFilters(items: Record<string, any>[]): Record<string, any>[] {
+  private applyFilters(items: RSSItem[]): RSSItem[] {
     if (!this.config.filters) {
       return items;
     }
@@ -577,7 +586,7 @@ export class RSSFeedProvider implements MessageProvider {
   /**
    * Apply predefined filter presets
    */
-  private applyPresetFilters(items: Record<string, any>[], presets: NonNullable<RSSFeedProviderConfig['filters']>['presets']): Record<string, any>[] {
+  private applyPresetFilters(items: RSSItem[], presets: NonNullable<RSSFeedProviderConfig['filters']>['presets']): RSSItem[] {
     if (!presets) return items;
 
     let filteredItems = items;

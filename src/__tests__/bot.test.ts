@@ -232,6 +232,15 @@ describe('MastodonPingBot', () => {
       expect(mockScheduler.stop).toHaveBeenCalled();
       expect(mockTelemetry.shutdown).toHaveBeenCalled();
     });
+
+    it('should stop safely when scheduler is undefined', async () => {
+      await bot.initializeForPurging();
+      await bot.stop();
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Stopping Buntspecht...');
+      expect(mockScheduler.stop).not.toHaveBeenCalled();
+      expect(mockTelemetry.shutdown).toHaveBeenCalled();
+    });
   });
 
   describe('testPost', () => {

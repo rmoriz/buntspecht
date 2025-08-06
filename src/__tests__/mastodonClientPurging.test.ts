@@ -122,7 +122,10 @@ describe('MastodonClient - Purging', () => {
     });
 
     it('should skip accounts with invalid olderThanDays configuration', async () => {
-      config.accounts[0].purging = { ...config.accounts[0].purging!, olderThanDays: 0 };
+      const existingPurging = config.accounts[0].purging;
+      if (existingPurging) {
+        config.accounts[0].purging = { ...existingPurging, olderThanDays: 0 };
+      }
       client = new MastodonClient(config, mockLogger, mockTelemetry);
       
       await client.purgeOldPosts(['test-account']);

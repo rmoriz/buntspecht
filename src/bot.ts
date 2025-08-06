@@ -116,7 +116,9 @@ export class MastodonPingBot {
    */
   public async stop(): Promise<void> {
     this.logger.info('Stopping Buntspecht...');
-    this.scheduler.stop();
+    if (this.scheduler) {
+      this.scheduler.stop();
+    }
     
     // Stop webhook server if running
     if (this.webhookServer) {
