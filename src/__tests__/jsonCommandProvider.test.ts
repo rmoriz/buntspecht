@@ -81,7 +81,7 @@ describe('JsonCommandProvider', () => {
       await provider.initialize(logger);
 
       const message = await provider.generateMessage();
-      expect(message).toBe('Name: test, Missing: {{missing}}');
+      expect(message).toBe('Name: test, Missing: ');
     });
 
     it('should throw error for invalid JSON', async () => {

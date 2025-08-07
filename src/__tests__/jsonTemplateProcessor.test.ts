@@ -52,14 +52,14 @@ describe('JsonTemplateProcessor', () => {
       expect(result).toBe('Hello Alice, you have 5 messages');
     });
 
-    it('should preserve placeholders for missing variables', () => {
+    it('should render empty string for missing variables', () => {
       const template = 'Hello {{name}}, your {{missing}} is ready';
       const data = { name: 'Bob' };
       
       const result = processor.applyTemplate(template, data);
       
-      expect(result).toBe('Hello Bob, your {{missing}} is ready');
-      expect(mockLogger.warn).toHaveBeenCalledWith('Template variable "missing" not found in JSON data');
+      expect(result).toBe('Hello Bob, your  is ready');
+      expect(mockLogger.debug).toHaveBeenCalledWith('Template variable "missing" not found in JSON data, rendering as empty string');
     });
 
     it('should handle null and undefined values', () => {
@@ -68,8 +68,8 @@ describe('JsonTemplateProcessor', () => {
       
       const result = processor.applyTemplate(template, data);
       
-      expect(result).toBe('Value: {{nullValue}} and {{undefinedValue}}');
-      expect(mockLogger.warn).toHaveBeenCalledTimes(2);
+      expect(result).toBe('Value:  and ');
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
     });
 
     it('should apply trim function with default suffix', () => {

@@ -50,10 +50,10 @@ export class JsonTemplateProcessor {
         return this.applyTemplateFunction(value, functionCall, path);
       }
       
-      // For variables without functions, handle null/undefined as before
+      // For variables without functions, return empty string for null/undefined
       if (value === undefined || value === null) {
-        this.logger.warn(`Template variable "${path}" not found in JSON data`);
-        return match; // Return the original placeholder if variable not found
+        this.logger.debug(`Template variable "${path}" not found in JSON data, rendering as empty string`);
+        return ''; // Return empty string instead of placeholder
       }
       
       const result = String(value);

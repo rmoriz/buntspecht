@@ -293,7 +293,7 @@ describe('MultiJsonCommandProvider', () => {
       await provider.initialize(logger, undefined, 'test-provider');
 
       const result = await provider.generateMessage();
-      expect(result).toBe('Message: {{missing}} (ID: 1)');
+      expect(result).toBe('Message:  (ID: 1)');
       // Note: The warning is now logged by the shared JsonTemplateProcessor
       // The test verifies the behavior (preserving missing variables) rather than the specific logger call
     });
