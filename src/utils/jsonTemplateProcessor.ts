@@ -88,11 +88,20 @@ export class JsonTemplateProcessor {
     
     switch (functionName) {
       case 'trim':
+        // Handle null/undefined for trim function
+        if (value === null || value === undefined) {
+          this.logger.debug(`trim function: treating null/undefined variable "${variablePath}" as empty string`);
+          return '';
+        }
         return this.trimFunction(String(value), functionArgs, variablePath);
       case 'join':
         return this.joinFunction(value, functionArgs, variablePath);
       default:
         this.logger.warn(`Unknown template function "${functionName}" for variable "${variablePath}"`);
+        // For missing variables, return empty string instead of "undefined"
+        if (value === undefined || value === null) {
+          return '';
+        }
         return String(value); // Return original value if function is unknown
     }
   }
