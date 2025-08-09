@@ -3,35 +3,46 @@
 # By default, URLs are wrapped in HTML anchor tags: <a href="tracked_url">original_url</a>
 
 # Basic configuration
-[providers.my-provider]
+[bot]
+
+[[bot.providers]]
 name = "my-provider"
 type = "command"
 accounts = ["my-account"]
 enabled = true
 
-[providers.my-provider.config]
+[bot.providers.config]
 command = "echo 'Check out our website: https://example.com and our blog: https://blog.example.com'"
 
 # Middleware configuration with URL tracking
-[[providers.my-provider.middleware]]
+[[bot.providers.middleware]]
 name = "url-tracker"
 type = "url_tracking"
 enabled = true
 
 # Basic UTM tracking with defaults
-[providers.my-provider.middleware.config]
+[bot.providers.middleware.config]
 # utm_medium defaults to "social" if not specified
 # utm_source defaults to "mastodon" if not specified
 utm_campaign = "schachnachrichten"
 # wrap_in_html defaults to true - URLs will be wrapped in HTML anchor tags
 
 # Advanced configuration example
-[[providers.advanced-provider.middleware]]
+[[bot.providers]]
+name = "advanced-provider"
+type = "command"
+accounts = ["my-account"]
+enabled = true
+
+[bot.providers.config]
+command = "echo 'Advanced example with tracking'"
+
+[[bot.providers.middleware]]
 name = "advanced-url-tracker"
 type = "url_tracking"
 enabled = true
 
-[providers.advanced-provider.middleware.config]
+[bot.providers.middleware.config]
 # Custom UTM parameters
 utm_medium = "social"
 utm_source = "mastodon"
@@ -55,12 +66,21 @@ include_domains = ["example.com", "blog.example.com"]
 # exclude_domains = ["internal.company.com", "localhost"]
 
 # Example with HTML wrapping disabled
-[[providers.plain-text.middleware]]
+[[bot.providers]]
+name = "plain-text"
+type = "command"
+accounts = ["my-account"]
+enabled = true
+
+[bot.providers.config]
+command = "echo 'Plain text example'"
+
+[[bot.providers.middleware]]
 name = "plain-tracker"
 type = "url_tracking"
 enabled = true
 
-[providers.plain-text.middleware.config]
+[bot.providers.middleware.config]
 utm_medium = "social"
 utm_source = "mastodon"
 utm_campaign = "schachnachrichten"
@@ -68,12 +88,21 @@ utm_campaign = "schachnachrichten"
 wrap_in_html = false  # URLs stay as plain text: https://example.com/?utm_...
 
 # Example with domain filtering
-[[providers.domain-filtered.middleware]]
+[[bot.providers]]
+name = "domain-filtered"
+type = "command"
+accounts = ["my-account"]
+enabled = true
+
+[bot.providers.config]
+command = "echo 'Domain filtering example'"
+
+[[bot.providers.middleware]]
 name = "selective-tracker"
 type = "url_tracking"
 enabled = true
 
-[providers.domain-filtered.middleware.config]
+[bot.providers.middleware.config]
 utm_medium = "social"
 utm_source = "mastodon"
 utm_campaign = "external_links"
@@ -82,38 +111,64 @@ utm_campaign = "external_links"
 exclude_domains = ["internal.company.com", "private.example.com"]
 
 # Example for different social platforms
-[[providers.bluesky-provider.middleware]]
+[[bot.providers]]
+name = "bluesky-provider"
+type = "command"
+accounts = ["bluesky-account"]
+enabled = true
+
+[bot.providers.config]
+command = "echo 'Bluesky example'"
+
+[[bot.providers.middleware]]
 name = "bluesky-tracker"
 type = "url_tracking"
 enabled = true
 
-[providers.bluesky-provider.middleware.config]
+[bot.providers.middleware.config]
 utm_medium = "social"
 utm_source = "bluesky"  # Different source for Bluesky
 utm_campaign = "schachnachrichten"
 wrap_in_html = true  # Bluesky supports HTML links
 
 # Account configuration (required)
-[accounts.my-account]
-server = "https://mastodon.social"
-access_token = "your-access-token-here"
+[[accounts]]
+name = "my-account"
+type = "mastodon"
+instance = "https://mastodon.social"
+accessToken = "your-access-token-here"
+
+[[accounts]]
+name = "bluesky-account"
+type = "bluesky"
+identifier = "your-handle.bsky.social"
+password = "your-app-password"
 
 # Multiple middleware example - URL tracking with text transformation
-[[providers.multi-middleware.middleware]]
+[[bot.providers]]
+name = "multi-middleware"
+type = "command"
+accounts = ["my-account"]
+enabled = true
+
+[bot.providers.config]
+command = "echo 'Multi-middleware example'"
+
+[[bot.providers.middleware]]
 name = "text-transform"
 type = "text_transform"
 enabled = true
 
-[providers.multi-middleware.middleware.config]
+[bot.providers.middleware.config]
 transform = "append"
 suffix = " #chess #news"
 
-[[providers.multi-middleware.middleware]]
+[[bot.providers.middleware]]
 name = "url-tracker"
 type = "url_tracking"
 enabled = true
 
-[providers.multi-middleware.middleware.config]
+[bot.providers.middleware.config]
 utm_medium = "social"
 utm_source = "mastodon"
 utm_campaign = "schachnachrichten"
