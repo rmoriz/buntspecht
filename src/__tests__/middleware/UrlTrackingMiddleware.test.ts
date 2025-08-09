@@ -443,4 +443,65 @@ describe('UrlTrackingMiddleware', () => {
       expect(telemetrySpy).toHaveBeenCalledWith('url_tracking_middleware_error', 'test-provider');
     });
   });
+
+  describe('URL regex edge cases', () => {
+    it('should handle URLs with hyphens and special characters correctly', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        utm_medium: 'social',
+        utm_source: 'mastodon', 
+        utm_campaign: 'schachnachrichten'
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      // Test the specific problematic URL from the bug report
+      context.message.text = 'Read this: https://schachkicker.de/dijana-dengler-zitat-des-tages-der-woche-des-monats-oder-des-jahres/ and more.';
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      // Should capture the entire URL including hyphens and slashes
+      expect(context.message.text).toBe(
+        'Read this: <a href="https://schachkicker.de/dijana-dengler-zitat-des-tages-der-woche-des-monats-oder-des-jahres/?utm_medium=social&utm_source=mastodon&utm_campaign=schachnachrichten">https://schachkicker.de/dijana-dengler-zitat-des-tages-der-woche-des-monats-oder-des-jahres/</a> and more.'
+      );
+      expect(nextCalled).toHaveBeenCalled();
+    });
+
+    it('should handle URLs with query parameters and fragments', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        utm_medium: 'social',
+        utm_source: 'mastodon'
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      context.message.text = 'Check: https://example.com/path-with-hyphens/page?query=value&other=test#section-name';
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toContain('path-with-hyphens');
+      expect(context.message.text).toContain('query=value&other=test');
+      expect(context.message.text).toContain('#section-name');
+      expect(context.message.text).toContain('utm_medium=social');
+      expect(nextCalled).toHaveBeenCalled();
+    });
+
+    it('should handle URLs with parentheses and other special characters', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        utm_medium: 'social'
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      context.message.text = 'Wikipedia: https://en.wikipedia.org/wiki/Chess_(disambiguation) is great.';
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toContain('Chess_(disambiguation)');
+      expect(context.message.text).toContain('utm_medium=social');
+      expect(nextCalled).toHaveBeenCalled();
+    });
+  });
 });

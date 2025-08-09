@@ -35,8 +35,9 @@ export class UrlTrackingMiddleware implements MessageMiddleware {
   private logger?: Logger;
   private telemetry?: TelemetryService;
 
-  // URL regex pattern that matches http/https URLs
-  private readonly URL_REGEX = /https?:\/\/(?:[-\w.])+(?:\:[0-9]+)?(?:\/(?:[\w\/_.])*)?(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?/gi;
+  // Simple regex to find potential URL candidates (more permissive)
+  // We'll validate these with the URL constructor for robustness
+  private readonly URL_CANDIDATE_REGEX = /https?:\/\/\S+/gi;
 
   constructor(name: string, config: UrlTrackingConfig, enabled: boolean = true) {
     this.name = name;
@@ -73,7 +74,7 @@ export class UrlTrackingMiddleware implements MessageMiddleware {
       const originalText = context.message.text;
       let urlsProcessed = 0;
       
-      const transformedText = originalText.replace(this.URL_REGEX, (url) => {
+      const transformedText = this.processUrls(originalText, (url) => {
         try {
           const processedUrl = this.processUrl(url);
           if (processedUrl !== url) {
@@ -109,6 +110,70 @@ export class UrlTrackingMiddleware implements MessageMiddleware {
       this.telemetry?.recordError('url_tracking_middleware_error', context.providerName);
       throw error;
     }
+  }
+
+  /**
+   * Process URLs in text using a more robust approach
+   * Uses a global regex replacement but with improved URL extraction
+   */
+  private processUrls(text: string, processor: (url: string) => string): string {
+    return text.replace(this.URL_CANDIDATE_REGEX, (match) => {
+      const validUrl = this.extractValidUrl(match);
+      if (validUrl) {
+        return processor(validUrl);
+      }
+      return match; // Return original if not a valid URL
+    });
+  }
+
+  /**
+   * Extract a valid URL from a candidate string
+   * Uses the URL constructor to validate and normalize
+   */
+  private extractValidUrl(candidate: string): string | null {
+    try {
+      // First pass: clean up trailing punctuation but be careful with parentheses
+      // Only remove trailing punctuation if it's not balanced (e.g., unmatched closing parens)
+      let cleaned = candidate;
+      
+      // Remove trailing punctuation, but preserve balanced parentheses
+      cleaned = this.cleanTrailingPunctuation(cleaned);
+      
+      // Try to parse with URL constructor
+      const url = new URL(cleaned);
+      
+      // Only accept http/https URLs
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        return cleaned; // Return the cleaned version, not url.toString() to preserve original format
+      }
+      
+      return null;
+    } catch {
+      return null; // If URL constructor fails, it's not a valid URL
+    }
+  }
+
+  /**
+   * Clean trailing punctuation while preserving balanced parentheses
+   */
+  private cleanTrailingPunctuation(url: string): string {
+    // Count parentheses to handle balanced pairs
+    let openParens = 0;
+    let closeParens = 0;
+    
+    for (const char of url) {
+      if (char === '(') openParens++;
+      if (char === ')') closeParens++;
+    }
+    
+    // If parentheses are balanced, don't remove trailing closing paren
+    if (openParens === closeParens && url.endsWith(')')) {
+      // Remove other trailing punctuation but keep the balanced closing paren
+      return url.replace(/[.,;:!?\]}"'>]+$/, '');
+    }
+    
+    // Otherwise, remove all trailing punctuation including unbalanced parens
+    return url.replace(/[.,;:!?)\]}"'>]+$/, '');
   }
 
   private processUrl(originalUrl: string): string {
