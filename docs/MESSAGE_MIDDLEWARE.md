@@ -46,7 +46,68 @@ suffix = " #bot #automated"
 
 Buntspecht includes built-in middleware types that cover most common message processing needs:
 
-### 1. Text Transform Middleware (`text_transform`)
+### 1. URL Tracking Middleware (`url_tracking`)
+
+Automatically adds UTM tracking parameters to all URLs found in messages for analytics and campaign tracking. By default, URLs are wrapped in HTML anchor tags for better presentation.
+
+**Configuration:**
+```toml
+[[bot.providers.middleware]]
+name = "my-url-tracker"
+type = "url_tracking"
+enabled = true
+
+[bot.providers.middleware.config]
+# UTM parameters (utm_medium defaults to "social", utm_source to "mastodon")
+utm_medium = "social"
+utm_source = "mastodon"
+utm_campaign = "schachnachrichten"
+utm_term = "chess_news"
+utm_content = "bot_post"
+
+# HTML wrapping (default: true)
+wrap_in_html = true  # Wraps URLs in <a href="tracked_url">original_url</a>
+
+# Behavior options
+override_existing = false  # Whether to override existing UTM parameters
+skip_existing_utm = false  # Whether to skip URLs that already have UTM parameters
+
+# Domain filtering (optional)
+include_domains = ["example.com", "blog.example.com"]  # Only track these domains
+# exclude_domains = ["internal.company.com"]  # Don't track these domains
+```
+
+**Features:**
+- **Automatic Detection**: Finds all HTTP/HTTPS URLs in message text
+- **HTML Anchor Tags**: Wraps URLs in `<a href="tracked_url">original_url</a>` by default
+- **Smart Parameter Handling**: Preserves existing query parameters and fragments
+- **Domain Filtering**: Include or exclude specific domains from tracking
+- **Flexible UTM Control**: Configure any combination of UTM parameters
+- **Existing UTM Handling**: Options to skip, preserve, or override existing UTM parameters
+- **Platform Compatibility**: Disable HTML wrapping for platforms that don't support it
+
+**Use Cases:**
+- Track social media post engagement in Google Analytics
+- Measure campaign effectiveness across different platforms
+- Monitor click-through rates from automated posts
+- Differentiate traffic sources (Mastodon vs Bluesky vs other platforms)
+- Create clean, clickable links with analytics tracking
+
+**Example Transformations:**
+
+With HTML wrapping enabled (default):
+```
+Input:  "Check out https://example.com and https://blog.example.com/post"
+Output: "Check out <a href=\"https://example.com/?utm_medium=social&utm_source=mastodon&utm_campaign=schachnachrichten\">https://example.com</a> and <a href=\"https://blog.example.com/post?utm_medium=social&utm_source=mastodon&utm_campaign=schachnachrichten\">https://blog.example.com/post</a>"
+```
+
+With HTML wrapping disabled:
+```
+Input:  "Check out https://example.com and https://blog.example.com/post"
+Output: "Check out https://example.com?utm_medium=social&utm_source=mastodon&utm_campaign=schachnachrichten and https://blog.example.com/post?utm_medium=social&utm_source=mastodon&utm_campaign=schachnachrichten"
+```
+
+### 2. Text Transform Middleware (`text_transform`)
 
 Transforms message text using various operations.
 
@@ -79,7 +140,7 @@ suffix = " #hashtag"
 - `prepend`: Add text at the beginning
 - `append`: Add text at the end
 
-### 2. Filter Middleware (`filter`)
+### 3. Filter Middleware (`filter`)
 
 Filters messages based on content or properties.
 
@@ -117,7 +178,7 @@ maxLength = 500
 - `skip`: Skip posting the message (default)
 - `continue`: Continue processing (useful for logging matches)
 
-### 3. Command Middleware (`command`)
+### 4. Command Middleware (`command`)
 
 Executes external commands to transform or validate messages.
 
@@ -149,7 +210,7 @@ skipReason = "Command validation failed"
 - `useEnvVar`: Pass message as `MESSAGE_TEXT` environment variable
 - `skipOnFailure`: Skip message if command fails (for validate mode)
 
-### 4. Template Middleware (`template`)
+### 5. Template Middleware (`template`)
 
 Processes message templates with dynamic data injection.
 
@@ -174,7 +235,7 @@ dataSource = "file:///path/to/data.json"
 - Dynamic data from files or commands
 - Nested object support (`{{user.name}}`)
 
-### 5. Conditional Middleware (`conditional`)
+### 6. Conditional Middleware (`conditional`)
 
 Applies different middleware based on conditions.
 
@@ -211,7 +272,7 @@ type = "text_transform"
 config = { transform = "prepend", prefix = "ℹ️ " }
 ```
 
-### 6. Schedule Middleware (`schedule`)
+### 7. Schedule Middleware (`schedule`)
 
 Controls when messages can be posted based on time and frequency rules.
 
@@ -242,7 +303,7 @@ delay = 5000  # Delay message by 5 seconds
 randomDelay = { min = 1000, max = 10000 }  # Random delay between 1-10 seconds
 ```
 
-### 7. Rate Limit Middleware (`rate_limit`)
+### 8. Rate Limit Middleware (`rate_limit`)
 
 Advanced rate limiting with multiple strategies and time windows.
 
@@ -274,7 +335,7 @@ maxDelay = 300000  # Maximum delay in ms (5 minutes)
 - `fixed_window`: Resets counter at fixed intervals
 - `token_bucket`: Token bucket algorithm with refill rate
 
-### 8. Attachment Middleware (`attachment`)
+### 9. Attachment Middleware (`attachment`)
 
 Processes and validates message attachments.
 
@@ -308,7 +369,7 @@ onValidationFailure = "skip"  # or "remove_invalid", "continue"
 skipReason = "Invalid attachment detected"
 ```
 
-### 9. OpenRouter Middleware (`openrouter`)
+### 10. OpenRouter Middleware (`openrouter`)
 
 AI-powered message enhancement using OpenRouter API.
 
@@ -348,7 +409,7 @@ skipReason = "AI processing failed"
 - `openai/gpt-3.5-turbo`
 - And many more via OpenRouter
 
-### 10. YouTube-related Middleware
+### 11. YouTube-related Middleware
 
 Buntspecht includes specialized middleware for handling YouTube content:
 

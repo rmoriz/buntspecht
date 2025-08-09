@@ -1,0 +1,121 @@
+# URL Tracking Middleware Configuration Example
+# This middleware adds UTM tracking parameters to all URLs in messages
+# By default, URLs are wrapped in HTML anchor tags: <a href="tracked_url">original_url</a>
+
+# Basic configuration
+[providers.my-provider]
+name = "my-provider"
+type = "command"
+accounts = ["my-account"]
+enabled = true
+
+[providers.my-provider.config]
+command = "echo 'Check out our website: https://example.com and our blog: https://blog.example.com'"
+
+# Middleware configuration with URL tracking
+[[providers.my-provider.middleware]]
+name = "url-tracker"
+type = "url_tracking"
+enabled = true
+
+# Basic UTM tracking with defaults
+[providers.my-provider.middleware.config]
+# utm_medium defaults to "social" if not specified
+# utm_source defaults to "mastodon" if not specified
+utm_campaign = "schachnachrichten"
+# wrap_in_html defaults to true - URLs will be wrapped in HTML anchor tags
+
+# Advanced configuration example
+[[providers.advanced-provider.middleware]]
+name = "advanced-url-tracker"
+type = "url_tracking"
+enabled = true
+
+[providers.advanced-provider.middleware.config]
+# Custom UTM parameters
+utm_medium = "social"
+utm_source = "mastodon"
+utm_campaign = "schachnachrichten"
+utm_term = "chess_news"
+utm_content = "bot_post"
+
+# HTML anchor tag wrapping (default: true)
+wrap_in_html = true  # URLs become: <a href="https://example.com/?utm_...">https://example.com</a>
+
+# Override existing UTM parameters in URLs
+override_existing = false
+
+# Skip URLs that already have UTM parameters
+skip_existing_utm = false
+
+# Only track specific domains
+include_domains = ["example.com", "blog.example.com"]
+
+# Or exclude specific domains (don't use both include and exclude)
+# exclude_domains = ["internal.company.com", "localhost"]
+
+# Example with HTML wrapping disabled
+[[providers.plain-text.middleware]]
+name = "plain-tracker"
+type = "url_tracking"
+enabled = true
+
+[providers.plain-text.middleware.config]
+utm_medium = "social"
+utm_source = "mastodon"
+utm_campaign = "schachnachrichten"
+# Disable HTML wrapping for platforms that don't support HTML
+wrap_in_html = false  # URLs stay as plain text: https://example.com/?utm_...
+
+# Example with domain filtering
+[[providers.domain-filtered.middleware]]
+name = "selective-tracker"
+type = "url_tracking"
+enabled = true
+
+[providers.domain-filtered.middleware.config]
+utm_medium = "social"
+utm_source = "mastodon"
+utm_campaign = "external_links"
+
+# Only add tracking to external domains, exclude internal ones
+exclude_domains = ["internal.company.com", "private.example.com"]
+
+# Example for different social platforms
+[[providers.bluesky-provider.middleware]]
+name = "bluesky-tracker"
+type = "url_tracking"
+enabled = true
+
+[providers.bluesky-provider.middleware.config]
+utm_medium = "social"
+utm_source = "bluesky"  # Different source for Bluesky
+utm_campaign = "schachnachrichten"
+wrap_in_html = true  # Bluesky supports HTML links
+
+# Account configuration (required)
+[accounts.my-account]
+server = "https://mastodon.social"
+access_token = "your-access-token-here"
+
+# Multiple middleware example - URL tracking with text transformation
+[[providers.multi-middleware.middleware]]
+name = "text-transform"
+type = "text_transform"
+enabled = true
+
+[providers.multi-middleware.middleware.config]
+transform = "append"
+suffix = " #chess #news"
+
+[[providers.multi-middleware.middleware]]
+name = "url-tracker"
+type = "url_tracking"
+enabled = true
+
+[providers.multi-middleware.middleware.config]
+utm_medium = "social"
+utm_source = "mastodon"
+utm_campaign = "schachnachrichten"
+wrap_in_html = true
+# This will run after the text transform, so it will also track any URLs in the appended text
