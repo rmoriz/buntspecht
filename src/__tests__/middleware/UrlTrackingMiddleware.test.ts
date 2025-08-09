@@ -444,6 +444,83 @@ describe('UrlTrackingMiddleware', () => {
     });
   });
 
+  describe('custom link text', () => {
+    it('should use custom link text when provided', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        link_text: 'Click here'
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toBe('Check out this link: <a href="https://example.com/?utm_medium=social&utm_source=mastodon">Click here</a>');
+      expect(nextCalled).toHaveBeenCalled();
+      expect(context.data['test_transformed']).toBe(true);
+      expect(context.data['test_urls_processed']).toBe(1);
+    });
+
+    it('should use custom link text for multiple URLs', async () => {
+      context.message.text = 'Visit https://example.com and also https://test.com for more info';
+      
+      const middleware = new UrlTrackingMiddleware('test', {
+        link_text: 'Learn more'
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toContain('<a href="https://example.com/?utm_medium=social&utm_source=mastodon">Learn more</a>');
+      expect(context.message.text).toContain('<a href="https://test.com/?utm_medium=social&utm_source=mastodon">Learn more</a>');
+      expect(context.data['test_urls_processed']).toBe(2);
+    });
+
+    it('should use original URL as link text when link_text is not provided', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {});
+
+      await middleware.initialize(logger, telemetry);
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toBe('Check out this link: <a href="https://example.com/?utm_medium=social&utm_source=mastodon">https://example.com</a>');
+      expect(nextCalled).toHaveBeenCalled();
+    });
+
+    it('should use original URL as link text when link_text is empty string', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        link_text: ''
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toBe('Check out this link: <a href="https://example.com/?utm_medium=social&utm_source=mastodon">https://example.com</a>');
+      expect(nextCalled).toHaveBeenCalled();
+    });
+
+    it('should not use custom link text when wrap_in_html is false', async () => {
+      const middleware = new UrlTrackingMiddleware('test', {
+        link_text: 'Custom text',
+        wrap_in_html: false
+      });
+
+      await middleware.initialize(logger, telemetry);
+
+      const nextCalled = jest.fn();
+      await middleware.execute(context, nextCalled);
+
+      expect(context.message.text).toBe('Check out this link: https://example.com/?utm_medium=social&utm_source=mastodon');
+      expect(context.message.text).not.toContain('Custom text');
+      expect(nextCalled).toHaveBeenCalled();
+    });
+  });
+
   describe('URL regex edge cases', () => {
     it('should handle URLs with hyphens and special characters correctly', async () => {
       const middleware = new UrlTrackingMiddleware('test', {

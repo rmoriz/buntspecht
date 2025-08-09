@@ -53,6 +53,9 @@ utm_content = "bot_post"
 # HTML anchor tag wrapping (default: true)
 wrap_in_html = true  # URLs become: <a href="https://example.com/?utm_...">https://example.com</a>
 
+# Custom link text for HTML anchor tags (default: original URL)
+link_text = "Visit website"  # URLs become: <a href="https://example.com/?utm_...">Visit website</a>
+
 # Override existing UTM parameters in URLs
 override_existing = false
 
@@ -86,6 +89,7 @@ utm_source = "mastodon"
 utm_campaign = "schachnachrichten"
 # Disable HTML wrapping for platforms that don't support HTML
 wrap_in_html = false  # URLs stay as plain text: https://example.com/?utm_...
+# link_text is ignored when wrap_in_html is false
 
 # Example with domain filtering
 [[bot.providers]]
@@ -130,6 +134,7 @@ utm_medium = "social"
 utm_source = "bluesky"  # Different source for Bluesky
 utm_campaign = "schachnachrichten"
 wrap_in_html = true  # Bluesky supports HTML links
+link_text = "Check this out"  # Custom text for all links
 
 # Account configuration (required)
 [[accounts]]
@@ -173,4 +178,5 @@ utm_medium = "social"
 utm_source = "mastodon"
 utm_campaign = "schachnachrichten"
 wrap_in_html = true
+link_text = "Read more"  # Custom link text for better user experience
 # This will run after the text transform, so it will also track any URLs in the appended text

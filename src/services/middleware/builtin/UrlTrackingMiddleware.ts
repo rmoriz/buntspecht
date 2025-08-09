@@ -23,6 +23,8 @@ export interface UrlTrackingConfig {
   exclude_domains?: string[];
   /** Whether to wrap URLs in HTML anchor tags (default: true) */
   wrap_in_html?: boolean;
+  /** Custom link text for HTML anchor tags (if not provided, uses original URL) */
+  link_text?: string;
 }
 
 /**
@@ -65,7 +67,8 @@ export class UrlTrackingMiddleware implements MessageMiddleware {
       skip_existing_utm: this.config.skip_existing_utm,
       include_domains: this.config.include_domains?.length || 0,
       exclude_domains: this.config.exclude_domains?.length || 0,
-      wrap_in_html: this.config.wrap_in_html
+      wrap_in_html: this.config.wrap_in_html,
+      link_text: (this.config.link_text && this.config.link_text.trim()) ? this.config.link_text : 'original_url'
     });
   }
 
@@ -189,8 +192,9 @@ export class UrlTrackingMiddleware implements MessageMiddleware {
       return originalUrl;
     }
     
-    // Wrap in HTML anchor tag: <a href="tracked_url">original_url</a>
-    return `<a href="${trackedUrl}">${originalUrl}</a>`;
+    // Wrap in HTML anchor tag with custom or original URL as text
+    const linkText = this.config.link_text || originalUrl;
+    return `<a href="${trackedUrl}">${linkText}</a>`;
   }
 
   private addTrackingToUrl(url: string): string {
