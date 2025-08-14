@@ -36,6 +36,13 @@ fallbackOnError = "continue"  # Continue posting even if AI fails
 enableCaching = true
 cacheDuration = 86400000  # 24 hours in milliseconds
 
+# Image resizing to reduce API costs and improve performance
+[providers.middleware.config.imageResize]
+enabled = true
+maxWidth = 2048
+maxHeight = 2048
+quality = 75
+
 # Advanced configuration with OpenAI
 [[providers]]
 name = "advanced_image_processing"

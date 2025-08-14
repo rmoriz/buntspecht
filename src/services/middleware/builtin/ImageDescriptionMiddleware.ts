@@ -30,6 +30,17 @@ export interface ImageDescriptionConfig {
   supportedFormats?: string[];
   /** Maximum image size to process (in bytes) */
   maxImageSize?: number;
+  /** Image resizing options */
+  imageResize?: {
+    /** Maximum width in pixels */
+    maxWidth?: number;
+    /** Maximum height in pixels */
+    maxHeight?: number;
+    /** JPEG quality (0-100) */
+    quality?: number;
+    /** Whether to enable resizing */
+    enabled?: boolean;
+  };
 }
 
 interface CacheEntry {
@@ -93,6 +104,12 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
       cacheDuration: 24 * 60 * 60 * 1000, // 24 hours
       supportedFormats: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
       maxImageSize: 20 * 1024 * 1024, // 20MB
+      imageResize: {
+        enabled: true,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 75
+      },
       prompt: 'Describe this image in a concise, accessible way for social media. Focus on the main subject, key visual elements, and any text visible in the image. Keep it under 100 characters.',
       ...config
     };
@@ -242,7 +259,24 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
   }
 
   private async generateImageDescription(attachment: Attachment): Promise<string> {
-    const dataUrl = `data:${attachment.mimeType};base64,${attachment.data}`;
+    // Resize image if enabled
+    let processedData = attachment.data;
+    let processedMimeType = attachment.mimeType;
+    
+    if (this.config.imageResize?.enabled) {
+      try {
+        const resizeResult = await this.resizeImage(attachment.data, attachment.mimeType);
+        processedData = resizeResult.data;
+        processedMimeType = resizeResult.mimeType;
+        
+        this.logger?.debug(`Resized image ${attachment.filename || 'unnamed'}: ${attachment.data.length} -> ${processedData.length} chars`);
+      } catch (error) {
+        this.logger?.warn(`Failed to resize image ${attachment.filename || 'unnamed'}, using original:`, error);
+        // Continue with original image
+      }
+    }
+
+    const dataUrl = `data:${processedMimeType};base64,${processedData}`;
 
     const requestBody: OpenRouterRequest = {
       model: this.config.model,
@@ -347,6 +381,60 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
         };
       default:
         throw new Error(`Unsupported AI provider: ${this.config.provider}`);
+    }
+  }
+
+  private async resizeImage(base64Data: string, mimeType: string): Promise<{ data: string; mimeType: string }> {
+    // For now, we'll use a simple Canvas-based approach that works in Node.js
+    // This requires the 'canvas' package, but we'll implement a fallback
+    
+    try {
+      // Try to use canvas package if available
+      const { createCanvas, loadImage } = await import('canvas');
+      
+      // Decode base64 to buffer
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+      
+      // Load image
+      const image = await loadImage(imageBuffer);
+      
+      // Calculate new dimensions
+      const { maxWidth = 2048, maxHeight = 2048, quality = 75 } = this.config.imageResize!;
+      
+      let { width, height } = image;
+      
+      // Calculate scale factor to fit within max dimensions
+      const scaleX = maxWidth / width;
+      const scaleY = maxHeight / height;
+      const scale = Math.min(scaleX, scaleY, 1); // Don't upscale
+      
+      const newWidth = Math.floor(width * scale);
+      const newHeight = Math.floor(height * scale);
+      
+      // Skip resizing if image is already small enough
+      if (scale >= 1) {
+        return { data: base64Data, mimeType };
+      }
+      
+      // Create canvas and resize
+      const canvas = createCanvas(newWidth, newHeight);
+      const ctx = canvas.getContext('2d');
+      
+      ctx.drawImage(image, 0, 0, newWidth, newHeight);
+      
+      // Convert to JPEG with quality setting
+      const resizedBuffer = canvas.toBuffer('image/jpeg', { quality: quality / 100 });
+      const resizedBase64 = resizedBuffer.toString('base64');
+      
+      return {
+        data: resizedBase64,
+        mimeType: 'image/jpeg'
+      };
+      
+    } catch (error) {
+      // Fallback: if canvas is not available, return original
+      this.logger?.debug('Canvas package not available for image resizing, using original image');
+      return { data: base64Data, mimeType };
     }
   }
 
