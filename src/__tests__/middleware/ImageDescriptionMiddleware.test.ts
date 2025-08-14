@@ -16,6 +16,22 @@ jest.mock('crypto', () => ({
   })
 }));
 
+// Mock AbortSignal.timeout
+const mockAbortSignal = {
+  aborted: false,
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  dispatchEvent: jest.fn()
+};
+
+Object.defineProperty(global, 'AbortSignal', {
+  value: {
+    timeout: jest.fn().mockReturnValue(mockAbortSignal)
+  },
+  writable: true,
+  configurable: true
+});
+
 import { ImageDescriptionMiddleware, ImageDescriptionConfig } from '../../services/middleware/builtin/ImageDescriptionMiddleware';
 import { MessageMiddlewareContext } from '../../services/middleware/types';
 import { Logger } from '../../utils/logger';
@@ -468,6 +484,11 @@ describe('ImageDescriptionMiddleware', () => {
         enableCaching: false // Disable caching to avoid timer conflicts
       };
       middleware = new ImageDescriptionMiddleware('test', config);
+      
+      // Mock the sleep method to avoid real timeouts
+      const originalSleep = (middleware as any).sleep;
+      (middleware as any).sleep = jest.fn().mockResolvedValue(undefined);
+      
       await middleware.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
@@ -486,17 +507,14 @@ describe('ImageDescriptionMiddleware', () => {
           })
         } as any);
 
-      // Start the async operation
-      const executePromise = middleware.execute(mockContext, mockNext);
-      
-      // Advance timers to handle any retry delays
-      jest.runAllTimers();
-      
-      // Wait for completion
-      await executePromise;
+      await middleware.execute(mockContext, mockNext);
       
       expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial call + 1 retry
       expect(mockContext.message.attachments[0].description).toBe('Retry success description');
+      expect((middleware as any).sleep).toHaveBeenCalledWith(1); // Should have called sleep with 1ms delay
+      
+      // Restore original method
+      (middleware as any).sleep = originalSleep;
     });
 
     it('should not retry on non-retryable errors', async () => {
@@ -545,6 +563,11 @@ describe('ImageDescriptionMiddleware', () => {
         enableCaching: false
       };
       middleware = new ImageDescriptionMiddleware('test', config);
+      
+      // Mock the sleep method to avoid real timeouts
+      const originalSleep = (middleware as any).sleep;
+      (middleware as any).sleep = jest.fn().mockResolvedValue(undefined);
+      
       await middleware.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
@@ -557,17 +580,14 @@ describe('ImageDescriptionMiddleware', () => {
         text: async () => 'Server error'
       } as any);
 
-      // Start the async operation
-      const executePromise = middleware.execute(mockContext, mockNext);
-      
-      // Advance timers to handle any retry delays
-      jest.runAllTimers();
-      
-      // Wait for completion
-      await executePromise;
+      await middleware.execute(mockContext, mockNext);
       
       expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial + 1 retry (maxAttempts = 2)
       expect(mockNext).toHaveBeenCalled();
+      expect((middleware as any).sleep).toHaveBeenCalledWith(1); // Should have called sleep once
+      
+      // Restore original method
+      (middleware as any).sleep = originalSleep;
     });
   });
 });
