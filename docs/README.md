@@ -6,7 +6,6 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 
 ### Core Features
 - **[Automatic Secret Rotation](AUTOMATIC_SECRET_ROTATION.md)** - Comprehensive guide to automatic secret rotation detection and management
-- **[Cache Migration System](CACHE_MIGRATION_SYSTEM.md)** - Automatic cache migration system that prevents duplicate messages during upgrades
 - **[Webhook Usage Examples](webhook-usage-examples.md)** - Comprehensive examples and patterns for webhook integration
 
 ### Development & Architecture
@@ -36,7 +35,6 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 ### For System Administrators
 - **Deployment**: See [Migration to Bun](MIGRATION_TO_BUN.md) for runtime information
 - **Monitoring**: Review [Automatic Secret Rotation](AUTOMATIC_SECRET_ROTATION.md) for observability features
-- **Upgrades**: Check [Cache Migration System](CACHE_MIGRATION_SYSTEM.md) for upgrade safety
 
 ## 📖 Documentation Categories
 
@@ -46,7 +44,6 @@ Welcome to the Buntspecht documentation directory! This directory contains detai
 
 ### 🏗️ Architecture & Implementation
 - [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Technical implementation details
-- [Cache Migration System](CACHE_MIGRATION_SYSTEM.md) - Data migration and integrity
 - [Migration to Bun](MIGRATION_TO_BUN.md) - Runtime migration details
 
 ### 🧪 Quality Assurance
