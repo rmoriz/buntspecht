@@ -1,20 +1,28 @@
-import { ImageDescriptionMiddleware, ImageDescriptionConfig } from '../../services/middleware/builtin/ImageDescriptionMiddleware';
-import { MessageMiddlewareContext } from '../../services/middleware/types';
-import { Logger } from '../../utils/logger';
-import { TelemetryService } from '../../services/telemetryStub';
-import { MessageWithAttachments, Attachment } from '../../messages/messageProvider';
+// Create mock fetch before importing anything
+const mockFetch = jest.fn();
 
-// Mock fetch globally
-global.fetch = jest.fn();
-const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
+// Mock fetch globally before any imports
+Object.defineProperty(global, 'fetch', {
+  value: mockFetch,
+  writable: true,
+  configurable: true
+});
 
-// Mock crypto
+// Mock crypto before imports
 jest.mock('crypto', () => ({
   createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn().mockReturnValue('mocked-hash')
   })
 }));
+
+import { ImageDescriptionMiddleware, ImageDescriptionConfig } from '../../services/middleware/builtin/ImageDescriptionMiddleware';
+import { MessageMiddlewareContext } from '../../services/middleware/types';
+import { Logger } from '../../utils/logger';
+import { TelemetryService } from '../../services/telemetryStub';
+import { Attachment } from '../../messages/messageProvider';
+
+const mockedFetch = mockFetch as jest.MockedFunction<typeof fetch>;
 
 describe('ImageDescriptionMiddleware', () => {
   let middleware: ImageDescriptionMiddleware;
@@ -47,6 +55,11 @@ describe('ImageDescriptionMiddleware', () => {
     description: ''
   };
 
+  beforeAll(() => {
+    // Ensure fetch is properly mocked for all tests
+    mockedFetch.mockClear();
+  });
+
   beforeEach(() => {
     logger = new Logger('debug');
     telemetry = new TelemetryService({ enabled: false, serviceName: 'test', serviceVersion: '1.0.0' }, logger);
@@ -78,8 +91,12 @@ describe('ImageDescriptionMiddleware', () => {
     global.setInterval = jest.fn();
     global.clearInterval = jest.fn();
 
-    // Reset fetch mock
+    // Reset fetch mock completely
     mockedFetch.mockReset();
+    mockedFetch.mockClear();
+    
+    // Verify the mock is in place
+    expect(global.fetch).toBe(mockedFetch);
     
     // Reset context skip flag
     mockContext.skip = false;
@@ -437,7 +454,7 @@ describe('ImageDescriptionMiddleware', () => {
   });
 
   describe('retry logic', () => {
-    it.skip('should retry on timeout errors', async () => {
+    it('should retry on timeout errors', async () => {
       await middleware.cleanup();
       const config = { 
         ...defaultConfig, 
@@ -469,7 +486,14 @@ describe('ImageDescriptionMiddleware', () => {
           })
         } as any);
 
-      await middleware.execute(mockContext, mockNext);
+      // Start the async operation
+      const executePromise = middleware.execute(mockContext, mockNext);
+      
+      // Advance timers to handle any retry delays
+      jest.runAllTimers();
+      
+      // Wait for completion
+      await executePromise;
       
       expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial call + 1 retry
       expect(mockContext.message.attachments[0].description).toBe('Retry success description');
@@ -507,7 +531,7 @@ describe('ImageDescriptionMiddleware', () => {
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it.skip('should respect maxAttempts limit', async () => {
+    it('should respect maxAttempts limit', async () => {
       await middleware.cleanup();
       const config = { 
         ...defaultConfig, 
@@ -533,7 +557,14 @@ describe('ImageDescriptionMiddleware', () => {
         text: async () => 'Server error'
       } as any);
 
-      await middleware.execute(mockContext, mockNext);
+      // Start the async operation
+      const executePromise = middleware.execute(mockContext, mockNext);
+      
+      // Advance timers to handle any retry delays
+      jest.runAllTimers();
+      
+      // Wait for completion
+      await executePromise;
       
       expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial + 1 retry (maxAttempts = 2)
       expect(mockNext).toHaveBeenCalled();
