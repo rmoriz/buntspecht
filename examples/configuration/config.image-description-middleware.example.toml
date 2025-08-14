@@ -26,7 +26,7 @@ enabled = true
 [providers.middleware.config]
 provider = "openrouter"
 apiKey = "${OPENROUTER_API_KEY}"  # Use secret management
-model = "anthropic/claude-3-haiku"
+model = "mistralai/mistral-small-3.2-24b-instruct:free"
 prompt = "Describe this image in a concise, accessible way for social media. Focus on the main subject, key visual elements, and any text visible in the image. Keep it under 100 characters."
 maxTokens = 1500
 temperature = 0.3
