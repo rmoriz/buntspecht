@@ -41,7 +41,7 @@ export class AttachmentProviderStrategy extends ProviderExecutionStrategy {
           this.context.logger.debug(`Executing attachment provider task: ${providerName}`);
 
           // Generate message with attachments
-          const messageData = await (provider as any).generateMessageWithAttachments() as MessageWithAttachments;
+          let messageData = await (provider as any).generateMessageWithAttachments() as MessageWithAttachments;
 
           // Check if message is empty
           if (this.isEmptyMessage(messageData.text)) {
@@ -55,6 +55,38 @@ export class AttachmentProviderStrategy extends ProviderExecutionStrategy {
 
           // Determine visibility
           const finalVisibility = providerConfig.visibility || 'unlisted';
+
+          // Process message through middleware chain
+          let shouldSkip = false;
+          let skipReason = '';
+
+          if (this.context.middlewareManager) {
+            const middlewareResult = await this.context.middlewareManager.execute(
+              messageData,
+              providerName,
+              providerConfig,
+              providerConfig.accounts,
+              finalVisibility
+            );
+
+            if (!middlewareResult.success) {
+              throw new Error(`Middleware execution failed: ${middlewareResult.error?.message}`);
+            }
+
+            messageData = middlewareResult.message;
+            shouldSkip = middlewareResult.skip;
+            skipReason = middlewareResult.skipReason || '';
+          }
+
+          // Check if middleware requested to skip the message
+          if (shouldSkip) {
+            this.context.logger.info(`Provider "${providerName}" message skipped by middleware: ${skipReason}`);
+            return {
+              success: true,
+              message: `Message skipped: ${skipReason}`,
+              duration: Date.now() - startTime
+            };
+          }
 
           // Post message with attachments
           await this.context.socialMediaClient.postStatusWithAttachments(
@@ -127,9 +159,42 @@ export class AttachmentProviderStrategy extends ProviderExecutionStrategy {
           // Determine visibility
           const finalVisibility = providerConfig.visibility || 'unlisted';
 
+          // Process message through middleware chain
+          let finalMessageData = messageData;
+          let shouldSkip = false;
+          let skipReason = '';
+
+          if (this.context.middlewareManager) {
+            const middlewareResult = await this.context.middlewareManager.execute(
+              messageData,
+              providerName,
+              providerConfig,
+              providerConfig.accounts,
+              finalVisibility
+            );
+
+            if (!middlewareResult.success) {
+              throw new Error(`Middleware execution failed: ${middlewareResult.error?.message}`);
+            }
+
+            finalMessageData = middlewareResult.message;
+            shouldSkip = middlewareResult.skip;
+            skipReason = middlewareResult.skipReason || '';
+          }
+
+          // Check if middleware requested to skip the message
+          if (shouldSkip) {
+            this.context.logger.info(`Provider "${providerName}" message skipped by middleware: ${skipReason}`);
+            return {
+              success: true,
+              message: `Message skipped: ${skipReason}`,
+              duration: Date.now() - startTime
+            };
+          }
+
           // Post message with attachments
           await this.context.socialMediaClient.postStatusWithAttachments(
-            messageData,
+            finalMessageData,
             providerConfig.accounts,
             providerName,
             finalVisibility

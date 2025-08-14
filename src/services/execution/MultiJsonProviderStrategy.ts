@@ -90,10 +90,38 @@ export class MultiJsonProviderStrategy extends ProviderExecutionStrategy {
             try {
               const finalVisibility = providerConfig.visibility || 'unlisted';
 
-              const messageData: MessageWithAttachments = {
+              let messageData: MessageWithAttachments = {
                 text: accountMessage.message,
                 attachments: accountMessage.attachments
               };
+
+              // Process message through middleware chain
+              let shouldSkip = false;
+              let skipReason = '';
+
+              if (this.context.middlewareManager) {
+                const middlewareResult = await this.context.middlewareManager.execute(
+                  messageData,
+                  providerName,
+                  providerConfig,
+                  [accountMessage.account],
+                  finalVisibility
+                );
+
+                if (!middlewareResult.success) {
+                  throw new Error(`Middleware execution failed: ${middlewareResult.error?.message}`);
+                }
+
+                messageData = middlewareResult.message;
+                shouldSkip = middlewareResult.skip;
+                skipReason = middlewareResult.skipReason || '';
+              }
+
+              // Check if middleware requested to skip the message
+              if (shouldSkip) {
+                this.context.logger.info(`Provider "${providerName}" message skipped by middleware for account ${accountMessage.account}: ${skipReason}`);
+                continue; // Skip this account and continue with others
+              }
 
               await this.context.socialMediaClient.postStatusWithAttachments(
                 messageData,
