@@ -43,6 +43,14 @@ maxWidth = 2048
 maxHeight = 2048
 quality = 75
 
+# Retry configuration for API reliability
+[providers.middleware.config.retry]
+enabled = true
+maxAttempts = 3
+initialDelay = 1000  # 1 second
+maxDelay = 30000     # 30 seconds
+backoffMultiplier = 2
+
 # Advanced configuration with OpenAI
 [[providers]]
 name = "advanced_image_processing"

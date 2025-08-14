@@ -26,6 +26,19 @@ export interface ImageDescriptionConfig {
   enableCaching?: boolean;
   /** Cache duration in milliseconds */
   cacheDuration?: number;
+  /** Retry configuration */
+  retry?: {
+    /** Maximum number of retry attempts */
+    maxAttempts?: number;
+    /** Initial delay in milliseconds */
+    initialDelay?: number;
+    /** Maximum delay in milliseconds */
+    maxDelay?: number;
+    /** Exponential backoff multiplier */
+    backoffMultiplier?: number;
+    /** Whether to enable retry logic */
+    enabled?: boolean;
+  };
   /** Supported image formats */
   supportedFormats?: string[];
   /** Maximum image size to process (in bytes) */
@@ -102,6 +115,13 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
       fallbackOnError: 'continue',
       enableCaching: true,
       cacheDuration: 24 * 60 * 60 * 1000, // 24 hours
+      retry: {
+        enabled: true,
+        maxAttempts: 3,
+        initialDelay: 1000, // 1 second
+        maxDelay: 30000, // 30 seconds
+        backoffMultiplier: 2
+      },
       supportedFormats: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
       maxImageSize: 20 * 1024 * 1024, // 20MB
       imageResize: {
@@ -308,23 +328,11 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
     this.logger?.debug(`ImageDescriptionMiddleware ${this.name} - Making API request`, {
       model: this.config.model,
       provider: this.config.provider,
-      imageType: attachment.mimeType,
-      imageSize: attachment.data.length
+      imageType: processedMimeType,
+      imageSize: processedData.length
     });
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(this.config.timeout!)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`AI API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json() as OpenRouterResponse;
+    const data = await this.makeApiRequestWithRetry(apiUrl, headers, requestBody, attachment);
     
     if (!data.choices || data.choices.length === 0) {
       throw new Error('No response choices returned from AI API');
@@ -340,6 +348,122 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
     });
 
     return description;
+  }
+
+  private async makeApiRequestWithRetry(
+    apiUrl: string, 
+    headers: Record<string, string>, 
+    requestBody: OpenRouterRequest,
+    attachment: Attachment
+  ): Promise<OpenRouterResponse> {
+    const retryConfig = this.config.retry!;
+    
+    if (!retryConfig.enabled) {
+      // No retry logic, make single request
+      return await this.makeSingleApiRequest(apiUrl, headers, requestBody);
+    }
+
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= retryConfig.maxAttempts!; attempt++) {
+      try {
+        this.logger?.debug(`ImageDescriptionMiddleware ${this.name} - API attempt ${attempt}/${retryConfig.maxAttempts}`);
+        
+        const result = await this.makeSingleApiRequest(apiUrl, headers, requestBody);
+        
+        // Success! Log if this was a retry
+        if (attempt > 1) {
+          this.logger?.info(`ImageDescriptionMiddleware ${this.name} - API call succeeded on attempt ${attempt} for ${attachment.filename || 'unnamed'}`);
+        }
+        
+        return result;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Don't retry on the last attempt
+        if (attempt === retryConfig.maxAttempts) {
+          break;
+        }
+        
+        // Check if this is a retryable error
+        if (!this.isRetryableError(lastError)) {
+          this.logger?.debug(`ImageDescriptionMiddleware ${this.name} - Non-retryable error, not retrying: ${lastError.message}`);
+          break;
+        }
+        
+        // Calculate delay with exponential backoff
+        const delay = Math.min(
+          retryConfig.initialDelay! * Math.pow(retryConfig.backoffMultiplier!, attempt - 1),
+          retryConfig.maxDelay!
+        );
+        
+        this.logger?.warn(`ImageDescriptionMiddleware ${this.name} - API attempt ${attempt} failed for ${attachment.filename || 'unnamed'}: ${lastError.message}. Retrying in ${delay}ms...`);
+        
+        // Wait before retry
+        await this.sleep(delay);
+      }
+    }
+    
+    // All attempts failed
+    this.logger?.error(`ImageDescriptionMiddleware ${this.name} - All ${retryConfig.maxAttempts} API attempts failed for ${attachment.filename || 'unnamed'}`);
+    throw lastError || new Error('All retry attempts failed');
+  }
+
+  private async makeSingleApiRequest(
+    apiUrl: string, 
+    headers: Record<string, string>, 
+    requestBody: OpenRouterRequest
+  ): Promise<OpenRouterResponse> {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(this.config.timeout!)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AI API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json() as OpenRouterResponse;
+  }
+
+  private isRetryableError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    
+    // Retry on timeout errors
+    if (error.name === 'TimeoutError' || message.includes('timeout')) {
+      return true;
+    }
+    
+    // Retry on network errors
+    if (message.includes('network') || message.includes('fetch')) {
+      return true;
+    }
+    
+    // Retry on 5xx server errors
+    if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('504')) {
+      return true;
+    }
+    
+    // Retry on rate limiting (429)
+    if (message.includes('429') || message.includes('rate limit')) {
+      return true;
+    }
+    
+    // Don't retry on 4xx client errors (except 429)
+    if (message.includes('400') || message.includes('401') || message.includes('403') || message.includes('404')) {
+      return false;
+    }
+    
+    // Default to retry for unknown errors
+    return true;
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private getApiUrl(): string {
