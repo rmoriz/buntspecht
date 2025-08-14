@@ -113,10 +113,14 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
                   type: attachment.mimeType,
                 });
                 
-                const mediaAttachment = await accountClient.client.v2.media.create({
-                  file,
-                  description: attachment.description || undefined,  // Don't send empty strings to API
-                });
+                const mediaParams: { file: File; description?: string } = { file };
+                
+                // Only include description if it has a meaningful value
+                if (attachment.description && attachment.description.trim() !== '') {
+                  mediaParams.description = attachment.description;
+                }
+                
+                const mediaAttachment = await accountClient.client.v2.media.create(mediaParams);
                 
                 mediaIds.push(mediaAttachment.id);
                 this.logger.debug(`Uploaded attachment ${i + 1} to ${accountName}: ${mediaAttachment.id}`);

@@ -13,6 +13,7 @@ import { YouTubeShortsFilterMiddleware, YouTubeShortsFilterConfig } from './buil
 import { YouTubeVideoFilterMiddleware, YouTubeVideoFilterConfig } from './builtin/YouTubeVideoFilterMiddleware';
 import { YouTubePremiereFilterMiddleware, YouTubePremiereFilterConfig } from './builtin/YouTubePremiereFilterMiddleware';
 import { UrlTrackingMiddleware, UrlTrackingConfig } from './builtin/UrlTrackingMiddleware';
+import { ImageDescriptionMiddleware, ImageDescriptionConfig } from './builtin/ImageDescriptionMiddleware';
 
 /**
  * Factory for creating message middleware instances
@@ -32,7 +33,8 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
     'youtube_shorts_filter',
     'youtube_video_filter',
     'youtube_premiere_filter',
-    'url_tracking'
+    'url_tracking',
+    'image_description'
   ];
 
   /**
@@ -137,6 +139,13 @@ export class DefaultMessageMiddlewareFactory implements MessageMiddlewareFactory
         return new UrlTrackingMiddleware(
           config.name,
           config.config as unknown as UrlTrackingConfig,
+          enabled
+        );
+
+      case 'image_description':
+        return new ImageDescriptionMiddleware(
+          config.name,
+          config.config as unknown as ImageDescriptionConfig,
           enabled
         );
 

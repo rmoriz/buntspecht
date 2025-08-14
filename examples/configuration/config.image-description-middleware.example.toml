@@ -1,0 +1,203 @@
+# Image Description Middleware Configuration Examples
+# This middleware automatically generates AI-powered descriptions for images in JSON workflows
+
+# Basic configuration with OpenRouter
+[[providers]]
+name = "json_with_image_descriptions"
+type = "json_command"
+enabled = true
+schedule = "*/5 * * * *"  # Every 5 minutes
+
+[providers.config]
+command = "curl -s https://api.example.com/posts-with-images"
+template = "{{title}}\n\n{{content}}"
+attachmentsKey = "images"
+attachmentDataKey = "base64_data"
+attachmentMimeTypeKey = "mime_type"
+attachmentFilenameKey = "filename"
+attachmentDescriptionKey = "description"
+
+# Image description middleware - processes images before posting
+[[providers.middleware]]
+name = "ai_image_descriptions"
+type = "image_description"
+enabled = true
+
+[providers.middleware.config]
+provider = "openrouter"
+apiKey = "${OPENROUTER_API_KEY}"  # Use secret management
+model = "anthropic/claude-3-haiku"
+prompt = "Describe this image in a concise, accessible way for social media. Focus on the main subject, key visual elements, and any text visible in the image. Keep it under 100 characters."
+maxTokens = 150
+temperature = 0.3
+timeout = 30000
+onlyEmptyDescriptions = true  # Only process images without existing descriptions
+fallbackOnError = "continue"  # Continue posting even if AI fails
+enableCaching = true
+cacheDuration = 86400000  # 24 hours in milliseconds
+
+# Advanced configuration with OpenAI
+[[providers]]
+name = "advanced_image_processing"
+type = "multijson_command"
+enabled = true
+schedule = "0 */2 * * *"  # Every 2 hours
+
+[providers.config]
+command = "python3 /scripts/fetch_gallery_posts.py"
+template = "🖼️ {{title}}\n\n{{description}}\n\n{{tags|join: ,#}}"
+attachmentsKey = "gallery"
+uniqueKey = "post_id"
+
+# Multiple middleware chain for comprehensive image processing
+[[providers.middleware]]
+name = "validate_images"
+type = "attachment"
+enabled = true
+
+[providers.middleware.config]
+action = "validate"
+validation.maxSize = 20971520  # 20MB
+validation.allowedTypes = ["image/jpeg", "image/png", "image/webp"]
+validation.maxCount = 4
+
+[[providers.middleware]]
+name = "generate_descriptions"
+type = "image_description"
+enabled = true
+
+[providers.middleware.config]
+provider = "openai"
+apiKey = "${OPENAI_API_KEY}"
+model = "gpt-4-vision-preview"
+prompt = "Create an engaging, descriptive alt text for this image. Include important visual details, any text present, and the overall mood or context. Make it suitable for screen readers and social media accessibility."
+maxTokens = 200
+temperature = 0.2
+onlyEmptyDescriptions = false  # Process all images, even with existing descriptions
+fallbackOnError = "use_filename"
+enableCaching = true
+supportedFormats = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+maxImageSize = 10485760  # 10MB
+
+# E-commerce product images with detailed descriptions
+[[providers]]
+name = "product_showcase"
+type = "json_command"
+enabled = true
+schedule = "0 9,15 * * *"  # 9 AM and 3 PM daily
+
+[providers.config]
+file = "/data/products.json"
+template = "🛍️ {{product_name}}\n\n💰 {{price}}\n\n{{product_description}}\n\n🔗 {{shop_url}}"
+attachmentsKey = "product_images"
+
+[[providers.middleware]]
+name = "product_image_descriptions"
+type = "image_description"
+enabled = true
+
+[providers.middleware.config]
+provider = "openrouter"
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-sonnet"
+prompt = "Describe this product image for e-commerce. Include the product type, key features, colors, materials, and any visible branding. Focus on details that would help customers understand what they're buying. Keep it professional and informative."
+maxTokens = 250
+temperature = 0.1  # Low temperature for consistent, factual descriptions
+onlyEmptyDescriptions = true
+fallbackOnError = "continue"
+enableCaching = true
+cacheDuration = 604800000  # 7 days for product images
+
+# News articles with image descriptions for accessibility
+[[providers]]
+name = "news_with_accessibility"
+type = "json_command"
+enabled = true
+schedule = "0 */4 * * *"  # Every 4 hours
+
+[providers.config]
+command = "curl -H 'Authorization: Bearer ${NEWS_API_KEY}' https://api.news.com/articles"
+template = "📰 {{headline}}\n\n{{summary}}\n\n🔗 {{article_url}}"
+attachmentsKey = "featured_images"
+
+[[providers.middleware]]
+name = "news_image_descriptions"
+type = "image_description"
+enabled = true
+
+[providers.middleware.config]
+provider = "openrouter"
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-haiku"
+prompt = "Describe this news image for accessibility. Include who or what is shown, the setting, any visible text or graphics, and the general context. Make it informative for visually impaired readers."
+maxTokens = 180
+temperature = 0.2
+onlyEmptyDescriptions = true
+fallbackOnError = "continue"
+enableCaching = true
+
+# Art gallery posts with creative descriptions
+[[providers]]
+name = "art_gallery"
+type = "multijson_command"
+enabled = true
+schedule = "0 12 * * *"  # Daily at noon
+
+[providers.config]
+command = "python3 /scripts/fetch_artwork.py"
+template = "🎨 {{artist_name}} - {{artwork_title}}\n\n{{medium}} | {{year}}\n\n{{artist_bio}}"
+attachmentsKey = "artwork_images"
+uniqueKey = "artwork_id"
+
+[[providers.middleware]]
+name = "artistic_descriptions"
+type = "image_description"
+enabled = true
+
+[providers.middleware.config]
+provider = "openrouter"
+apiKey = "${OPENROUTER_API_KEY}"
+model = "anthropic/claude-3-sonnet"
+prompt = "Describe this artwork with attention to artistic elements. Include the style, composition, colors, subject matter, and emotional impact. Write in an engaging way that would interest art enthusiasts while remaining accessible."
+maxTokens = 300
+temperature = 0.4  # Slightly higher temperature for more creative descriptions
+onlyEmptyDescriptions = true
+fallbackOnError = "continue"
+enableCaching = true
+
+# Social media accounts configuration
+[[accounts]]
+name = "mastodon_main"
+type = "mastodon"
+instance = "https://mastodon.social"
+access_token = "${MASTODON_ACCESS_TOKEN}"
+
+[[accounts]]
+name = "bluesky_main"
+type = "bluesky"
+identifier = "${BLUESKY_IDENTIFIER}"
+password = "${BLUESKY_PASSWORD}"
+
+# Secret management configuration
+[secrets]
+provider = "vault"
+
+[secrets.vault]
+url = "https://vault.example.com"
+token = "${VAULT_TOKEN}"
+mount = "secret"
+path = "buntspecht"
+
+# Logging configuration
+[logging]
+level = "info"  # Set to debug to see AI API calls and image processing details
+
+# Telemetry for monitoring image description performance
+[telemetry]
+enabled = true
+service_name = "buntspecht-image-descriptions"
+
+[telemetry.prometheus]
+enabled = true
+port = 9090
+endpoint = "/metrics"
