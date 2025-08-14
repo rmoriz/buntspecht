@@ -96,7 +96,7 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
     this.enabled = enabled;
     this.config = {
       timeout: 30000,
-      maxTokens: 150,
+      maxTokens: 1500,
       temperature: 0.3,
       onlyEmptyDescriptions: true,
       fallbackOnError: 'continue',
