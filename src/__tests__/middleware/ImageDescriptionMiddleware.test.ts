@@ -77,6 +77,9 @@ describe('ImageDescriptionMiddleware', () => {
 
     // Reset fetch mock
     mockedFetch.mockReset();
+    
+    // Reset context skip flag
+    mockContext.skip = false;
   });
 
   afterEach(async () => {
@@ -141,7 +144,7 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should process image attachments successfully', async () => {
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       // Mock successful API response
       mockedFetch.mockResolvedValueOnce({
@@ -219,7 +222,7 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should handle API errors with continue fallback', async () => {
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       mockedFetch.mockResolvedValueOnce({
         ok: false,
@@ -240,7 +243,7 @@ describe('ImageDescriptionMiddleware', () => {
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       mockedFetch.mockResolvedValueOnce({
         ok: false,
@@ -261,7 +264,7 @@ describe('ImageDescriptionMiddleware', () => {
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       mockedFetch.mockResolvedValueOnce({
         ok: false,
@@ -277,7 +280,7 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should use cached descriptions', async () => {
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       // First call - should make API request
       mockedFetch.mockResolvedValueOnce({
@@ -295,10 +298,10 @@ describe('ImageDescriptionMiddleware', () => {
       expect(mockedFetch).toHaveBeenCalledTimes(1);
       expect(mockContext.message.attachments[0].description).toBe('Cached description');
 
-      // Reset attachment description
-      mockContext.message.attachments[0].description = '';
+      // Create a new attachment with same data but empty description
+      mockContext.message.attachments = [{ ...sampleImageAttachment, description: '' }];
 
-      // Second call - should use cache
+      // Second call - should use cache (no new API call)
       await middleware.execute(mockContext, mockNext);
       expect(mockedFetch).toHaveBeenCalledTimes(1); // No additional API call
       expect(mockContext.message.attachments[0].description).toBe('Cached description');
@@ -306,11 +309,11 @@ describe('ImageDescriptionMiddleware', () => {
 
     it('should skip large images', async () => {
       await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, maxImageSize: 100 }; // Very small limit
+      const config = { ...defaultConfig, maxImageSize: 50 }; // Very small limit (smaller than our 96-byte test image)
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       await middleware.execute(mockContext, mockNext);
       
@@ -324,7 +327,7 @@ describe('ImageDescriptionMiddleware', () => {
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment]; // PNG format
+      mockContext.message.attachments = [{ ...sampleImageAttachment }]; // PNG format
 
       await middleware.execute(mockContext, mockNext);
       
@@ -344,7 +347,7 @@ describe('ImageDescriptionMiddleware', () => {
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       mockedFetch.mockResolvedValueOnce({
         ok: true,
@@ -375,7 +378,7 @@ describe('ImageDescriptionMiddleware', () => {
       middleware = new ImageDescriptionMiddleware('test', config);
       await middleware.initialize(logger, telemetry);
 
-      mockContext.message.attachments = [sampleImageAttachment];
+      mockContext.message.attachments = [{ ...sampleImageAttachment }];
 
       mockedFetch.mockResolvedValueOnce({
         ok: true,
