@@ -1,8 +1,24 @@
 # Multi-stage build for production
 FROM oven/bun:1.2-alpine AS builder
 
-# Install additional tools
-RUN apk add --no-cache curl iputils jq procps
+# Install additional tools and canvas dependencies
+RUN apk add --no-cache \
+    curl \
+    iputils \
+    jq \
+    procps \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    python3 \
+    make \
+    g++
 
 # Set working directory
 WORKDIR /app
@@ -22,8 +38,24 @@ RUN bun run build
 # Production stage
 FROM oven/bun:1.2-alpine AS production
 
-# Install additional tools
-RUN apk add --no-cache curl iputils jq procps
+# Install additional tools and canvas dependencies
+RUN apk add --no-cache \
+    curl \
+    iputils \
+    jq \
+    procps \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    python3 \
+    make \
+    g++
 
 # Create app user
 RUN addgroup -g 1001 -S bunjs && \
