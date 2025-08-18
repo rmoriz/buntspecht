@@ -22,10 +22,6 @@ export interface ImageDescriptionConfig {
   onlyEmptyDescriptions?: boolean;
   /** Fallback behavior if AI fails */
   fallbackOnError?: 'skip' | 'continue' | 'use_filename';
-  /** Whether to cache descriptions to avoid duplicate API calls */
-  enableCaching?: boolean;
-  /** Cache duration in milliseconds */
-  cacheDuration?: number;
   /** Retry configuration */
   retry?: {
     /** Maximum number of retry attempts */
@@ -54,11 +50,6 @@ export interface ImageDescriptionConfig {
     /** Whether to enable resizing */
     enabled?: boolean;
   };
-}
-
-interface CacheEntry {
-  description: string;
-  timestamp: number;
 }
 
 interface OpenRouterRequest {
@@ -101,8 +92,6 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
   private readonly config: ImageDescriptionConfig;
   private logger?: Logger;
   private telemetry?: TelemetryService;
-  private cache = new Map<string, CacheEntry>();
-  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(name: string, config: ImageDescriptionConfig, enabled: boolean = true) {
     this.name = name;
@@ -113,8 +102,6 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
       temperature: 0.3,
       onlyEmptyDescriptions: true,
       fallbackOnError: 'continue',
-      enableCaching: true,
-      cacheDuration: 24 * 60 * 60 * 1000, // 24 hours
       retry: {
         enabled: true,
         maxAttempts: 3,
@@ -147,20 +134,10 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
     this.logger = logger;
     this.telemetry = telemetry;
     this.logger.debug(`Initialized ImageDescriptionMiddleware: ${this.name} with model: ${this.config.model}`);
-
-    // Start cache cleanup if caching is enabled
-    if (this.config.enableCaching) {
-      this.cleanupInterval = setInterval(() => {
-        this.cleanupCache();
-      }, this.config.cacheDuration! / 4);
-    }
   }
 
   public async cleanup(): Promise<void> {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-    this.cache.clear();
+    // No cleanup needed without caching
   }
 
   public async execute(context: MessageMiddlewareContext, next: () => Promise<void>): Promise<void> {
@@ -231,29 +208,9 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
   }
 
   private async processImageAttachment(attachment: Attachment): Promise<void> {
-    const cacheKey = this.getCacheKey(attachment);
-    
-    // Check cache first
-    if (this.config.enableCaching && this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey)!;
-      if (Date.now() - cached.timestamp < this.config.cacheDuration!) {
-        attachment.description = cached.description;
-        this.logger?.debug(`Using cached description for image: ${attachment.filename || 'unnamed'}`);
-        return;
-      }
-    }
-
     try {
       const description = await this.generateImageDescription(attachment);
       attachment.description = description;
-
-      // Cache the result
-      if (this.config.enableCaching) {
-        this.cache.set(cacheKey, {
-          description,
-          timestamp: Date.now()
-        });
-      }
 
       this.logger?.debug(`Generated description for ${attachment.filename || 'unnamed'}: ${description}`);
 
@@ -561,30 +518,6 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
     }
   }
 
-  private getCacheKey(attachment: Attachment): string {
-    // Create a hash of the image data and config for caching
-    const crypto = require('crypto');
-    const imageHash = crypto.createHash('sha256').update(attachment.data).digest('hex');
-    const content = `${this.config.model}:${this.config.prompt}:${imageHash}`;
-    return crypto.createHash('sha256').update(content).digest('hex');
-  }
-
-  private cleanupCache(): void {
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp > this.config.cacheDuration!) {
-        this.cache.delete(key);
-        cleanedCount++;
-      }
-    }
-
-    if (cleanedCount > 0) {
-      this.logger?.debug(`ImageDescriptionMiddleware ${this.name} cleaned up ${cleanedCount} expired cache entries`);
-    }
-  }
-
   private async handleError(errorMessage: string, context: MessageMiddlewareContext): Promise<void> {
     switch (this.config.fallbackOnError) {
       case 'skip':
@@ -597,29 +530,5 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
         this.logger?.info(`ImageDescriptionMiddleware ${this.name} continuing despite error: ${errorMessage}`);
         return;
     }
-  }
-
-  /**
-   * Get cache statistics for debugging
-   */
-  public getCacheStats(): { size: number; entries: Array<{ key: string; age: number }> } {
-    const now = Date.now();
-    const entries = Array.from(this.cache.entries()).map(([key, entry]) => ({
-      key: key.substring(0, 8) + '...',
-      age: now - entry.timestamp
-    }));
-
-    return {
-      size: this.cache.size,
-      entries
-    };
-  }
-
-  /**
-   * Clear the cache manually
-   */
-  public clearCache(): void {
-    this.cache.clear();
-    this.logger?.debug(`ImageDescriptionMiddleware ${this.name} cache cleared manually`);
   }
 }

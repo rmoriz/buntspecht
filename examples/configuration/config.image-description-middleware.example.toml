@@ -33,8 +33,6 @@ temperature = 0.3
 timeout = 30000
 onlyEmptyDescriptions = true  # Only process images without existing descriptions
 fallbackOnError = "continue"  # Continue posting even if AI fails
-enableCaching = true
-cacheDuration = 86400000  # 24 hours in milliseconds
 
 # Image resizing to reduce API costs and improve performance
 [providers.middleware.config.imageResize]
@@ -90,7 +88,6 @@ maxTokens = 200
 temperature = 0.2
 onlyEmptyDescriptions = false  # Process all images, even with existing descriptions
 fallbackOnError = "use_filename"
-enableCaching = true
 supportedFormats = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 maxImageSize = 10485760  # 10MB
 
@@ -120,8 +117,6 @@ maxTokens = 250
 temperature = 0.1  # Low temperature for consistent, factual descriptions
 onlyEmptyDescriptions = true
 fallbackOnError = "continue"
-enableCaching = true
-cacheDuration = 604800000  # 7 days for product images
 
 # News articles with image descriptions for accessibility
 [[providers]]
@@ -149,7 +144,6 @@ maxTokens = 180
 temperature = 0.2
 onlyEmptyDescriptions = true
 fallbackOnError = "continue"
-enableCaching = true
 
 # Art gallery posts with creative descriptions
 [[providers]]
@@ -178,7 +172,6 @@ maxTokens = 300
 temperature = 0.4  # Slightly higher temperature for more creative descriptions
 onlyEmptyDescriptions = true
 fallbackOnError = "continue"
-enableCaching = true
 
 # Social media accounts configuration
 [[accounts]]

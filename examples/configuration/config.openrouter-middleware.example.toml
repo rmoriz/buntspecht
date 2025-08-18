@@ -78,8 +78,6 @@ mode = "replace"
 maxTokens = 800
 temperature = 0.3
 includeContext = true
-enableCaching = true
-cacheDuration = 1800000  # 30 minutes
 
 prompt = """You are a news curator for social media. Your task is to:
 

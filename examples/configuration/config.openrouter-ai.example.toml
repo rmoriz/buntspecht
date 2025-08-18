@@ -28,8 +28,6 @@ includeContext = true
 contextTemplate = "Platform: {{providerName}}, Visibility: {{visibility}}, Target: {{accountNames}}"
 
 # Caching for efficiency
-enableCaching = true
-cacheDuration = 3600000  # 1 hour
 
 # Error handling
 fallbackOnError = "use_original"

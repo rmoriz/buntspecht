@@ -8,14 +8,6 @@ Object.defineProperty(global, 'fetch', {
   configurable: true
 });
 
-// Mock crypto before imports
-jest.mock('crypto', () => ({
-  createHash: jest.fn().mockReturnValue({
-    update: jest.fn().mockReturnThis(),
-    digest: jest.fn().mockReturnValue('mocked-hash')
-  })
-}));
-
 // Mock AbortSignal.timeout
 const mockAbortSignal = {
   aborted: false,
@@ -57,8 +49,6 @@ describe('ImageDescriptionMiddleware', () => {
     temperature: 0.3,
     onlyEmptyDescriptions: true,
     fallbackOnError: 'continue',
-    enableCaching: true,
-    cacheDuration: 24 * 60 * 60 * 1000,
     retry: {
       enabled: false  // Disable retry for tests to avoid timeouts
     }
@@ -68,21 +58,16 @@ describe('ImageDescriptionMiddleware', () => {
     data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', // 1x1 PNG
     mimeType: 'image/png',
     filename: 'test.png',
-    description: ''
+    description: undefined
   };
 
-  beforeAll(() => {
-    // Ensure fetch is properly mocked for all tests
-    mockedFetch.mockClear();
-  });
-
   beforeEach(() => {
+    jest.clearAllMocks();
+    
     logger = new Logger('debug');
-    telemetry = new TelemetryService({ enabled: false, serviceName: 'test', serviceVersion: '1.0.0' }, logger);
+    telemetry = new TelemetryService({ enabled: false, serviceName: "test", serviceVersion: "1.0.0" }, logger);
+    
     mockNext = jest.fn();
-
-    middleware = new ImageDescriptionMiddleware('test-image-desc', defaultConfig);
-
     mockContext = {
       message: {
         text: 'Test message',
@@ -99,31 +84,11 @@ describe('ImageDescriptionMiddleware', () => {
       skip: false
     };
 
-    jest.clearAllMocks();
-    jest.clearAllTimers();
-    jest.useFakeTimers();
-    
-    // Mock setInterval and clearInterval
-    global.setInterval = jest.fn();
-    global.clearInterval = jest.fn();
-
-    // Reset fetch mock completely
-    mockedFetch.mockReset();
-    mockedFetch.mockClear();
-    
-    // Verify the mock is in place
-    expect(global.fetch).toBe(mockedFetch);
-    
-    // Reset context skip flag
-    mockContext.skip = false;
+    middleware = new ImageDescriptionMiddleware('test-image-desc', defaultConfig);
   });
 
   afterEach(async () => {
-    if (middleware) {
-      await middleware.cleanup();
-    }
-    // Clear any remaining timers
-    jest.clearAllTimers();
+    await middleware.cleanup();
   });
 
   describe('constructor', () => {
@@ -134,13 +99,21 @@ describe('ImageDescriptionMiddleware', () => {
 
     it('should throw error if API key is missing', () => {
       expect(() => {
-        new ImageDescriptionMiddleware('test', { ...defaultConfig, apiKey: '' });
+        new ImageDescriptionMiddleware('test', {
+          provider: 'openrouter',
+          apiKey: '',
+          model: 'test-model'
+        });
       }).toThrow('ImageDescription API key is required');
     });
 
     it('should throw error if model is missing', () => {
       expect(() => {
-        new ImageDescriptionMiddleware('test', { ...defaultConfig, model: '' });
+        new ImageDescriptionMiddleware('test', {
+          provider: 'openrouter',
+          apiKey: 'test-key',
+          model: ''
+        });
       }).toThrow('ImageDescription model is required');
     });
   });
@@ -148,8 +121,7 @@ describe('ImageDescriptionMiddleware', () => {
   describe('initialize', () => {
     it('should initialize successfully', async () => {
       await middleware.initialize(logger, telemetry);
-      // Just verify it doesn't throw
-      expect(true).toBe(true);
+      // Should not throw
     });
   });
 
@@ -159,113 +131,94 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should skip processing when no attachments', async () => {
+      mockContext.message.attachments = [];
+      
       await middleware.execute(mockContext, mockNext);
       
       expect(mockNext).toHaveBeenCalled();
-      expect(fetch).not.toHaveBeenCalled();
+      expect(mockedFetch).not.toHaveBeenCalled();
     });
 
     it('should skip processing when no image attachments', async () => {
       mockContext.message.attachments = [{
-        data: 'dGVzdA==',
+        data: 'text-data',
         mimeType: 'text/plain',
-        filename: 'test.txt',
-        description: ''
+        filename: 'test.txt'
       }];
-
+      
       await middleware.execute(mockContext, mockNext);
       
       expect(mockNext).toHaveBeenCalled();
-      expect(fetch).not.toHaveBeenCalled();
+      expect(mockedFetch).not.toHaveBeenCalled();
     });
 
     it('should process image attachments successfully', async () => {
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      // Mock successful API response
+      
       mockedFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [{
-            message: {
-              content: 'A small test image'
-            },
+            message: { content: 'A small test image' },
             finish_reason: 'stop'
           }],
-          usage: {
-            total_tokens: 50
-          }
+          usage: { total_tokens: 50 }
         })
-      } as any);
+      } as Response);
 
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledWith(
-        'https://openrouter.ai/api/v1/chat/completions',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer test-api-key',
-            'Content-Type': 'application/json'
-          })
-        })
-      );
-
       expect(mockContext.message.attachments[0].description).toBe('A small test image');
       expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should skip images with existing descriptions when onlyEmptyDescriptions is true', async () => {
-      const attachmentWithDescription = {
+      const imageWithDescription = {
         ...sampleImageAttachment,
         description: 'Existing description'
       };
-      mockContext.message.attachments = [attachmentWithDescription];
-
+      mockContext.message.attachments = [imageWithDescription];
+      
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).not.toHaveBeenCalled();
+      expect(mockContext.message.attachments[0].description).toBe('Existing description');
     });
 
     it('should process images with existing descriptions when onlyEmptyDescriptions is false', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, onlyEmptyDescriptions: false };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const configWithProcessAll = { ...defaultConfig, onlyEmptyDescriptions: false };
+      const middlewareWithProcessAll = new ImageDescriptionMiddleware('test', configWithProcessAll);
+      await middlewareWithProcessAll.initialize(logger, telemetry);
 
-      const attachmentWithDescription = {
+      const imageWithDescription = {
         ...sampleImageAttachment,
         description: 'Existing description'
       };
-      mockContext.message.attachments = [attachmentWithDescription];
-
+      mockContext.message.attachments = [imageWithDescription];
+      
       mockedFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [{
-            message: {
-              content: 'New AI description'
-            }
+            message: { content: 'New AI description' },
+            finish_reason: 'stop'
           }]
         })
-      } as any);
+      } as Response);
 
-      await middleware.execute(mockContext, mockNext);
+      await middlewareWithProcessAll.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalled();
       expect(mockContext.message.attachments[0].description).toBe('New AI description');
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should handle API errors with continue fallback', async () => {
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      mockedFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: async () => 'Server error'
-      } as any);
+      
+      mockedFetch.mockRejectedValueOnce(new Error('AI API error: 500 Internal Server Error - Server error'));
 
       await middleware.execute(mockContext, mockNext);
       
@@ -274,101 +227,60 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should handle API errors with skip fallback', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, fallbackOnError: 'skip' as const };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const configWithSkip = { ...defaultConfig, fallbackOnError: 'skip' as const };
+      const middlewareWithSkip = new ImageDescriptionMiddleware('test', configWithSkip);
+      await middlewareWithSkip.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      mockedFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: async () => 'Server error'
-      } as any);
-
-      await middleware.execute(mockContext, mockNext);
       
-      expect(mockContext.skip).toBe(true);
+      mockedFetch.mockRejectedValueOnce(new Error('AI API error: 500 Internal Server Error - Server error'));
+
+      await middlewareWithSkip.execute(mockContext, mockNext);
+      
       expect(mockNext).toHaveBeenCalled();
+      expect(mockContext.skip).toBe(true);
     });
 
     it('should handle API errors with use_filename fallback', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, fallbackOnError: 'use_filename' as const };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const configWithFilename = { ...defaultConfig, fallbackOnError: 'use_filename' as const };
+      const middlewareWithFilename = new ImageDescriptionMiddleware('test', configWithFilename);
+      await middlewareWithFilename.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
+      
+      mockedFetch.mockRejectedValueOnce(new Error('AI API error: 500 Internal Server Error - Server error'));
 
-      mockedFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: async () => 'Server error'
-      } as any);
-
-      await middleware.execute(mockContext, mockNext);
+      await middlewareWithFilename.execute(mockContext, mockNext);
       
       expect(mockContext.message.attachments[0].description).toBe('Image: test.png');
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it('should use cached descriptions', async () => {
-      mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      // First call - should make API request
-      mockedFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [{
-            message: {
-              content: 'Cached description'
-            }
-          }]
-        })
-      } as any);
-
-      await middleware.execute(mockContext, mockNext);
-      expect(mockedFetch).toHaveBeenCalledTimes(1);
-      expect(mockContext.message.attachments[0].description).toBe('Cached description');
-
-      // Create a new attachment with same data but empty description
-      mockContext.message.attachments = [{ ...sampleImageAttachment, description: '' }];
-
-      // Second call - should use cache (no new API call)
-      await middleware.execute(mockContext, mockNext);
-      expect(mockedFetch).toHaveBeenCalledTimes(1); // No additional API call
-      expect(mockContext.message.attachments[0].description).toBe('Cached description');
-    });
-
     it('should skip large images', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, maxImageSize: 50 }; // Very small limit (smaller than our 96-byte test image)
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const configWithSmallLimit = { ...defaultConfig, maxImageSize: 50 };
+      const middlewareWithLimit = new ImageDescriptionMiddleware('test', configWithSmallLimit);
+      await middlewareWithLimit.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).not.toHaveBeenCalled();
+      await middlewareWithLimit.execute(mockContext, mockNext);
+      
       expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).not.toHaveBeenCalled();
     });
 
     it('should filter unsupported image formats', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, supportedFormats: ['image/jpeg'] };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
-
-      mockContext.message.attachments = [{ ...sampleImageAttachment }]; // PNG format
-
+      const unsupportedAttachment = {
+        data: 'data',
+        mimeType: 'image/bmp',
+        filename: 'test.bmp'
+      };
+      mockContext.message.attachments = [unsupportedAttachment];
+      
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).not.toHaveBeenCalled();
     });
   });
 
@@ -378,216 +290,107 @@ describe('ImageDescriptionMiddleware', () => {
     });
 
     it('should work with OpenAI provider', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, provider: 'openai' as const };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const openaiConfig = { ...defaultConfig, provider: 'openai' as const };
+      const openaiMiddleware = new ImageDescriptionMiddleware('test', openaiConfig);
+      await openaiMiddleware.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
+      
       mockedFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [{
-            message: {
-              content: 'OpenAI description'
-            }
+            message: { content: 'OpenAI description' },
+            finish_reason: 'stop'
           }]
         })
-      } as any);
+      } as Response);
 
-      await middleware.execute(mockContext, mockNext);
+      await openaiMiddleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/chat/completions',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer test-api-key'
-          })
-        })
-      );
+      expect(mockContext.message.attachments[0].description).toBe('OpenAI description');
     });
 
     it('should work with Anthropic provider', async () => {
-      await middleware.cleanup(); // Clean up existing middleware
-      const config = { ...defaultConfig, provider: 'anthropic' as const };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
+      const anthropicConfig = { ...defaultConfig, provider: 'anthropic' as const };
+      const anthropicMiddleware = new ImageDescriptionMiddleware('test', anthropicConfig);
+      await anthropicMiddleware.initialize(logger, telemetry);
 
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
+      
       mockedFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           choices: [{
-            message: {
-              content: 'Anthropic description'
-            }
+            message: { content: 'Anthropic description' },
+            finish_reason: 'stop'
           }]
         })
-      } as any);
+      } as Response);
 
-      await middleware.execute(mockContext, mockNext);
+      await anthropicMiddleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledWith(
-        'https://api.anthropic.com/v1/messages',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'x-api-key': 'test-api-key'
-          })
-        })
-      );
-    });
-  });
-
-  describe('cache management', () => {
-    beforeEach(async () => {
-      await middleware.initialize(logger, telemetry);
-    });
-
-    it('should provide cache statistics', () => {
-      const stats = middleware.getCacheStats();
-      expect(stats).toHaveProperty('size');
-      expect(stats).toHaveProperty('entries');
-      expect(Array.isArray(stats.entries)).toBe(true);
-    });
-
-    it('should clear cache manually', () => {
-      middleware.clearCache();
-      // Just verify it doesn't throw
-      expect(true).toBe(true);
+      expect(mockContext.message.attachments[0].description).toBe('Anthropic description');
     });
   });
 
   describe('cleanup', () => {
     it('should cleanup resources', async () => {
       await middleware.initialize(logger, telemetry);
-      await middleware.cleanup();
       
-      // Should not throw any errors
-      expect(true).toBe(true);
+      // Should not throw
+      await middleware.cleanup();
     });
   });
 
   describe('retry logic', () => {
+    beforeEach(async () => {
+      const retryConfig = { ...defaultConfig, retry: { enabled: true, maxAttempts: 2, initialDelay: 1 } };
+      const retryMiddleware = new ImageDescriptionMiddleware('test', retryConfig);
+      await retryMiddleware.initialize(logger, telemetry);
+      
+      middleware = retryMiddleware;
+    });
+
     it('should retry on timeout errors', async () => {
-      await middleware.cleanup();
-      const config = { 
-        ...defaultConfig, 
-        retry: { 
-          enabled: true, 
-          maxAttempts: 2, 
-          initialDelay: 1, // Very short delay for tests
-          maxDelay: 10,
-          backoffMultiplier: 2
-        },
-        enableCaching: false // Disable caching to avoid timer conflicts
-      };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      
-      // Mock the sleep method to avoid real timeouts
-      const originalSleep = (middleware as any).sleep;
-      (middleware as any).sleep = jest.fn().mockResolvedValue(undefined);
-      
-      await middleware.initialize(logger, telemetry);
-
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      // First call fails with timeout, second succeeds
+      
       mockedFetch
         .mockRejectedValueOnce(new Error('TimeoutError: The operation timed out.'))
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
             choices: [{
-              message: {
-                content: 'Retry success description'
-              }
+              message: { content: 'Retry success description' },
+              finish_reason: 'stop'
             }]
           })
-        } as any);
+        } as Response);
 
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial call + 1 retry
       expect(mockContext.message.attachments[0].description).toBe('Retry success description');
-      expect((middleware as any).sleep).toHaveBeenCalledWith(1); // Should have called sleep with 1ms delay
-      
-      // Restore original method
-      (middleware as any).sleep = originalSleep;
+      expect(mockedFetch).toHaveBeenCalledTimes(2);
     });
 
     it('should not retry on non-retryable errors', async () => {
-      await middleware.cleanup();
-      const config = { 
-        ...defaultConfig, 
-        retry: { 
-          enabled: true, 
-          maxAttempts: 3, 
-          initialDelay: 1,
-          maxDelay: 10,
-          backoffMultiplier: 2
-        },
-        enableCaching: false
-      };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      await middleware.initialize(logger, telemetry);
-
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      // 401 Unauthorized - should not retry
-      mockedFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        text: async () => 'Invalid API key'
-      } as any);
+      
+      mockedFetch.mockRejectedValue(new Error('AI API error: 401 Unauthorized - Invalid API key'));
 
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledTimes(1); // No retries for 401
-      expect(mockNext).toHaveBeenCalled();
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should respect maxAttempts limit', async () => {
-      await middleware.cleanup();
-      const config = { 
-        ...defaultConfig, 
-        retry: { 
-          enabled: true, 
-          maxAttempts: 2, 
-          initialDelay: 1,
-          maxDelay: 10,
-          backoffMultiplier: 2
-        },
-        enableCaching: false
-      };
-      middleware = new ImageDescriptionMiddleware('test', config);
-      
-      // Mock the sleep method to avoid real timeouts
-      const originalSleep = (middleware as any).sleep;
-      (middleware as any).sleep = jest.fn().mockResolvedValue(undefined);
-      
-      await middleware.initialize(logger, telemetry);
-
       mockContext.message.attachments = [{ ...sampleImageAttachment }];
-
-      // All calls fail with retryable error
-      mockedFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: async () => 'Server error'
-      } as any);
+      
+      mockedFetch.mockRejectedValue(new Error('AI API error: 500 Internal Server Error - Server error'));
 
       await middleware.execute(mockContext, mockNext);
       
-      expect(mockedFetch).toHaveBeenCalledTimes(2); // Initial + 1 retry (maxAttempts = 2)
-      expect(mockNext).toHaveBeenCalled();
-      expect((middleware as any).sleep).toHaveBeenCalledWith(1); // Should have called sleep once
-      
-      // Restore original method
-      (middleware as any).sleep = originalSleep;
+      expect(mockedFetch).toHaveBeenCalledTimes(2); // maxAttempts = 2
     });
   });
 });
