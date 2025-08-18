@@ -29,8 +29,6 @@ export async function createTelemetryService(config: TelemetryConfig, logger: Lo
     // Check if process.execPath ends with a buntspecht binary name
     process.execPath?.endsWith('buntspecht-linux-x64') ||
     process.execPath?.endsWith('buntspecht-linux-arm64') ||
-    process.execPath?.endsWith('buntspecht-linux-armv8') ||
-    process.execPath?.endsWith('buntspecht-macos-x64') ||
     process.execPath?.endsWith('buntspecht-macos-arm64') ||
     process.execPath?.endsWith('test-binary-detection') ||
     process.execPath?.endsWith('test-otel-import')

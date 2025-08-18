@@ -97,8 +97,6 @@ Each release includes:
 ### Binaries
 - `buntspecht-linux-x64` - Linux x86_64
 - `buntspecht-linux-arm64` - Linux ARM64
-- `buntspecht-linux-armv8` - Linux ARMv8
-- `buntspecht-macos-x64` - macOS Intel
 - `buntspecht-macos-arm64` - macOS Apple Silicon
 
 ### Additional Files

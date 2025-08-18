@@ -18,12 +18,6 @@ bun run build:binary:linux-x64
 echo "📦 Building Linux ARM64..."
 bun run build:binary:linux-arm64
 
-echo "📦 Building Linux ARMv8..."
-bun run build:binary:linux-armv8
-
-echo "📦 Building macOS x64..."
-bun run build:binary:macos-x64
-
 echo "📦 Building macOS ARM64..."
 bun run build:binary:macos-arm64
 

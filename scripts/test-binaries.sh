@@ -11,8 +11,6 @@ echo
 BINARIES=(
     "dist/buntspecht-linux-x64"
     "dist/buntspecht-linux-arm64" 
-    "dist/buntspecht-linux-armv8"
-    "dist/buntspecht-macos-x64"
     "dist/buntspecht-macos-arm64"
 )
 

@@ -136,8 +136,6 @@ Laden Sie die passende Binary für Ihr System von den [GitHub Releases](../../re
 
 - **Linux x64**: `buntspecht-linux-x64`
 - **Linux ARM64**: `buntspecht-linux-arm64`
-- **Linux ARMv8**: `buntspecht-linux-armv8`
-- **macOS Intel**: `buntspecht-macos-x64`
 - **macOS Apple Silicon**: `buntspecht-macos-arm64`
 
 > **⚠️ Hinweis**: Single Binaries haben OpenTelemetry-Dependencies aus technischen Kompatibilitätsgründen ausgeschlossen. Für Telemetrie-Unterstützung verwenden Sie Docker oder führen Sie mit `bun run` aus.

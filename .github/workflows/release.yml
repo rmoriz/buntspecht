@@ -146,16 +146,10 @@ jobs:
         echo "Building Linux x64..."
         bun run build:binary:linux-x64
         
-        echo "Building Linux ARM64..."
-        bun run build:binary:linux-arm64
-        
-        echo "Building Linux ARMv8..."
-        bun run build:binary:linux-armv8
-        
-        echo "Building macOS x64..."
-        bun run build:binary:macos-x64
-        
-        echo "Building macOS ARM64..."
+         echo "Building Linux ARM64..."
+         bun run build:binary:linux-arm64
+         
+         echo "Building macOS ARM64..."
         bun run build:binary:macos-arm64
         
         echo "All binaries built successfully!"
@@ -208,10 +202,8 @@ jobs:
           
           ### Download Binary
           Download the appropriate binary for your platform from the assets below:
-          - `buntspecht-linux-x64` - Linux x86_64
-          - `buntspecht-linux-arm64` - Linux ARM64
-          - `buntspecht-linux-armv8` - Linux ARMv8
-          - `buntspecht-macos-x64` - macOS Intel
+           - `buntspecht-linux-x64` - Linux x86_64
+           - `buntspecht-linux-arm64` - Linux ARM64
           - `buntspecht-macos-arm64` - macOS Apple Silicon
           
           ### Docker
@@ -237,12 +229,10 @@ jobs:
           ---
           
           **Note about OpenTelemetry**: This release includes OpenTelemetry instrumentation for observability. The binary releases are built with Bun's single binary compilation for optimal performance and easy deployment.
-        files: |
-          dist/buntspecht-linux-x64
-          dist/buntspecht-linux-arm64
-          dist/buntspecht-linux-armv8
-          dist/buntspecht-macos-x64
-          dist/buntspecht-macos-arm64
+         files: |
+           dist/buntspecht-linux-x64
+           dist/buntspecht-linux-arm64
+           dist/buntspecht-macos-arm64
           dist/checksums.txt
         draft: ${{ github.event.inputs.draft }}
         prerelease: ${{ github.event.inputs.prerelease }}

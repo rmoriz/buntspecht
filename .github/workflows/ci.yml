@@ -90,12 +90,6 @@ jobs:
     - name: Build Linux ARM64 binary
       run: bun run build:binary:linux-arm64
       
-    - name: Build Linux ARMv8 binary
-      run: bun run build:binary:linux-armv8
-      
-    - name: Build macOS x64 binary
-      run: bun run build:binary:macos-x64
-      
     - name: Build macOS ARM64 binary
       run: bun run build:binary:macos-arm64
       
@@ -106,8 +100,6 @@ jobs:
         path: |
           dist/buntspecht-linux-x64
           dist/buntspecht-linux-arm64
-          dist/buntspecht-linux-armv8
-          dist/buntspecht-macos-x64
           dist/buntspecht-macos-arm64
         retention-days: 30
 
