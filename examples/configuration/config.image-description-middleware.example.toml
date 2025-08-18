@@ -2,13 +2,13 @@
 # This middleware automatically generates AI-powered descriptions for images in JSON workflows
 
 # Basic configuration with OpenRouter
-[[providers]]
+[[bot.providers]]
 name = "json_with_image_descriptions"
 type = "json_command"
 enabled = true
 schedule = "*/5 * * * *"  # Every 5 minutes
 
-[providers.config]
+[bot.providers.config]
 command = "curl -s https://api.example.com/posts-with-images"
 template = "{{title}}\n\n{{content}}"
 attachmentsKey = "images"
@@ -18,12 +18,12 @@ attachmentFilenameKey = "filename"
 attachmentDescriptionKey = "description"
 
 # Image description middleware - processes images before posting
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "ai_image_descriptions"
 type = "image_description"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 provider = "openrouter"
 apiKey = "${OPENROUTER_API_KEY}"  # Use secret management
 model = "mistralai/mistral-small-3.2-24b-instruct:free"
@@ -35,14 +35,14 @@ onlyEmptyDescriptions = true  # Only process images without existing description
 fallbackOnError = "continue"  # Continue posting even if AI fails
 
 # Image resizing to reduce API costs and improve performance
-[providers.middleware.config.imageResize]
+[bot.providers.middleware.config.imageResize]
 enabled = true
 maxWidth = 2048
 maxHeight = 2048
 quality = 75
 
 # Retry configuration for API reliability
-[providers.middleware.config.retry]
+[bot.providers.middleware.config.retry]
 enabled = true
 maxAttempts = 3
 initialDelay = 1000  # 1 second
@@ -50,36 +50,38 @@ maxDelay = 30000     # 30 seconds
 backoffMultiplier = 2
 
 # Advanced configuration with OpenAI
-[[providers]]
+[[bot.providers]]
 name = "advanced_image_processing"
 type = "multijson_command"
 enabled = true
 schedule = "0 */2 * * *"  # Every 2 hours
 
-[providers.config]
+[bot.providers.config]
 command = "python3 /scripts/fetch_gallery_posts.py"
 template = "🖼️ {{title}}\n\n{{description}}\n\n{{tags|join: ,#}}"
 attachmentsKey = "gallery"
 uniqueKey = "post_id"
 
 # Multiple middleware chain for comprehensive image processing
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "validate_images"
 type = "attachment"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 action = "validate"
-validation.maxSize = 20971520  # 20MB
-validation.allowedTypes = ["image/jpeg", "image/png", "image/webp"]
-validation.maxCount = 4
 
-[[providers.middleware]]
+[bot.providers.middleware.config.validation]
+maxSize = 20971520  # 20MB
+allowedTypes = ["image/jpeg", "image/png", "image/webp"]
+maxCount = 4
+
+[[bot.providers.middleware]]
 name = "generate_descriptions"
 type = "image_description"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 provider = "openai"
 apiKey = "${OPENAI_API_KEY}"
 model = "gpt-4-vision-preview"
@@ -92,23 +94,23 @@ supportedFormats = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 maxImageSize = 10485760  # 10MB
 
 # E-commerce product images with detailed descriptions
-[[providers]]
+[[bot.providers]]
 name = "product_showcase"
 type = "json_command"
 enabled = true
 schedule = "0 9,15 * * *"  # 9 AM and 3 PM daily
 
-[providers.config]
+[bot.providers.config]
 file = "/data/products.json"
 template = "🛍️ {{product_name}}\n\n💰 {{price}}\n\n{{product_description}}\n\n🔗 {{shop_url}}"
 attachmentsKey = "product_images"
 
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "product_image_descriptions"
 type = "image_description"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 provider = "openrouter"
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3-sonnet"
@@ -119,23 +121,23 @@ onlyEmptyDescriptions = true
 fallbackOnError = "continue"
 
 # News articles with image descriptions for accessibility
-[[providers]]
+[[bot.providers]]
 name = "news_with_accessibility"
 type = "json_command"
 enabled = true
 schedule = "0 */4 * * *"  # Every 4 hours
 
-[providers.config]
+[bot.providers.config]
 command = "curl -H 'Authorization: Bearer ${NEWS_API_KEY}' https://api.news.com/articles"
 template = "📰 {{headline}}\n\n{{summary}}\n\n🔗 {{article_url}}"
 attachmentsKey = "featured_images"
 
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "news_image_descriptions"
 type = "image_description"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 provider = "openrouter"
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3-haiku"
@@ -146,24 +148,24 @@ onlyEmptyDescriptions = true
 fallbackOnError = "continue"
 
 # Art gallery posts with creative descriptions
-[[providers]]
+[[bot.providers]]
 name = "art_gallery"
 type = "multijson_command"
 enabled = true
 schedule = "0 12 * * *"  # Daily at noon
 
-[providers.config]
+[bot.providers.config]
 command = "python3 /scripts/fetch_artwork.py"
 template = "🎨 {{artist_name}} - {{artwork_title}}\n\n{{medium}} | {{year}}\n\n{{artist_bio}}"
 attachmentsKey = "artwork_images"
 uniqueKey = "artwork_id"
 
-[[providers.middleware]]
+[[bot.providers.middleware]]
 name = "artistic_descriptions"
 type = "image_description"
 enabled = true
 
-[providers.middleware.config]
+[bot.providers.middleware.config]
 provider = "openrouter"
 apiKey = "${OPENROUTER_API_KEY}"
 model = "anthropic/claude-3-sonnet"
