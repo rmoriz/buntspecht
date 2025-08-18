@@ -258,7 +258,6 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
       this.logger?.debug(`Generated description for ${attachment.filename || 'unnamed'}: ${description}`);
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error(`Failed to generate description for image ${attachment.filename || 'unnamed'}:`, error);
       
       // Apply fallback strategy
@@ -565,7 +564,8 @@ export class ImageDescriptionMiddleware implements MessageMiddleware {
   private getCacheKey(attachment: Attachment): string {
     // Create a hash of the image data and config for caching
     const crypto = require('crypto');
-    const content = `${this.config.model}:${this.config.prompt}:${attachment.data.substring(0, 100)}`;
+    const imageHash = crypto.createHash('sha256').update(attachment.data).digest('hex');
+    const content = `${this.config.model}:${this.config.prompt}:${imageHash}`;
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
