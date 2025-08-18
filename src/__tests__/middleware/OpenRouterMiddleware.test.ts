@@ -7,13 +7,13 @@ import { TelemetryService } from '../../services/telemetryStub';
 global.fetch = jest.fn();
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 
-// Mock crypto
-jest.mock('crypto', () => ({
-  createHash: jest.fn().mockReturnValue({
-    update: jest.fn().mockReturnThis(),
-    digest: jest.fn().mockReturnValue('mocked-hash')
-  })
-}));
+// Mock crypto with deterministic but unique hashes
+jest.mock('crypto', () => {
+  const originalCreateHash = jest.requireActual('crypto').createHash;
+  return {
+    createHash: jest.fn().mockImplementation((algorithm: string) => originalCreateHash(algorithm))
+  };
+});
 
 describe('OpenRouterMiddleware', () => {
   let logger: Logger;
