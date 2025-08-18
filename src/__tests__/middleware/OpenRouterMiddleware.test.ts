@@ -421,6 +421,63 @@ describe('OpenRouterMiddleware', () => {
       middleware.clearCache();
       expect(middleware.getCacheStats().size).toBe(0);
     });
+
+    it('should differentiate cache by attachment content', async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          choices: [{ message: { content: 'Image description' } }],
+          usage: { total_tokens: 100, prompt_tokens: 50, completion_tokens: 50 }
+        })
+      };
+      mockedFetch.mockResolvedValue(mockResponse as any);
+
+      // First call with image attachment
+      const contextWithImage1 = {
+        ...context,
+        message: {
+          text: 'Describe this image',
+          attachments: [{
+            data: 'base64-image-data-1',
+            mimeType: 'image/jpeg',
+            filename: 'image1.jpg'
+          }]
+        }
+      };
+      await middleware.execute(contextWithImage1, nextMock);
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+      // Second call with different image should not use cache
+      const contextWithImage2 = {
+        ...context,
+        message: {
+          text: 'Describe this image',
+          attachments: [{
+            data: 'base64-image-data-2',
+            mimeType: 'image/jpeg', 
+            filename: 'image2.jpg'
+          }]
+        }
+      };
+      await middleware.execute(contextWithImage2, nextMock);
+      expect(mockedFetch).toHaveBeenCalledTimes(2); // Should make another API call
+
+      // Third call with same image as first should use cache (fresh context)
+      const contextWithImage1Again = {
+        ...context,
+        message: {
+          text: 'Describe this image',
+          attachments: [{
+            data: 'base64-image-data-1',
+            mimeType: 'image/jpeg',
+            filename: 'image1.jpg'
+          }]
+        }
+      };
+      await middleware.execute(contextWithImage1Again, nextMock);
+      expect(mockedFetch).toHaveBeenCalledTimes(2); // Still only 2 calls
+      expect(contextWithImage1Again.data['test_cached']).toBe(true);
+    });
   });
 
   describe('error handling', () => {

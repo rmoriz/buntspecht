@@ -151,7 +151,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
       
       // Check cache first
       let aiResponse: string;
-      const cacheKey = this.getCacheKey(userMessage);
+      const cacheKey = this.getCacheKey(userMessage, context);
       
       if (this.config.enableCaching && this.cache.has(cacheKey)) {
         const cached = this.cache.get(cacheKey)!;
@@ -162,10 +162,10 @@ export class OpenRouterMiddleware implements MessageMiddleware {
           context.data[`${this.name}_tokens_used`] = cached.tokens;
         } else {
           this.cache.delete(cacheKey);
-          aiResponse = await this.callOpenRouter(userMessage);
+          aiResponse = await this.callOpenRouter(userMessage, context);
         }
       } else {
-        aiResponse = await this.callOpenRouter(userMessage);
+        aiResponse = await this.callOpenRouter(userMessage, context);
       }
 
       // Apply the AI response based on mode
@@ -266,7 +266,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
 - Message length: {{messageLength}} characters`;
   }
 
-  private async callOpenRouter(userMessage: string): Promise<string> {
+  private async callOpenRouter(userMessage: string, context?: MessageMiddlewareContext): Promise<string> {
     // Use systemPrompt if available, otherwise fall back to legacy prompt
     const systemPrompt = this.config.systemPrompt || this.config.prompt!;
     
@@ -353,7 +353,7 @@ export class OpenRouterMiddleware implements MessageMiddleware {
     
     // Cache the response if caching is enabled
     if (this.config.enableCaching) {
-      const cacheKey = this.getCacheKey(userMessage);
+      const cacheKey = this.getCacheKey(userMessage, context);
       this.cache.set(cacheKey, {
         response: aiResponse,
         timestamp: Date.now(),
@@ -421,10 +421,22 @@ export class OpenRouterMiddleware implements MessageMiddleware {
     }
   }
 
-  private getCacheKey(userMessage: string): string {
+  private getCacheKey(userMessage: string, context?: MessageMiddlewareContext): string {
     // Create a hash of the user message and config for caching
+    // Remove timestamps from user message for consistent caching
+    const normalizedUserMessage = userMessage.replace(/- Timestamp: [^\\n]+/g, '- Timestamp: [NORMALIZED]');
+    
     const systemPrompt = this.config.systemPrompt || this.config.prompt!;
-    const content = `${this.config.model}:${systemPrompt}:${this.config.userPrompt || ''}:${userMessage}:${this.config.temperature}:${this.config.maxTokens}`;
+    let content = `${this.config.model}:${systemPrompt}:${this.config.userPrompt || ''}:${normalizedUserMessage}:${this.config.temperature}:${this.config.maxTokens}`;
+    
+    // Include attachment data for cache differentiation (for image descriptions, etc.)
+    if (context?.message?.attachments && context.message.attachments.length > 0) {
+      const attachmentHashes = context.message.attachments
+        .map(att => att.data ? att.data.substring(0, 100) : att.filename || '')
+        .join('|');
+      content += `:attachments:${attachmentHashes}`;
+    }
+    
     return createHash('sha256').update(content).digest('hex');
   }
 
