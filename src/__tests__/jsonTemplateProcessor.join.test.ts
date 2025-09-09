@@ -116,13 +116,13 @@ describe('JsonTemplateProcessor - join function', () => {
     const data = {
       streamer_name: 'Elaynah',
       url: 'https://twitch.tv/elaynah',
-      stream_title: 'Chess Climb 🧩 Tactics | !Bloom !YouTube !x !shorts !TikTok',
+      stream_title: 'Chess Climb 🧩 Tactics | !Bloom !YouTube !shorts !TikTok',
       followers_count: '24433'
       // tags is undefined
     };
     
     const result = processor.applyTemplate(template, data);
     
-    expect(result).toBe('🎮♟️ Elaynah is going live at https://twitch.tv/elaynah with Chess Climb 🧩 Tactics | !Bloom !YouTube !x !shorts !TikTok. (24433 Followers) ');
+    expect(result).toBe('🎮♟️ Elaynah is going live at https://twitch.tv/elaynah with Chess Climb 🧩 Tactics | !Bloom !YouTube !shorts !TikTok. (24433 Followers) ');
   });
 });

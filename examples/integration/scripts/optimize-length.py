@@ -125,7 +125,6 @@ def get_platform_limits():
     """Get character limits for different platforms."""
     return {
         'mastodon': 500,
-        'twitter': 280,
         'bluesky': 300,
         'linkedin': 3000,
         'facebook': 63206,
