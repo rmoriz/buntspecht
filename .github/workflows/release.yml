@@ -229,10 +229,10 @@ jobs:
           ---
           
           **Note about OpenTelemetry**: This release includes OpenTelemetry instrumentation for observability. The binary releases are built with Bun's single binary compilation for optimal performance and easy deployment.
-         files: |
-           dist/buntspecht-linux-x64
-           dist/buntspecht-linux-arm64
-           dist/buntspecht-macos-arm64
+        files: |
+          dist/buntspecht-linux-x64
+          dist/buntspecht-linux-arm64
+          dist/buntspecht-macos-arm64
           dist/checksums.txt
         draft: ${{ github.event.inputs.draft }}
         prerelease: ${{ github.event.inputs.prerelease }}
