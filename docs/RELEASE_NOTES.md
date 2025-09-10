@@ -1,3 +1,27 @@
+# v0.23.0 Release Notes
+
+## 🎯 Release Date
+September 9, 2025
+
+## 🔥 What's New
+
+### Platform Independence
+- **Removed Twitter/X References**: Complete removal of all Twitter/X platform references from the codebase
+- **Platform Agnostic**: Focus on supported platforms (Mastodon, Bluesky) without legacy platform dependencies
+- **Cleaner Codebase**: Streamlined platform limits and test data without deprecated platform references
+
+### Code Quality Improvements
+- Updated platform limits in optimization scripts to exclude deprecated platforms
+- Cleaned up test data to remove platform-specific references
+- Maintained all legitimate technical HTTP headers and functionality
+
+## 🚨 Migration Notes
+- No breaking changes to functionality or configuration
+- Platform limits script no longer includes Twitter/X limits (use 'mastodon' or 'bluesky' instead)
+- All existing configurations remain fully compatible
+
+---
+
 # v0.21.0 Release Notes
 
 ## 🎯 Release Date
