@@ -78,7 +78,7 @@ describe('MastodonClient - Purging', () => {
         {
           name: 'test-account',
           type: 'mastodon',
-          instance: 'https://mastodon.social',
+          instance: 'https://fosstodon.org',
           accessToken: 'test-token',
           purging: {
             enabled: true,
@@ -93,7 +93,7 @@ describe('MastodonClient - Purging', () => {
         {
           name: 'test-account-disabled',
           type: 'mastodon',
-          instance: 'https://mastodon.social',
+          instance: 'https://fosstodon.org',
           accessToken: 'test-token-2',
           purging: {
             enabled: false,
