@@ -221,6 +221,7 @@ export class RSSFeedProvider implements MessageProvider {
 
     // All retries failed
     this.logger?.error(`Failed to fetch RSS feed after ${maxRetries} attempts: ${lastError?.message}`);
+    this._telemetry?.recordError('rss_feed_fetch_failed', this.providerName);
     throw lastError || new Error('RSS feed fetch failed');
   }
 
@@ -524,6 +525,7 @@ export class RSSFeedProvider implements MessageProvider {
       this.logger?.info(`Cache warmed for RSSFeedProvider: ${added} items added.`);
     } catch (error) {
       this.logger?.error(`Failed to warm RSS cache: ${(error as Error).message}`);
+      this._telemetry?.recordError('rss_cache_warm_failed', this.providerName);
       throw error;
     }
   }
