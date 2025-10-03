@@ -116,19 +116,19 @@ describe('MastodonClient', () => {
       const multiAccountConfig = {
         ...config,
         accounts: [
-          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
-          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+          { name: 'account1', instance: 'https://fosstodon.org', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://mastodon.online', accessToken: 'token2' }
         ]
       };
 
       new MastodonClient(multiAccountConfig, logger, telemetry);
 
       expect(createRestAPIClient).toHaveBeenCalledWith({
-        url: 'https://mastodon.social',
+        url: 'https://fosstodon.org',
         accessToken: 'token1',
       });
       expect(createRestAPIClient).toHaveBeenCalledWith({
-        url: 'https://fosstodon.org',
+        url: 'https://mastodon.online',
         accessToken: 'token2',
       });
       expect(createRestAPIClient).toHaveBeenCalledTimes(2);
@@ -154,8 +154,8 @@ describe('MastodonClient', () => {
       const multiAccountConfig = {
         ...config,
         accounts: [
-          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
-          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+          { name: 'account1', instance: 'https://fosstodon.org', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://mastodon.online', accessToken: 'token2' }
         ]
       };
 
@@ -170,8 +170,8 @@ describe('MastodonClient', () => {
       await multiClient.postStatus('Test message', ['account1', 'account2']);
 
       expect(mockMastodonApi.v1.statuses.create).toHaveBeenCalledTimes(2);
-      expect(logger.info).toHaveBeenCalledWith('Posting status to account1 (https://mastodon.social) with visibility \'unlisted\' (12 chars): "Test message"');
-      expect(logger.info).toHaveBeenCalledWith('Posting status to account2 (https://fosstodon.org) with visibility \'unlisted\' (12 chars): "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account1 (https://fosstodon.org) with visibility \'unlisted\' (12 chars): "Test message"');
+      expect(logger.info).toHaveBeenCalledWith('Posting status to account2 (https://mastodon.online) with visibility \'unlisted\' (12 chars): "Test message"');
     });
 
     it('should throw error when no accounts specified', async () => {
@@ -190,8 +190,8 @@ describe('MastodonClient', () => {
       const multiAccountConfig = {
         ...config,
         accounts: [
-          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
-          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+          { name: 'account1', instance: 'https://fosstodon.org', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://mastodon.online', accessToken: 'token2' }
         ]
       };
 
@@ -311,8 +311,8 @@ describe('MastodonClient', () => {
       const multiAccountConfig = {
         ...config,
         accounts: [
-          { name: 'account1', instance: 'https://mastodon.social', accessToken: 'token1' },
-          { name: 'account2', instance: 'https://fosstodon.org', accessToken: 'token2' }
+          { name: 'account1', instance: 'https://fosstodon.org', accessToken: 'token1' },
+          { name: 'account2', instance: 'https://mastodon.online', accessToken: 'token2' }
         ]
       };
 
@@ -340,6 +340,75 @@ describe('MastodonClient', () => {
     it('should check if account exists', () => {
       expect(client.hasAccount('test-account')).toBe(true);
       expect(client.hasAccount('nonexistent')).toBe(false);
+    });
+  });
+
+  describe('blacklisted instances', () => {
+    it('should reject mastodon.social by default', () => {
+      const blacklistedConfig = {
+        ...config,
+        accounts: [
+          { name: 'banned-account', instance: 'https://mastodon.social', accessToken: 'token1' }
+        ]
+      };
+
+      expect(() => new MastodonClient(blacklistedConfig, logger, telemetry)).toThrow(
+        'Cannot initialize Mastodon account "banned-account": Instance "https://mastodon.social" is blacklisted (toxic moderation)'
+      );
+    });
+
+    it('should reject custom blacklisted instance from config', () => {
+      const blacklistedConfig = {
+        ...config,
+        accounts: [
+          { name: 'custom-banned', instance: 'https://bad-instance.com', accessToken: 'token1' }
+        ],
+        mastodon: {
+          blacklistedInstances: [
+            { domain: 'bad-instance.com', reason: 'spam source' }
+          ]
+        }
+      };
+
+      expect(() => new MastodonClient(blacklistedConfig, logger, telemetry)).toThrow(
+        'Cannot initialize Mastodon account "custom-banned": Instance "https://bad-instance.com" is blacklisted (spam source)'
+      );
+    });
+
+    it('should allow non-blacklisted instances', () => {
+      const allowedConfig = {
+        ...config,
+        accounts: [
+          { name: 'allowed-account', instance: 'https://fosstodon.org', accessToken: 'token1' }
+        ]
+      };
+
+      expect(() => new MastodonClient(allowedConfig, logger, telemetry)).not.toThrow();
+    });
+
+    it('should be case-insensitive when checking blacklist', () => {
+      const blacklistedConfig = {
+        ...config,
+        accounts: [
+          { name: 'banned-account', instance: 'https://MASTODON.SOCIAL', accessToken: 'token1' }
+        ]
+      };
+
+      expect(() => new MastodonClient(blacklistedConfig, logger, telemetry)).toThrow(
+        'Cannot initialize Mastodon account "banned-account": Instance "https://MASTODON.SOCIAL" is blacklisted (toxic moderation)'
+      );
+    });
+
+    it('should reject blacklisted instance on reinitializeAccount', async () => {
+      const blacklistedAccount = {
+        name: 'test-account',
+        instance: 'https://mastodon.social',
+        accessToken: 'new-token'
+      };
+
+      await expect(client.reinitializeAccount(blacklistedAccount)).rejects.toThrow(
+        'Cannot reinitialize Mastodon account "test-account": Instance "https://mastodon.social" is blacklisted (toxic moderation)'
+      );
     });
   });
 });

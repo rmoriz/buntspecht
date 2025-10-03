@@ -1,0 +1,38 @@
+# Mastodon Instance Blacklist Configuration Example
+#
+# This example demonstrates how to configure the Mastodon instance blacklist feature.
+# Buntspecht will refuse to initialize accounts on blacklisted instances.
+
+# Mastodon-specific global configuration
+[mastodon]
+# Optional: Add custom instances to the blacklist
+# Note: mastodon.social is blacklisted by default with reason "toxic moderation"
+blacklistedInstances = [
+  { domain = "spam-instance.example", reason = "spam source" },
+  { domain = "abusive-server.example", reason = "harassment policy violations" },
+  { domain = "unreliable-instance.example", reason = "frequent downtime and data loss" }
+]
+
+# Account configuration
+[[accounts]]
+name = "my-account"
+instance = "https://fosstodon.org"  # Allowed instance
+accessToken = "your-access-token-here"
+
+# This would fail at startup with an error:
+# [[accounts]]
+# name = "banned-account"
+# instance = "https://mastodon.social"  # Blacklisted by default
+# accessToken = "token"
+# Error: Cannot initialize Mastodon account "banned-account": Instance "https://mastodon.social" is blacklisted (toxic moderation)
+
+[logging]
+level = "info"
+
+[[bot.providers]]
+name = "test-provider"
+type = "ping"
+cronSchedule = "0 * * * *"
+enabled = true
+accounts = ["my-account"]
+config = { message = "Test message" }

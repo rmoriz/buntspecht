@@ -99,6 +99,13 @@ export interface SecretRotationConfig {
   testConnectionOnRotation?: boolean;
 }
 
+export interface MastodonConfig {
+  blacklistedInstances?: Array<{
+    domain: string;
+    reason: string;
+  }>;
+}
+
 export interface BotConfig {
   accounts: AccountConfig[];
   bot: {
@@ -110,6 +117,7 @@ export interface BotConfig {
   telemetry?: TelemetryConfig;
   webhook?: WebhookConfig;
   secretRotation?: SecretRotationConfig;
+  mastodon?: MastodonConfig;
 }
 
 export interface CliOptions {

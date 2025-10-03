@@ -13,10 +13,31 @@ interface AccountClient {
 
 export class MastodonClient extends BaseConfigurableService<BotConfig> {
   private clients: Map<string, AccountClient> = new Map();
+  private static readonly DEFAULT_BLACKLIST = [
+    { domain: 'mastodon.social', reason: 'toxic moderation' }
+  ];
 
   constructor(config: BotConfig, logger: Logger, telemetry: TelemetryService) {
     super(config, logger, telemetry);
     this.initializeClients();
+  }
+
+  private getBlacklistedInstances(): Array<{ domain: string; reason: string }> {
+    const configBlacklist = this.config.mastodon?.blacklistedInstances || [];
+    return [...MastodonClient.DEFAULT_BLACKLIST, ...configBlacklist];
+  }
+
+  private isInstanceBlacklisted(instance: string): { blacklisted: boolean; reason?: string } {
+    const hostname = new URL(instance).hostname.toLowerCase();
+    const blacklist = this.getBlacklistedInstances();
+    
+    for (const entry of blacklist) {
+      if (hostname === entry.domain.toLowerCase()) {
+        return { blacklisted: true, reason: entry.reason };
+      }
+    }
+    
+    return { blacklisted: false };
   }
 
   private initializeClients(): void {
@@ -30,6 +51,13 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
       if (!accountConfig.instance || !accountConfig.accessToken) {
         this.logger.error(`Mastodon account "${accountConfig.name}" missing required instance or accessToken`);
         continue;
+      }
+
+      // Check if instance is blacklisted
+      const blacklistCheck = this.isInstanceBlacklisted(accountConfig.instance);
+      if (blacklistCheck.blacklisted) {
+        this.logger.error(`Mastodon account "${accountConfig.name}" uses blacklisted instance "${accountConfig.instance}": ${blacklistCheck.reason}`);
+        throw new Error(`Cannot initialize Mastodon account "${accountConfig.name}": Instance "${accountConfig.instance}" is blacklisted (${blacklistCheck.reason})`);
       }
 
       const client = createRestAPIClient({
@@ -253,6 +281,12 @@ export class MastodonClient extends BaseConfigurableService<BotConfig> {
 
     if (!account.instance || !account.accessToken) {
       throw new Error(`Mastodon account "${account.name}" missing required instance or accessToken`);
+    }
+
+    // Check if instance is blacklisted
+    const blacklistCheck = this.isInstanceBlacklisted(account.instance);
+    if (blacklistCheck.blacklisted) {
+      throw new Error(`Cannot reinitialize Mastodon account "${account.name}": Instance "${account.instance}" is blacklisted (${blacklistCheck.reason})`);
     }
 
     // Create new client with updated credentials
